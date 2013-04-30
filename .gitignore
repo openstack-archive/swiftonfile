@@ -1,0 +1,4 @@
+.tox
+gluster_swift.egg-info
+test/unit/.coverage
+build

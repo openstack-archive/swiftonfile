@@ -1,0 +1,22 @@
+Gluster For Swift - Integrating GlusterFS with OpenStack Swift Implementation
+of the Swift API. This is a component of the Unified File and Object (UFO)
+story for GlusterFS, which allows files and directories created via
+gluster-native/nfs/samba mount(s) to be accessed as accounts, containers and
+objects.
+
+Install
+  * yum install openstack-swift*.noarch
+  * yum install gluster-swift-1.3*.noarch
+
+Once this is done, you can access GlusterFS volumes via the Swift API where
+accounts are mounted volumes (today), containers are top-level directories,
+and objects are files and sub-directories of container directories.
+
+Command to start the servers (TBD)
+  swift-init main start
+
+Command to stop the servers (TBD)
+  swift-init main stop
+
+Command to gracefully reload the servers
+  swift-init main reload

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2012 Red Hat, Inc.
+# Copyright (c) 2013 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ from setuptools import setup, find_packages
 from gluster.swift import __canonical_version__ as version
 
 
-name = 'gluster_swift_ufo'
+name = 'gluster_swift'
 
 
 setup(
     name=name,
     version=version,
-    description='Gluster Swift/UFO',
+    description='Gluster For Swift',
     license='Apache License (2.0)',
     author='Red Hat, Inc.',
     author_email='gluster-users@gluster.org',

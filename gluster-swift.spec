@@ -14,14 +14,14 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %endif
 
-%define _confdir     %{_sysconfdir}/swift
-%define _ufo_version 1.1
-%define _ufo_release 4
+%define _confdir %{_sysconfdir}/swift
+%define _version 1.3
+%define _release 0
 
-Summary  : GlusterFS Unified File and Object Storage.
-Name     : gluster-swift-ufo
-Version  : %{_ufo_version}
-Release  : %{_ufo_release}
+Summary  : GlusterFS Integration with OpenStack Object Storage (Swift).
+Name     : gluster-for-swift
+Version  : %{_version}
+Release  : %{_release}
 Group    : Application/File
 Vendor   : Red Hat Inc.
 Source0  : %{name}-%{version}-%{release}.tar.gz
@@ -31,19 +31,18 @@ BuildArch: noarch
 Requires : memcached
 Requires : openssl
 Requires : python
-Requires : openstack-swift >= 1.4.8
-Requires : openstack-swift-account >= 1.4.8
-Requires : openstack-swift-container >= 1.4.8
-Requires : openstack-swift-object >= 1.4.8
-Requires : openstack-swift-proxy >= 1.4.8
-Obsoletes: gluster-swift
-Obsoletes: gluster-swift-plugin
+Requires : openstack-swift >= 1.8.0
+Requires : openstack-swift-account >= 1.8.0
+Requires : openstack-swift-container >= 1.8.0
+Requires : openstack-swift-object >= 1.8.0
+Requires : openstack-swift-proxy >= 1.8.0
 
 %description
-Gluster Unified File and Object Storage unifies NAS and object storage
-technology. This provides a system for data storage that enables users to access
-the same data as an object and as a file, simplifying management and controlling
-storage costs.
+Gluster-For-Swift (G4S, pronounced "gee-force") integrates GlusterFS as an
+alternative back end for OpenStack Object Storage (Swift) leveraging the
+existing front end OpenStack Swift code. Gluster volumes are used to store
+objects in files, containers are maintained as top-level directories of volumes,
+where accounts are mapped one-to-one to gluster volumes.
 
 %prep
 %setup -q
@@ -68,7 +67,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %{python_sitelib}/gluster
-%{python_sitelib}/gluster_swift_ufo-%{version}-*.egg-info
+%{python_sitelib}/gluster_swift-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
 %dir %{_confdir}
 %config %{_confdir}/account-server/1.conf-gluster
