@@ -28,7 +28,7 @@ def mock_os_system(cmd):
     return False
 
 def mock_fcntl_lockf(f, *a, **kw):
-    raise IOError(errno.EAGAIN)
+    raise IOError(errno.EAGAIN, os.strerror(errno.EAGAIN))
 
 def _init():
     global _RUN_DIR, _OS_SYSTEM, _FCNTL_LOCKF
