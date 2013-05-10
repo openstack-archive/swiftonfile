@@ -15,8 +15,12 @@
 
 import unittest
 import os, fcntl, errno, shutil
+import time
 from tempfile import mkdtemp
 import gluster.swift.common.Glusterfs as gfs
+
+def mock_os_path_ismount_false(path):
+    return False
 
 def mock_os_path_ismount(path):
     return True
@@ -29,6 +33,9 @@ def mock_os_system(cmd):
 
 def mock_fcntl_lockf(f, *a, **kw):
     raise IOError(errno.EAGAIN, os.strerror(errno.EAGAIN))
+
+def mock_time_sleep(secs):
+    return True
 
 def _init():
     global _RUN_DIR, _OS_SYSTEM, _FCNTL_LOCKF
@@ -59,6 +66,21 @@ class TestGlusterfs(unittest.TestCase):
 
     def setUp(self):
         _init()
+
+    def test_busy_wait_timeout(self):
+        os.path.ismount = mock_os_path_ismount_false
+
+        # setup time mock
+        real_time_sleep = time.sleep
+        time.sleep = mock_time_sleep
+
+        try:
+            self.assertFalse(gfs._busy_wait("/"))
+        finally:
+            time.sleep = real_time_sleep
+
+    def test_busy_wait(self):
+        self.assertTrue(gfs._busy_wait("/"))
 
     def test_mount(self):
         try:

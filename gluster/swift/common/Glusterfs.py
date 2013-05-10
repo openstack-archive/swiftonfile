@@ -55,7 +55,7 @@ def _busy_wait(full_mount_path):
     # Iterate for definite number of time over a given
     # interval for successful mount
     for i in range(0, 5):
-        if os.path.ismount(os.path.join(full_mount_path)):
+        if os.path.ismount(full_mount_path):
             return True
         time.sleep(2)
     logging.error('Busy wait for mount timed out for mount %s', full_mount_path)
