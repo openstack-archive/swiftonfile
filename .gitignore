@@ -1,4 +1,6 @@
 .tox
 gluster_swift.egg-info
 test/unit/.coverage
+test/unit/nosetests.xml
+test/unit/coverage.xml
 build
