@@ -83,13 +83,11 @@ class TestGlusterfs(unittest.TestCase):
             fcntl.lockf  = mock_fcntl_lockf
             assert gfs.mount(root, drive)
         finally:
-            _reset_mock_variables()
             shutil.rmtree(tmpdir)
 
     def test_mount_get_export_list_err(self):
         gfs._get_export_list = mock_get_export_list
         assert not gfs.mount(None, 'drive')
-        _reset_mock_variables()
 
     def tearDown(self):
         _reset_mock_variables()
