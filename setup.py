@@ -29,7 +29,7 @@ setup(
     license='Apache License (2.0)',
     author='Red Hat, Inc.',
     author_email='gluster-users@gluster.org',
-    url='https://gluster.org/',
+    url='https://forge.gluster.org/gluster-swift',
     packages=find_packages(exclude=['test', 'bin']),
     test_suite='nose.collector',
     classifiers=[

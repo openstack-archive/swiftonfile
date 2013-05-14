@@ -15,11 +15,17 @@
 %endif
 
 %define _confdir %{_sysconfdir}/swift
-%define _version 1.3
-%define _release 0
+
+# The following values are provided by passing the following arguments
+# to rpmbuild.  For example:
+# 	--define "_version 1.0" --define "_release 1" --define "_name g4s"
+#
+%{!?_version:%define _version XXX}
+%{!?_release:%define _release XXX}
+%{!?_name:%define _name XXX}
 
 Summary  : GlusterFS Integration with OpenStack Object Storage (Swift).
-Name     : gluster-for-swift
+Name     : %{_name}
 Version  : %{_version}
 Release  : %{_release}
 Group    : Application/File
@@ -60,6 +66,9 @@ cp -r etc/*   %{buildroot}/%{_confdir}/
 
 mkdir -p                             %{buildroot}/%{_bindir}/
 cp bin/gluster-swift-gen-builders    %{buildroot}/%{_bindir}/
+
+# Remove tests
+%{__rm} -rf %{buildroot}/%{python_sitelib}/test
 
 %clean
 rm -rf %{buildroot}

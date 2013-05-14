@@ -20,3 +20,9 @@ Command to stop the servers (TBD)
 
 Command to gracefully reload the servers
   swift-init main reload
+
+Building RPMs.  RPMs will be located in the 'build' directory.
+  $ bash makerpm.sh
+
+Building RPM with a specific release value, useful for automatic Jenkin builds
+  $ PROG_RELEASE=123 bash makerpm.sh
