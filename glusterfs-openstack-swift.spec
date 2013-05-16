@@ -79,9 +79,9 @@ rm -rf %{buildroot}
 %{python_sitelib}/gluster_swift-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
 %dir %{_confdir}
-%config %{_confdir}/account-server/1.conf-gluster
-%config %{_confdir}/container-server/1.conf-gluster
-%config %{_confdir}/object-server/1.conf-gluster
+%config %{_confdir}/account-server.conf-gluster
+%config %{_confdir}/container-server.conf-gluster
+%config %{_confdir}/object-server.conf-gluster
 %config %{_confdir}/swift.conf-gluster
 %config %{_confdir}/proxy-server.conf-gluster
 %config %{_confdir}/fs.conf-gluster

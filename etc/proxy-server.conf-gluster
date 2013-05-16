@@ -9,7 +9,7 @@ workers = 1
 pipeline = healthcheck cache tempauth proxy-server
 
 [app:proxy-server]
-use = egg:gluster_swift_ufo#proxy
+use = egg:gluster_swift#proxy
 log_facility = LOG_LOCAL1
 # The API allows for account creation and deletion, but since Gluster/Swift
 # automounts a Gluster volume for a given account, there is no way to create
