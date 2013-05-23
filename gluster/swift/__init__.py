@@ -8,8 +8,10 @@ class PkgInfo(object):
         self.final = final
 
     def save_config(self, filename):
-        """Crates a file with the package configuration
-        which can be sourced by a bash script"""
+        """
+        Creates a file with the package configuration which can be sourced by
+        a bash script.
+        """
         with open(filename, 'w') as fd:
             fd.write("PKG_NAME=%s\n" % self.name)
             fd.write("PKG_VERSION=%s\n" % self.canonical_version)
