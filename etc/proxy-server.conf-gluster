@@ -6,7 +6,7 @@ log_facility = LOG_LOCAL1
 workers = 1
 
 [pipeline:main]
-pipeline = healthcheck cache tempauth proxy-server
+pipeline = healthcheck cache proxy-server
 
 [app:proxy-server]
 use = egg:gluster_swift#proxy
@@ -43,21 +43,6 @@ object_chunk_size = 65536
 # amount of memory available on the system can accommodate increased values
 # for object_chunk_size.
 put_queue_depth = 10
-
-[filter:tempauth]
-use = egg:swift#tempauth
-# Here you need to add users explicitly. See the OpenStack Swift Deployment
-# Guide for more information. The user and user64 directives take the
-# following form:
-#     user_<account>_<username> = <key> [group] [group] [...] [storage_url]
-#     user64_<account_b64>_<username_b64> = <key> [group] [group] [...] [storage_url]
-# Where you use user64 for accounts and/or usernames that include underscores.
-#
-# NOTE (and WARNING): The account name must match the device name specified
-# when generating the account, container, and object build rings.
-#
-# E.g.
-#     user_ufo0_admin = abc123 .admin
 
 [filter:healthcheck]
 use = egg:swift#healthcheck
