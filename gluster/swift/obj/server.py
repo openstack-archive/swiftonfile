@@ -17,8 +17,8 @@
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-import gluster.swift.common.constraints
-import gluster.swift.common.utils
+import gluster.swift.common.constraints    # noqa
+import gluster.swift.common.utils          # noqa
 
 from swift.obj import server
 from gluster.swift.common.DiskFile import Gluster_DiskFile

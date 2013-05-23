@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import fcntl
+import time
+import errno
 import logging
-import os, sys, fcntl, time, errno
+
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.common.utils import TRUE_VALUES, search_tree
 from gluster.swift.common.fs_utils import mkdirs
@@ -25,26 +29,29 @@ from gluster.swift.common.fs_utils import mkdirs
 _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
 OBJECT_ONLY = False
-RUN_DIR='/var/run/swift'
+RUN_DIR = '/var/run/swift'
 SWIFT_DIR = '/etc/swift'
 _do_getsize = False
-if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
+if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
     try:
-        MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
+        MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', MOUNT_IP)
     except (NoSectionError, NoOptionError):
         pass
     try:
-        OBJECT_ONLY = _fs_conf.get('DEFAULT', 'object_only', "no") in TRUE_VALUES
+        OBJECT_ONLY = _fs_conf.get('DEFAULT',
+                                   'object_only',
+                                   "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
     try:
-        RUN_DIR = _fs_conf.get('DEFAULT', 'run_dir', '/var/run/swift')
+        RUN_DIR = _fs_conf.get('DEFAULT', 'run_dir', RUN_DIR)
     except (NoSectionError, NoOptionError):
         pass
 
     try:
-        _do_getsize = _fs_conf.get('DEFAULT', 'accurate_size_in_listing', \
-                                       "no") in TRUE_VALUES
+        _do_getsize = _fs_conf.get('DEFAULT',
+                                   'accurate_size_in_listing',
+                                   "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
 
@@ -58,8 +65,10 @@ def _busy_wait(full_mount_path):
         if os.path.ismount(full_mount_path):
             return True
         time.sleep(2)
-    logging.error('Busy wait for mount timed out for mount %s', full_mount_path)
+    logging.error('Busy wait for mount timed out for mount %s',
+                  full_mount_path)
     return False
+
 
 def mount(root, drive):
     # FIXME: Possible thundering herd problem here
@@ -77,15 +86,15 @@ def mount(root, drive):
     if not os.path.isdir(full_mount_path):
         mkdirs(full_mount_path)
 
-    lck_file = os.path.join(RUN_DIR, '%s.lock' %drive);
+    lck_file = os.path.join(RUN_DIR, '%s.lock' % drive)
 
     if not os.path.exists(RUN_DIR):
         mkdirs(RUN_DIR)
 
-    fd = os.open(lck_file, os.O_CREAT|os.O_RDWR)
+    fd = os.open(lck_file, os.O_CREAT | os.O_RDWR)
     with os.fdopen(fd, 'r+b') as f:
         try:
-            fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
+            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except IOError as ex:
             if ex.errno in (errno.EACCES, errno.EAGAIN):
                 # This means that some other process is mounting the
@@ -93,12 +102,13 @@ def mount(root, drive):
                 return _busy_wait(full_mount_path)
             else:
                 raise ex
-        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (MOUNT_IP, export, \
+        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (MOUNT_IP, export,
                                                    full_mount_path)
         if os.system(mnt_cmd) or not _busy_wait(full_mount_path):
             logging.error('Mount failed %s: %s', NAME, mnt_cmd)
             return False
     return True
+
 
 def unmount(full_mount_path):
     # FIXME: Possible thundering herd problem here
@@ -106,6 +116,7 @@ def unmount(full_mount_path):
     umnt_cmd = 'umount %s 2>> /dev/null' % full_mount_path
     if os.system(umnt_cmd):
         logging.error('Unable to unmount %s %s' % (full_mount_path, NAME))
+
 
 def _get_export_list():
     cmnd = 'gluster --remote-host=%s volume info' % MOUNT_IP
@@ -125,6 +136,7 @@ def _get_export_list():
                 export_list.append(item.split(':')[1].strip(' '))
 
     return export_list
+
 
 def get_mnt_point(vol_name, conf_dir=SWIFT_DIR, conf_file="object-server*"):
     """Read the object-server's configuration file and return

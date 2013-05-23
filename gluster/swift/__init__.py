@@ -1,5 +1,6 @@
 """ Gluster for Swift """
 
+
 class PkgInfo(object):
     def __init__(self, canonical_version, name, final):
         self.canonical_version = canonical_version

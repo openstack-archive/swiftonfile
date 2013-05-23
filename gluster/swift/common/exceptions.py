@@ -13,15 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class GlusterfsException(Exception):
     pass
+
 
 class FileOrDirNotFoundError(GlusterfsException):
     pass
 
+
 class NotDirectoryError(GlusterfsException):
     pass
 
+
 class AlreadyExistsAsDir(GlusterfsException):
     pass
-

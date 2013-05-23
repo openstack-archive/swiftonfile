@@ -18,16 +18,16 @@ import errno
 import random
 from hashlib import md5
 from contextlib import contextmanager
-from swift.common.utils import normalize_timestamp, renamer
+from swift.common.utils import renamer
 from swift.common.exceptions import DiskFileNotExist
 from gluster.swift.common.exceptions import AlreadyExistsAsDir
-from gluster.swift.common.utils import mkdirs, rmdirs, validate_object, \
-     create_object_metadata, do_open, do_close, do_unlink, do_chown, \
-     do_listdir, read_metadata, write_metadata, os_path, do_fsync
-from gluster.swift.common.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, \
-     X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, \
-     X_BYTES_USED, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, DIR_TYPE, \
-     FILE_TYPE, DEFAULT_UID, DEFAULT_GID
+from gluster.swift.common.fs_utils import mkdirs, rmdirs, do_open, do_close, \
+    do_unlink, do_chown, os_path, do_fsync
+from gluster.swift.common.utils import read_metadata, write_metadata, \
+    validate_object, create_object_metadata
+from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
+    X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, MARKER_DIR, OBJECT, DIR_TYPE, \
+    FILE_TYPE, DEFAULT_UID, DEFAULT_GID
 
 import logging
 from swift.obj.server import DiskFile
@@ -42,17 +42,18 @@ def _adjust_metadata(metadata):
     # Fix up the metadata to ensure it has a proper value for the
     # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
     # metadata values.
-    content_type = metadata['Content-Type']
+    content_type = metadata[X_CONTENT_TYPE]
     if not content_type:
         # FIXME: How can this be that our caller supplied us with metadata
         # that has a content type that evaluates to False?
         #
         # FIXME: If the file exists, we would already know it is a
         # directory. So why are we assuming it is a file object?
-        metadata['Content-Type'] = FILE_TYPE
+        metadata[X_CONTENT_TYPE] = FILE_TYPE
         x_object_type = FILE
     else:
-        x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
+        x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE \
+            else FILE
     metadata[X_TYPE] = OBJECT
     metadata[X_OBJECT_TYPE] = x_object_type
     return metadata
@@ -184,7 +185,8 @@ class Gluster_DiskFile(DiskFile):
         if tombstone:
             # We don't write tombstone files. So do nothing.
             return
-        assert self.data_file is not None, "put_metadata: no file to put metadata into"
+        assert self.data_file is not None, \
+            "put_metadata: no file to put metadata into"
         metadata = _adjust_metadata(metadata)
         write_metadata(self.data_file, metadata)
         self.metadata = metadata
@@ -192,8 +194,8 @@ class Gluster_DiskFile(DiskFile):
 
     def put(self, fd, metadata, extension='.data'):
         """
-        Finalize writing the file on disk, and renames it from the temp file to
-        the real location.  This should be called after the data has been
+        Finalize writing the file on disk, and renames it from the temp file
+        to the real location.  This should be called after the data has been
         written to the temp file.
 
         :param fd: file descriptor of the temp file
@@ -202,7 +204,6 @@ class Gluster_DiskFile(DiskFile):
         """
         # Our caller will use '.data' here; we just ignore it since we map the
         # URL directly to the file system.
-        extension = ''
 
         metadata = _adjust_metadata(metadata)
 
@@ -220,7 +221,6 @@ class Gluster_DiskFile(DiskFile):
             msg = 'File object exists as a directory: %s' % self.data_file
             raise AlreadyExistsAsDir(msg)
 
-        timestamp = normalize_timestamp(metadata[X_TIMESTAMP])
         write_metadata(self.tmppath, metadata)
         if X_CONTENT_LENGTH in metadata:
             self.drop_cache(fd, 0, int(metadata[X_CONTENT_LENGTH]))
@@ -248,7 +248,7 @@ class Gluster_DiskFile(DiskFile):
 
         :param timestamp: timestamp to compare with each file
         """
-        if not self.metadata or self.metadata['X-Timestamp'] >= timestamp:
+        if not self.metadata or self.metadata[X_TIMESTAMP] >= timestamp:
             return
 
         assert self.data_file, \
@@ -257,7 +257,8 @@ class Gluster_DiskFile(DiskFile):
         if self._is_dir:
             # Marker directory object
             if not rmdirs(self.data_file):
-                logging.error('Unable to delete dir object: %s', self.data_file)
+                logging.error('Unable to delete dir object: %s',
+                              self.data_file)
                 return
         else:
             # File object
@@ -283,7 +284,7 @@ class Gluster_DiskFile(DiskFile):
             file_size = 0
             if self.data_file:
                 file_size = os_path.getsize(self.data_file)
-                if  X_CONTENT_LENGTH in self.metadata:
+                if X_CONTENT_LENGTH in self.metadata:
                     metadata_size = int(self.metadata[X_CONTENT_LENGTH])
                     if file_size != metadata_size:
                         self.metadata[X_CONTENT_LENGTH] = file_size
@@ -314,11 +315,11 @@ class Gluster_DiskFile(DiskFile):
             path = self._container_path
             subdir_list = self._obj_path.split(os.path.sep)
             for i in range(len(subdir_list)):
-                path = os.path.join(path, subdir_list[i]);
+                path = os.path.join(path, subdir_list[i])
                 if not os_path.exists(path):
                     self._create_dir_object(path)
 
-        tmpfile = '.' + self._obj + '.' + md5(self._obj + \
+        tmpfile = '.' + self._obj + '.' + md5(self._obj +
                   str(random.random())).hexdigest()
 
         self.tmppath = os.path.join(self.datadir, tmpfile)

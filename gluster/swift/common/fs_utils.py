@@ -16,13 +16,15 @@
 import logging
 import os
 import errno
-import os.path as os_path
+import os.path as os_path    # noqa
 from eventlet import tpool
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
     NotDirectoryError
 
+
 def do_walk(*args, **kwargs):
     return os.walk(*args, **kwargs)
+
 
 def do_write(fd, msg):
     try:
@@ -31,6 +33,7 @@ def do_write(fd, msg):
         logging.exception("Write failed, err: %s", str(err))
         raise
     return cnt
+
 
 def do_mkdir(path):
     try:
@@ -41,14 +44,17 @@ def do_mkdir(path):
             raise
     return True
 
+
 def do_makedirs(path):
     try:
         os.makedirs(path)
     except OSError as err:
         if err.errno != errno.EEXIST:
-            logging.exception("Makedirs failed on %s err: %s", path, err.strerror)
+            logging.exception("Makedirs failed on %s err: %s",
+                              path, err.strerror)
             raise
     return True
+
 
 def do_listdir(path):
     try:
@@ -58,6 +64,7 @@ def do_listdir(path):
         raise
     return buf
 
+
 def do_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
@@ -65,6 +72,7 @@ def do_chown(path, uid, gid):
         logging.exception("Chown failed on %s err: %s", path, err.strerror)
         raise
     return True
+
 
 def do_stat(path):
     try:
@@ -77,6 +85,7 @@ def do_stat(path):
         logging.exception("Stat failed on %s err: %s", path, err.strerror)
         raise
     return buf
+
 
 def do_open(path, mode):
     if isinstance(mode, int):
@@ -93,6 +102,7 @@ def do_open(path, mode):
             raise
     return fd
 
+
 def do_close(fd):
     #fd could be file or int type.
     try:
@@ -105,15 +115,18 @@ def do_close(fd):
         raise
     return True
 
-def do_unlink(path, log = True):
+
+def do_unlink(path, log=True):
     try:
         os.unlink(path)
     except OSError as err:
         if err.errno != errno.ENOENT:
             if log:
-                logging.exception("Unlink failed on %s err: %s", path, err.strerror)
+                logging.exception("Unlink failed on %s err: %s",
+                                  path, err.strerror)
             raise
     return True
+
 
 def do_rmdir(path):
     try:
@@ -127,14 +140,16 @@ def do_rmdir(path):
         res = True
     return res
 
+
 def do_rename(old_path, new_path):
     try:
         os.rename(old_path, new_path)
     except OSError as err:
-        logging.exception("Rename failed on %s to %s  err: %s", old_path, new_path, \
-                          err.strerror)
+        logging.exception("Rename failed on %s to %s  err: %s",
+                          old_path, new_path, err.strerror)
         raise
     return True
+
 
 def mkdirs(path):
     """
@@ -145,6 +160,7 @@ def mkdirs(path):
     """
     if not os.path.isdir(path):
         do_makedirs(path)
+
 
 def dir_empty(path):
     """
@@ -159,6 +175,7 @@ def dir_empty(path):
         raise FileOrDirNotFoundError()
     raise NotDirectoryError()
 
+
 def rmdirs(path):
     if not os.path.isdir(path):
         return False
@@ -169,6 +186,7 @@ def rmdirs(path):
             logging.error("rmdirs failed on %s, err: %s", path, err.strerror)
             return False
     return True
+
 
 def do_fsync(fd):
     try:

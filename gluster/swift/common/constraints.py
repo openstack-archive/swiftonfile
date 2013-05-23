@@ -23,10 +23,11 @@ from gluster.swift.common import Glusterfs, ring
 
 if hasattr(swift.common.constraints, 'constraints_conf_int'):
     MAX_OBJECT_NAME_COMPONENT_LENGTH = \
-            swift.common.constraints.constraints_conf_int(
-                'max_object_name_component_length', 255)
+        swift.common.constraints.constraints_conf_int(
+            'max_object_name_component_length', 255)
 else:
     MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
+
 
 def validate_obj_name_component(obj):
     if len(obj) > MAX_OBJECT_NAME_COMPONENT_LENGTH:
@@ -37,6 +38,7 @@ def validate_obj_name_component(obj):
 
 # Save the original check object creation
 __check_object_creation = swift.common.constraints.check_object_creation
+
 
 # Define our new one which invokes the original
 def gluster_check_object_creation(req, object_name):
@@ -61,7 +63,7 @@ def gluster_check_object_creation(req, object_name):
             reason = validate_obj_name_component(obj)
             if reason:
                 bdy = 'Invalid object name "%s", component "%s" %s' \
-                        % (object_name, obj, reason)
+                    % (object_name, obj, reason)
                 ret = HTTPBadRequest(body=bdy,
                                      request=req,
                                      content_type='text/plain')
@@ -74,6 +76,7 @@ swift.common.constraints.check_object_creation = gluster_check_object_creation
 # Save the original check mount
 __check_mount = swift.common.constraints.check_mount
 
+
 # Define our new one which invokes the original
 def gluster_check_mount(root, drive):
     # FIXME: Potential performance optimization here to not call the original
@@ -83,6 +86,7 @@ def gluster_check_mount(root, drive):
         return True
 
     return Glusterfs.mount(root, drive)
+
 
 # Replace the original check mount with ours
 swift.common.constraints.check_mount = gluster_check_mount

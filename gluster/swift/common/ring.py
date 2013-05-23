@@ -36,13 +36,12 @@ if conf_files and _conf.read(conf_file):
 if not reseller_prefix.endswith('_'):
     reseller_prefix = reseller_prefix + '_'
 
+
 class Ring(ring.Ring):
     def _get_part_nodes(self, part):
         seen_ids = set()
-        nodes = [dev for dev in self._devs \
-                     if dev['device'] == self.acc_name \
-                     and not (dev['id'] in seen_ids \
-                                  or seen_ids.add(dev['id']))]
+        nodes = [dev for dev in self._devs if dev['device'] == self.acc_name
+                 and not (dev['id'] in seen_ids or seen_ids.add(dev['id']))]
         if not nodes:
             nodes = [self.false_node]
         return nodes
@@ -86,8 +85,8 @@ class Ring(ring.Ring):
                 hardware description
         ======  ===============================================================
         """
-        self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1', 'id': 0, \
-                           'meta': '', 'device': 'volume_not_in_ring', \
+        self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1',
+                           'id': 0, 'meta': '', 'device': 'volume_not_in_ring',
                            'port': 6012}
         if account.startswith(reseller_prefix):
             self.acc_name = account.replace(reseller_prefix, '', 1)
@@ -96,7 +95,6 @@ class Ring(ring.Ring):
 
         part = 0
         return part, self._get_part_nodes(part)
-
 
     def get_more_nodes(self, part):
         """

@@ -16,9 +16,10 @@
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-import gluster.swift.common.constraints
+import gluster.swift.common.constraints    # noqa
 
 from swift.proxy import server
+
 
 def app_factory(global_conf, **local_conf):
     """paste.deploy app factory for creating WSGI proxy apps."""

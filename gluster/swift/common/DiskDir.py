@@ -13,36 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, errno
+import os
 
-from gluster.swift.common.utils import clean_metadata, dir_empty, rmdirs, \
-     mkdirs, validate_account, validate_container, is_marker, \
-     get_container_details, get_account_details, get_container_metadata, \
-     create_container_metadata, create_account_metadata, DEFAULT_GID, \
-     DEFAULT_UID, validate_object, create_object_metadata, read_metadata, \
-     write_metadata, X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
-     X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
-     X_CONTAINER_COUNT, CONTAINER, os_path
+from gluster.swift.common.fs_utils import dir_empty, rmdirs, mkdirs, os_path
+from gluster.swift.common.utils import clean_metadata, validate_account, \
+    validate_container, get_container_details, get_account_details, \
+    create_container_metadata, create_account_metadata, DEFAULT_GID, \
+    DEFAULT_UID, validate_object, create_object_metadata, read_metadata, \
+    write_metadata, X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
+    X_PUT_TIMESTAMP, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
+    X_CONTAINER_COUNT
 from gluster.swift.common import Glusterfs
-
-from swift.common.constraints import CONTAINER_LISTING_LIMIT
-from swift.common.utils import normalize_timestamp, TRUE_VALUES
 
 
 DATADIR = 'containers'
 
-# Create a dummy db_file in /etc/swift
-_unittests_enabled = os.getenv('GLUSTER_UNIT_TEST_ENABLED', 'no')
-if _unittests_enabled in TRUE_VALUES:
-    _tmp_dir = '/tmp/gluster_unit_tests'
-    try:
-        os.mkdir(_tmp_dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    _db_file = os.path.join(_tmp_dir, 'db_file.db')
-else:
-    _db_file = '/etc/swift/db_file.db'
+# Create a dummy db_file in Glusterfs.RUN_DIR
+_db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
 if not os.path.exists(_db_file):
     file(_db_file, 'w+')
 
@@ -91,7 +78,7 @@ class DiskCommon(object):
         Accept sorted list.
         Objects should start with prefix.
         """
-        filtered_objs=[]
+        filtered_objs = []
         for object_name in objects:
             tmp_obj = object_name.replace(prefix, '', 1)
             sufix = tmp_obj.split(delimiter, 1)
@@ -106,8 +93,7 @@ class DiskCommon(object):
         TODO: We can traverse in reverse order to optimize.
         Accept sorted list.
         """
-        filtered_objs=[]
-        found = 0
+        filtered_objs = []
         if objects[-1] < marker:
             return filtered_objs
         for object_name in objects:
@@ -120,7 +106,7 @@ class DiskCommon(object):
         """
         Accept sorted list.
         """
-        filtered_objs=[]
+        filtered_objs = []
         for object_name in objects:
             if object_name < end_marker:
                 filtered_objs.append(object_name)
@@ -130,7 +116,7 @@ class DiskCommon(object):
         return filtered_objs
 
     def filter_limit(self, objects, limit):
-        filtered_objs=[]
+        filtered_objs = []
         for i in range(0, limit):
             filtered_objs.append(objects[i])
 
@@ -232,7 +218,8 @@ class DiskDir(DiskCommon):
         self.metadata[X_OBJECTS_COUNT] = (int(ocnt) + 1, timestamp)
         self.metadata[X_PUT_TIMESTAMP] = timestamp
         bused = self.metadata[X_BYTES_USED][0]
-        self.metadata[X_BYTES_USED] = (int(bused) + int(content_length), timestamp)
+        self.metadata[X_BYTES_USED] = (int(bused) + int(content_length),
+                                       timestamp)
         #TODO: define update_metadata instad of writing whole metadata again.
         self.put_metadata(self.metadata)
 
@@ -240,10 +227,12 @@ class DiskDir(DiskCommon):
         ocnt, timestamp = self.metadata[X_OBJECTS_COUNT][0]
         self.metadata[X_OBJECTS_COUNT] = (int(ocnt) - 1, timestamp)
         bused, timestamp = self.metadata[X_BYTES_USED]
-        self.metadata[X_BYTES_USED] = (int(bused) - int(content_length), timestamp)
+        self.metadata[X_BYTES_USED] = (int(bused) - int(content_length),
+                                       timestamp)
         self.put_metadata(self.metadata)
 
-    def put_container(self, container, put_timestamp, del_timestamp, object_count, bytes_used):
+    def put_container(self, container, put_timestamp, del_timestamp,
+                      object_count, bytes_used):
         """
         For account server.
         """
@@ -363,20 +352,22 @@ class DiskDir(DiskCommon):
             # update the object counts in case they changed behind our back.
             self.update_object_count()
 
-        data = {'account' : self.account, 'container' : self.container,
-                'object_count' : self.metadata.get(X_OBJECTS_COUNT, ('0', 0))[0],
-                'bytes_used' : self.metadata.get(X_BYTES_USED, ('0',0))[0],
-                'hash': '', 'id' : '', 'created_at' : '1',
-                'put_timestamp' : self.metadata.get(X_PUT_TIMESTAMP, ('0',0))[0],
-                'delete_timestamp' : '1',
-                'reported_put_timestamp' : '1', 'reported_delete_timestamp' : '1',
-                'reported_object_count' : '1', 'reported_bytes_used' : '1'}
+        data = {'account': self.account, 'container': self.container,
+                'object_count': self.metadata.get(
+                    X_OBJECTS_COUNT, ('0', 0))[0],
+                'bytes_used': self.metadata.get(X_BYTES_USED, ('0', 0))[0],
+                'hash': '', 'id': '', 'created_at': '1',
+                'put_timestamp': self.metadata.get(
+                    X_PUT_TIMESTAMP, ('0', 0))[0],
+                'delete_timestamp': '1',
+                'reported_put_timestamp': '1',
+                'reported_delete_timestamp': '1',
+                'reported_object_count': '1', 'reported_bytes_used': '1'}
         if include_metadata:
             data['metadata'] = self.metadata
         return data
 
-    def put_object(self, name, timestamp, size, content_type,
-                    etag, deleted=0):
+    def put_object(self, name, timestamp, size, content_type, etag, deleted=0):
         # TODO: Implement the specifics of this func.
         pass
 
@@ -401,7 +392,8 @@ class DiskDir(DiskCommon):
         self.unlink()
 
     def update_metadata(self, metadata):
-        assert self.metadata, "Valid container/account metadata should have been created by now"
+        assert self.metadata, "Valid container/account metadata should have" \
+            " been created by now"
         if metadata:
             new_metadata = self.metadata.copy()
             new_metadata.update(metadata)
@@ -478,12 +470,13 @@ class DiskAccount(DiskDir):
             # update the container counts in case they changed behind our back.
             self.update_container_count()
 
-        data = {'account' : self.account, 'created_at' : '1',
-                'put_timestamp' : '1', 'delete_timestamp' : '1',
-                'container_count' : self.metadata.get(X_CONTAINER_COUNT, (0,0))[0],
-                'object_count' : self.metadata.get(X_OBJECTS_COUNT, (0,0))[0],
-                'bytes_used' : self.metadata.get(X_BYTES_USED, (0,0))[0],
-                'hash' : '', 'id' : ''}
+        data = {'account': self.account, 'created_at': '1',
+                'put_timestamp': '1', 'delete_timestamp': '1',
+                'container_count': self.metadata.get(
+                    X_CONTAINER_COUNT, (0, 0))[0],
+                'object_count': self.metadata.get(X_OBJECTS_COUNT, (0, 0))[0],
+                'bytes_used': self.metadata.get(X_BYTES_USED, (0, 0))[0],
+                'hash': '', 'id': ''}
 
         if include_metadata:
             data['metadata'] = self.metadata
@@ -493,4 +486,4 @@ class DiskAccount(DiskDir):
         cont_path = os.path.join(self.datadir, container)
         metadata = read_metadata(cont_path)
 
-        return int(metadata.get(X_PUT_TIMESTAMP, ('0',0))[0]) or None
+        return int(metadata.get(X_PUT_TIMESTAMP, ('0', 0))[0]) or None

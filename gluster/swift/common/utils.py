@@ -21,9 +21,9 @@ import random
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
-from ConfigParser import ConfigParser, NoSectionError, NoOptionError
-from swift.common.utils import normalize_timestamp, TRUE_VALUES
-from gluster.swift.common.fs_utils import *
+from swift.common.utils import normalize_timestamp
+from gluster.swift.common.fs_utils import do_rename, do_fsync, os_path, \
+    do_stat, do_listdir, do_walk
 from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -54,8 +54,11 @@ DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
 CHUNK_SIZE = 65536
 MEMCACHE_KEY_PREFIX = 'gluster.swift.'
-MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'account.details.'
-MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'container.details.'
+MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + \
+    'account.details.'
+MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + \
+    'container.details.'
+
 
 def read_metadata(path):
     """
@@ -70,7 +73,8 @@ def read_metadata(path):
     key = 0
     while metadata is None:
         try:
-            metadata_s += xattr.getxattr(path, '%s%s' % (METADATA_KEY, (key or '')))
+            metadata_s += xattr.getxattr(path,
+                                         '%s%s' % (METADATA_KEY, (key or '')))
         except IOError as err:
             if err.errno == errno.ENODATA:
                 if key > 0:
@@ -108,6 +112,7 @@ def read_metadata(path):
                 key += 1
     return metadata
 
+
 def write_metadata(path, metadata):
     """
     Helper function to write pickled metadata for a File/Directory.
@@ -120,12 +125,16 @@ def write_metadata(path, metadata):
     key = 0
     while metastr:
         try:
-            xattr.setxattr(path, '%s%s' % (METADATA_KEY, key or ''), metastr[:MAX_XATTR_SIZE])
+            xattr.setxattr(path,
+                           '%s%s' % (METADATA_KEY, key or ''),
+                           metastr[:MAX_XATTR_SIZE])
         except IOError as err:
-            logging.exception("setxattr failed on %s key %s err: %s", path, key, str(err))
+            logging.exception("setxattr failed on %s key %s err: %s",
+                              path, key, str(err))
             raise
         metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
+
 
 def clean_metadata(path):
     key = 0
@@ -138,20 +147,24 @@ def clean_metadata(path):
             raise
         key += 1
 
+
 def check_user_xattr(path):
     if not os_path.exists(path):
         return False
     try:
         xattr.setxattr(path, 'user.test.key1', 'value1')
     except IOError as err:
-        logging.exception("check_user_xattr: set failed on %s err: %s", path, str(err))
+        logging.exception("check_user_xattr: set failed on %s err: %s",
+                          path, str(err))
         raise
     try:
         xattr.removexattr(path, 'user.test.key1')
     except IOError as err:
-        logging.exception("check_user_xattr: remove failed on %s err: %s", path, str(err))
+        logging.exception("check_user_xattr: remove failed on %s err: %s",
+                          path, str(err))
         #Remove xattr may fail in case of concurrent remove.
     return True
+
 
 def validate_container(metadata):
     if not metadata:
@@ -163,15 +176,16 @@ def validate_container(metadata):
        X_PUT_TIMESTAMP not in metadata.keys() or \
        X_OBJECTS_COUNT not in metadata.keys() or \
        X_BYTES_USED not in metadata.keys():
-        #logging.warn('validate_container: Metadata missing entries: %s' % metadata)
         return False
 
     (value, timestamp) = metadata[X_TYPE]
     if value == CONTAINER:
         return True
 
-    logging.warn('validate_container: metadata type is not CONTAINER (%r)' % (value,))
+    logging.warn('validate_container: metadata type is not CONTAINER (%r)',
+                 value)
     return False
+
 
 def validate_account(metadata):
     if not metadata:
@@ -184,15 +198,16 @@ def validate_account(metadata):
        X_OBJECTS_COUNT not in metadata.keys() or \
        X_BYTES_USED not in metadata.keys() or \
        X_CONTAINER_COUNT not in metadata.keys():
-        #logging.warn('validate_account: Metadata missing entries: %s' % metadata)
         return False
 
     (value, timestamp) = metadata[X_TYPE]
     if value == ACCOUNT:
         return True
 
-    logging.warn('validate_account: metadata type is not ACCOUNT (%r)' % (value,))
+    logging.warn('validate_account: metadata type is not ACCOUNT (%r)',
+                 value)
     return False
+
 
 def validate_object(metadata):
     if not metadata:
@@ -205,14 +220,15 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
-        #logging.warn('validate_object: Metadata missing entries: %s' % metadata)
         return False
 
     if metadata[X_TYPE] == OBJECT:
         return True
 
-    logging.warn('validate_object: metadata type is not OBJECT (%r)' % (metadata[X_TYPE],))
+    logging.warn('validate_object: metadata type is not OBJECT (%r)',
+                 metadata[X_TYPE])
     return False
+
 
 def is_marker(metadata):
     if not metadata:
@@ -220,13 +236,15 @@ def is_marker(metadata):
         return False
 
     if X_OBJECT_TYPE not in metadata.keys():
-        logging.warn('is_marker: X_OBJECT_TYPE missing from metadata: %s' % metadata)
+        logging.warn('is_marker: X_OBJECT_TYPE missing from metadata: %s',
+                     metadata)
         return False
 
     if metadata[X_OBJECT_TYPE] == MARKER_DIR:
         return True
     else:
         return False
+
 
 def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
                  bytes_used=0, obj_list=[]):
@@ -246,6 +264,7 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
             sleep()
 
     return object_count, bytes_used
+
 
 def update_list(path, cont_path, dirs=[], files=[], object_count=0,
                 bytes_used=0, obj_list=[]):
@@ -279,14 +298,15 @@ def _get_container_details_from_fs(cont_path):
 
     if os_path.isdir(cont_path):
         for (path, dirs, files) in do_walk(cont_path):
-            object_count, bytes_used = update_list(path, cont_path, dirs, files,
-                                                   object_count, bytes_used,
-                                                   obj_list)
+            object_count, bytes_used = update_list(path, cont_path, dirs,
+                                                   files, object_count,
+                                                   bytes_used, obj_list)
 
             dir_list.append((path, do_stat(path).st_mtime))
             sleep()
 
     return ContainerDetails(bytes_used, object_count, obj_list, dir_list)
+
 
 def get_container_details(cont_path, memcache=None):
     """
@@ -344,6 +364,7 @@ def _get_account_details_from_fs(acc_path, acc_stats):
 
     return AccountDetails(acc_stats.st_mtime, container_count, container_list)
 
+
 def get_account_details(acc_path, memcache=None):
     """
     Return container_list and container_count.
@@ -369,6 +390,7 @@ def get_account_details(acc_path, memcache=None):
             memcache.set(mkey, ad)
     return ad.container_list, ad.container_count
 
+
 def _get_etag(path):
     etag = md5()
     with open(path, 'rb') as fp:
@@ -379,6 +401,7 @@ def _get_etag(path):
             else:
                 break
     return etag.hexdigest()
+
 
 def get_object_metadata(obj_path):
     """
@@ -398,9 +421,9 @@ def get_object_metadata(obj_path):
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
             X_OBJECT_TYPE: DIR if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
-            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path),
-            }
+            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path)}
     return metadata
+
 
 def _add_timestamp(metadata_i):
     # At this point we have a simple key/value dictionary, turn it into
@@ -414,29 +437,37 @@ def _add_timestamp(metadata_i):
             metadata[key] = value_i
     return metadata
 
+
 def get_container_metadata(cont_path, memcache=None):
     objects = []
     object_count = 0
     bytes_used = 0
-    objects, object_count, bytes_used = get_container_details(cont_path, memcache)
+    objects, object_count, bytes_used = get_container_details(cont_path,
+                                                              memcache)
     metadata = {X_TYPE: CONTAINER,
-                X_TIMESTAMP: normalize_timestamp(os_path.getctime(cont_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(os_path.getmtime(cont_path)),
+                X_TIMESTAMP: normalize_timestamp(
+                    os_path.getctime(cont_path)),
+                X_PUT_TIMESTAMP: normalize_timestamp(
+                    os_path.getmtime(cont_path)),
                 X_OBJECTS_COUNT: object_count,
                 X_BYTES_USED: bytes_used}
     return _add_timestamp(metadata)
+
 
 def get_account_metadata(acc_path, memcache=None):
     containers = []
     container_count = 0
     containers, container_count = get_account_details(acc_path, memcache)
     metadata = {X_TYPE: ACCOUNT,
-                X_TIMESTAMP: normalize_timestamp(os_path.getctime(acc_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(os_path.getmtime(acc_path)),
+                X_TIMESTAMP: normalize_timestamp(
+                    os_path.getctime(acc_path)),
+                X_PUT_TIMESTAMP: normalize_timestamp(
+                    os_path.getmtime(acc_path)),
                 X_OBJECTS_COUNT: 0,
                 X_BYTES_USED: 0,
                 X_CONTAINER_COUNT: container_count}
     return _add_timestamp(metadata)
+
 
 def restore_metadata(path, metadata):
     meta_orig = read_metadata(path)
@@ -449,17 +480,21 @@ def restore_metadata(path, metadata):
         write_metadata(path, meta_new)
     return meta_new
 
+
 def create_object_metadata(obj_path):
     metadata = get_object_metadata(obj_path)
     return restore_metadata(obj_path, metadata)
+
 
 def create_container_metadata(cont_path, memcache=None):
     metadata = get_container_metadata(cont_path, memcache)
     return restore_metadata(cont_path, metadata)
 
+
 def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
+
 
 def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
     """
@@ -479,7 +514,8 @@ def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
     """
     dirname = os.path.dirname(dest)
     basename = os.path.basename(dest)
-    tmpname = '.' + basename + '.' + md5(basename + str(random.random())).hexdigest()
+    tmpname = '.' + basename + '.' + \
+        md5(basename + str(random.random())).hexdigest()
     tmppath = os.path.join(dirname, tmpname)
     with open(tmppath, 'wb') as fo:
         pickle.dump(obj, fo, pickle_protocol)
@@ -490,6 +526,7 @@ def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
         fo.flush()
         do_fsync(fo)
     do_rename(tmppath, dest)
+
 
 # Over-ride Swift's utils.write_pickle with ours
 import swift.common.utils

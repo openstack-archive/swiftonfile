@@ -17,7 +17,7 @@
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-import gluster.swift.common.constraints
+import gluster.swift.common.constraints    # noqa
 
 from swift.account import server
 from gluster.swift.common.DiskDir import DiskAccount
