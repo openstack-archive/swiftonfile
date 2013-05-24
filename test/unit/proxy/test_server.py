@@ -40,7 +40,7 @@ gfs.RUN_DIR = mkdtemp()
 
 from test.unit import connect_tcp, readuntil2crlfs, FakeLogger, fake_http_connect
 from gluster.swift.proxy.server import server as proxy_server
-from gluster.swift.obj.server import server as object_server
+from gluster.swift.obj import server as object_server
 from gluster.swift.account import server as account_server
 from gluster.swift.container import server as container_server
 from swift.common import ring
@@ -2781,6 +2781,53 @@ class TestObjectController(unittest.TestCase):
         self.assertEquals(headers[:len(exp)], exp)
         body = fd.read()
         self.assertEquals(body, 'oh hai123456789abcdef')
+
+    def test_put_put(self):
+        (prolis, acc1lis, acc2lis, con1lis, con2lis, obj1lis,
+         obj2lis) = _test_sockets
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/c/o/putput HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Auth-Token: t\r\n'
+                 'Content-Length:27\r\n\r\n'
+                 'abcdefghijklmnopqrstuvwxyz\n\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+        # Ensure we get what we put
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('GET /v1/a/c/o/putput HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Auth-Token: t\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 200'
+        self.assertEquals(headers[:len(exp)], exp)
+        body = fd.read()
+        self.assertEquals(body, 'abcdefghijklmnopqrstuvwxyz\n')
+
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/c/o/putput HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Auth-Token: t\r\n'
+                 'Content-Length:27\r\n\r\n'
+                 'ABCDEFGHIJKLMNOPQRSTUVWXYZ\n\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+        # Ensure we get what we put
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('GET /v1/a/c/o/putput HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Auth-Token: t\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 200'
+        self.assertEquals(headers[:len(exp)], exp)
+        body = fd.read()
+        self.assertEquals(body, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ\n')
 
     def test_version_manifest(self):
         raise SkipTest("Not until we support versioned objects")

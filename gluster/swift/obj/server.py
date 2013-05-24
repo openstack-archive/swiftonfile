@@ -27,8 +27,36 @@ from gluster.swift.common.DiskFile import Gluster_DiskFile
 server.DiskFile = Gluster_DiskFile
 
 
+class ObjectController(server.ObjectController):
+    """
+    Subclass of the object server's ObjectController which replaces the
+    container_update method with one that is a no-op (information is simply
+    stored on disk and already updated by virtue of performing the file system
+    operations directly).
+    """
+
+    def container_update(self, op, account, container, obj, request,
+                         headers_out, objdevice):
+        """
+        Update the container when objects are updated.
+
+        For Gluster, this is just a no-op, since a container is just the
+        directory holding all the objects (sub-directory hierarchy of files).
+
+        :param op: operation performed (ex: 'PUT', or 'DELETE')
+        :param account: account name for the object
+        :param container: container name for the object
+        :param obj: object name
+        :param request: the original request object driving the update
+        :param headers_out: dictionary of headers to send in the container
+                            request(s)
+        :param objdevice: device name that the object is in
+        """
+        return
+
+
 def app_factory(global_conf, **local_conf):
     """paste.deploy app factory for creating WSGI object server apps"""
     conf = global_conf.copy()
     conf.update(local_conf)
-    return server.ObjectController(conf)
+    return ObjectController(conf)

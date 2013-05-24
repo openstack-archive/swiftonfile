@@ -24,6 +24,15 @@ from gluster.swift.common.DiskDir import DiskDir
 
 
 class ContainerController(server.ContainerController):
+    """
+    Subclass of the container server's ContainerController which replaces the
+    _get_container_broker() method so that we can use Gluster's DiskDir
+    duck-type of the container DatabaseBroker object, and make the
+    account_update() method a no-op (information is simply stored on disk and
+    already updated by virtue of performaing the file system operations
+    directly).
+    """
+
     def _get_container_broker(self, drive, part, account, container):
         """
         Overriden to provide the GlusterFS specific broker that talks to
@@ -34,9 +43,24 @@ class ContainerController(server.ContainerController):
         :param part: partition the container is in
         :param account: account name
         :param container: container name
-        :returns: DiskDir object
+        :returns: DiskDir object, a duck-type of DatabaseBroker
         """
         return DiskDir(self.root, drive, account, container, self.logger)
+
+    def account_update(self, req, account, container, broker):
+        """
+        Update the account server(s) with latest container info.
+
+        For Gluster, this is just a no-op, since an account is just the
+        directory holding all the container directories.
+
+        :param req: swob.Request object
+        :param account: account name
+        :param container: container name
+        :param broker: container DB broker object
+        :returns: None.
+        """
+        return None
 
 
 def app_factory(global_conf, **local_conf):
