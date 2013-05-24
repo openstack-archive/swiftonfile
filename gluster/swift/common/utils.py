@@ -230,22 +230,6 @@ def validate_object(metadata):
     return False
 
 
-def is_marker(metadata):
-    if not metadata:
-        logging.warn('is_marker: No metadata')
-        return False
-
-    if X_OBJECT_TYPE not in metadata.keys():
-        logging.warn('is_marker: X_OBJECT_TYPE missing from metadata: %s',
-                     metadata)
-        return False
-
-    if metadata[X_OBJECT_TYPE] == MARKER_DIR:
-        return True
-    else:
-        return False
-
-
 def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
                  bytes_used=0, obj_list=[]):
     # strip the prefix off, also stripping the leading and trailing slashes

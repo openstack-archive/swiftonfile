@@ -1004,17 +1004,3 @@ class TestUtils(unittest.TestCase):
                utils.X_OBJECT_TYPE: 'na' }
         ret = utils.validate_object(md)
         assert ret
-
-    def test_is_marker_empty(self):
-        assert False == utils.is_marker(None)
-
-    def test_is_marker_missing(self):
-        assert False == utils.is_marker( { 'foo': 'bar' } )
-
-    def test_is_marker_not_marker(self):
-        md = { utils.X_OBJECT_TYPE: utils.DIR }
-        assert False == utils.is_marker(md)
-
-    def test_is_marker(self):
-        md = { utils.X_OBJECT_TYPE: utils.MARKER_DIR }
-        assert utils.is_marker(md)
