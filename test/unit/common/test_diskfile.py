@@ -57,13 +57,10 @@ class MockException(Exception):
 def _mock_rmdirs(p):
     raise MockException("gluster.swift.common.DiskFile.rmdirs() called")
 
-def _mock_do_unlink(f):
-    ose = OSError()
-    ose.errno = errno.ENOENT
-    raise ose
+def _mock_do_fsync(fd):
+    return
 
-
-def _mock_do_unlink_eacces_err(f):
+def _mock_os_unlink_eacces_err(f):
     ose = OSError()
     ose.errno = errno.EACCES
     raise ose
@@ -101,6 +98,8 @@ class TestDiskFile(unittest.TestCase):
         self._saved_ut_rm = gluster.swift.common.utils.read_metadata
         gluster.swift.common.utils.write_metadata = _mock_write_metadata
         gluster.swift.common.utils.read_metadata = _mock_read_metadata
+        self._saved_do_fsync = gluster.swift.common.DiskFile.do_fsync
+        gluster.swift.common.DiskFile.do_fsync = _mock_do_fsync
 
     def tearDown(self):
         self.lg = None
@@ -109,6 +108,7 @@ class TestDiskFile(unittest.TestCase):
         gluster.swift.common.DiskFile.read_metadata = self._saved_df_rm
         gluster.swift.common.utils.write_metadata = self._saved_ut_wm
         gluster.swift.common.utils.read_metadata = self._saved_ut_rm
+        gluster.swift.common.DiskFile.do_fsync = self._saved_do_fsync
 
     def test_constructor_no_slash(self):
         assert not os.path.exists("/tmp/foo")
@@ -659,9 +659,9 @@ class TestDiskFile(unittest.TestCase):
             stats = os.stat(the_path)
             os.chmod(the_path, stats.st_mode & (~stat.S_IWUSR))
 
-            # Handle the case do_unlink() raises an OSError
+            # Handle the case os_unlink() raises an OSError
             __os_unlink = os.unlink
-            os.unlink = _mock_do_unlink_eacces_err
+            os.unlink = _mock_os_unlink_eacces_err
             try:
                 gdf.unlinkold(normalize_timestamp(later))
             except OSError as e:
@@ -868,6 +868,15 @@ class TestDiskFile(unittest.TestCase):
                 assert os.path.basename(saved_tmppath)[:3] == '.z.'
                 assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
+            # At the end of previous with block a close on fd is called.
+            # Calling os.close on the same fd will raise an OSError
+            # exception and we must catch it.
+            try:
+                os.close(fd)
+            except OSError as err:
+                pass
+            else:
+                self.fail("Exception expected")
             assert not os.path.exists(saved_tmppath)
         finally:
             shutil.rmtree(td)
@@ -888,15 +897,8 @@ class TestDiskFile(unittest.TestCase):
                 assert os.path.basename(saved_tmppath)[:3] == '.z.'
                 assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
-            # At the end of previous with block a close on fd is called.
-            # Calling os.close on the same fd will raise an OSError
-            # exception and we must catch it.
-            try:
+                # Closing the fd prematurely should not raise any exceptions.
                 os.close(fd)
-            except OSError as err:
-                pass
-            else:
-                self.fail("Exception expected")
             assert not os.path.exists(saved_tmppath)
         finally:
             shutil.rmtree(td)

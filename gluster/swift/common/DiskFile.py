@@ -332,8 +332,4 @@ class Gluster_DiskFile(DiskFile):
             except OSError:
                 pass
             tmppath, self.tmppath = self.tmppath, None
-            try:
-                do_unlink(tmppath)
-            except OSError as err:
-                if err.errno != errno.ENOENT:
-                    raise
+            do_unlink(tmppath)
