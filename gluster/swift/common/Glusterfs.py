@@ -28,7 +28,7 @@ from gluster.swift.common.fs_utils import mkdirs
 #
 _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
-OBJECT_ONLY = False
+OBJECT_ONLY = True
 RUN_DIR = '/var/run/swift'
 SWIFT_DIR = '/etc/swift'
 _do_getsize = False
@@ -40,7 +40,7 @@ if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
     try:
         OBJECT_ONLY = _fs_conf.get('DEFAULT',
                                    'object_only',
-                                   "no") in TRUE_VALUES
+                                   "yes") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
     try:

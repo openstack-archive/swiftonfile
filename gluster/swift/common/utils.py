@@ -256,7 +256,7 @@ def update_list(path, cont_path, dirs=[], files=[], object_count=0,
         object_count, bytes_used = _update_list(path, cont_path, files, True,
                                                 object_count, bytes_used,
                                                 obj_list)
-    if dirs:
+    if not Glusterfs.OBJECT_ONLY and dirs:
         object_count, bytes_used = _update_list(path, cont_path, dirs, False,
                                                 object_count, bytes_used,
                                                 obj_list)

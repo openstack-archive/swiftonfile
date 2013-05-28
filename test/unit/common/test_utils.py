@@ -38,8 +38,10 @@ _xattr_set_err = {}
 _xattr_get_err = {}
 _xattr_rem_err = {}
 
+
 def _xkey(path, key):
     return "%s:%s" % (path, key)
+
 
 def _setxattr(path, key, value, *args, **kwargs):
     _xattr_op_cnt['set'] += 1
@@ -50,6 +52,7 @@ def _setxattr(path, key, value, *args, **kwargs):
         raise e
     global _xattrs
     _xattrs[xkey] = value
+
 
 def _getxattr(path, key, *args, **kwargs):
     _xattr_op_cnt['get'] += 1
@@ -67,6 +70,7 @@ def _getxattr(path, key, *args, **kwargs):
         raise e
     return ret_val
 
+
 def _removexattr(path, key, *args, **kwargs):
     _xattr_op_cnt['remove'] += 1
     xkey = _xkey(path, key)
@@ -81,6 +85,7 @@ def _removexattr(path, key, *args, **kwargs):
         e = IOError("Fake IOError")
         e.errno = errno.ENODATA
         raise e
+
 
 def _initxattr():
     global _xattrs
@@ -101,6 +106,7 @@ def _initxattr():
     xattr.setxattr    = _setxattr
     xattr.getxattr    = _getxattr
     xattr.removexattr = _removexattr
+
 
 def _destroyxattr():
     # Restore the current methods just in case
@@ -789,6 +795,40 @@ class TestUtils(unittest.TestCase):
 
             cd = utils._get_container_details_from_fs(td)
             assert cd.bytes_used == 0, repr(cd.bytes_used)
+            # Should not include the directories
+            assert cd.object_count == 5, repr(cd.object_count)
+            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
+                                   'dir1/file1', 'dir1/file2'
+                                   ]), repr(cd.obj_list)
+
+            full_dir1 = os.path.join(td, 'dir1')
+            full_dir2 = os.path.join(td, 'dir2')
+            full_dir3 = os.path.join(td, 'dir3')
+            exp_dir_dict = { td:        os.path.getmtime(td),
+                             full_dir1: os.path.getmtime(full_dir1),
+                             full_dir2: os.path.getmtime(full_dir2),
+                             full_dir3: os.path.getmtime(full_dir3),
+                             }
+            for d,m in cd.dir_list:
+                assert d in exp_dir_dict
+                assert exp_dir_dict[d] == m
+        finally:
+            os.chdir(orig_cwd)
+            shutil.rmtree(td)
+
+    def test_get_container_details_from_fs_ufo(self):
+        orig_cwd = os.getcwd()
+        __obj_only = Glusterfs.OBJECT_ONLY
+        td = tempfile.mkdtemp()
+        try:
+            tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
+            os.chdir(td)
+            tf.extractall()
+
+            Glusterfs.OBJECT_ONLY = False
+
+            cd = utils._get_container_details_from_fs(td)
+            assert cd.bytes_used == 0, repr(cd.bytes_used)
             assert cd.object_count == 8, repr(cd.object_count)
             assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
                                    'dir3', 'dir1', 'dir2',
@@ -809,24 +849,23 @@ class TestUtils(unittest.TestCase):
         finally:
             os.chdir(orig_cwd)
             shutil.rmtree(td)
-
+            Glusterfs.OBJECT_ONLY = __obj_only
 
     def test_get_container_details_from_fs_do_getsize_true(self):
         orig_cwd = os.getcwd()
+        __do_getsize = Glusterfs._do_getsize
         td = tempfile.mkdtemp()
         try:
             tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
             os.chdir(td)
             tf.extractall()
 
-            __do_getsize = Glusterfs._do_getsize
             Glusterfs._do_getsize = True
 
             cd = utils._get_container_details_from_fs(td)
             assert cd.bytes_used == 30, repr(cd.bytes_used)
-            assert cd.object_count == 8, repr(cd.object_count)
+            assert cd.object_count == 5, repr(cd.object_count)
             assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
-                                   'dir3', 'dir1', 'dir2',
                                    'dir1/file1', 'dir1/file2'
                                    ]), repr(cd.obj_list)
 
