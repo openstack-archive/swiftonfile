@@ -21,12 +21,25 @@ import swift.common.constraints
 import swift.common.ring as _ring
 from gluster.swift.common import Glusterfs, ring
 
-if hasattr(swift.common.constraints, 'constraints_conf_int'):
-    MAX_OBJECT_NAME_COMPONENT_LENGTH = \
-        swift.common.constraints.constraints_conf_int(
+MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
+
+def set_object_name_component_length(len=None):
+    global MAX_OBJECT_NAME_COMPONENT_LENGTH
+
+    if len:
+        MAX_OBJECT_NAME_COMPONENT_LENGTH = len
+    elif hasattr(swift.common.constraints, 'constraints_conf_int'):
+        MAX_OBJECT_NAME_COMPONENT_LENGTH = \
+            swift.common.constraints.constraints_conf_int(
             'max_object_name_component_length', 255)
-else:
-    MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
+    else:
+        MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
+    return
+
+set_object_name_component_length()
+
+def get_object_name_component_length():
+    return MAX_OBJECT_NAME_COMPONENT_LENGTH
 
 
 def validate_obj_name_component(obj):
