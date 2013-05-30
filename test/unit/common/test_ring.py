@@ -53,3 +53,17 @@ class TestRing(unittest.TestCase):
     def test_second_device_with_reseller_prefix(self):
         part, node = self.ring.get_nodes('AUTH_iops')
         assert node[0]['device'] == 'iops'
+
+    def test_partition_id_for_multiple_accounts(self):
+        test_part, test_node = self.ring.get_nodes('test')
+        iops_part, iops_node = self.ring.get_nodes('iops')
+        self.assertNotEqual(test_part, iops_part)
+        self.assertEqual(test_node, self.ring.get_part_nodes(test_part))
+        self.assertEqual(iops_node, self.ring.get_part_nodes(iops_part))
+        self.assertNotEqual(test_node, self.ring.get_part_nodes(iops_part))
+        self.assertNotEqual(iops_node, self.ring.get_part_nodes(test_part))
+
+    def test_invalid_partition(self):
+        nodes = self.ring.get_part_nodes(0)
+        self.assertEqual(nodes[0]['device'], 'volume_not_in_ring')
+

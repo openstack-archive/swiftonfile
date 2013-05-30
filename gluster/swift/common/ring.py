@@ -38,12 +38,30 @@ if not reseller_prefix.endswith('_'):
 
 
 class Ring(ring.Ring):
+
+    def __init__(self, *args, **kwargs):
+        self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1',
+                           'id': 0, 'meta': '', 'device': 'volume_not_in_ring',
+                           'port': 6012}
+        self.account_list = []
+        ring.Ring.__init__(self, *args, **kwargs)
+
     def _get_part_nodes(self, part):
         seen_ids = set()
-        nodes = [dev for dev in self._devs if dev['device'] == self.acc_name
-                 and not (dev['id'] in seen_ids or seen_ids.add(dev['id']))]
-        if not nodes:
-            nodes = [self.false_node]
+
+        try:
+            account = self.account_list[part]
+        except IndexError:
+            return [self.false_node]
+        else:
+            nodes = []
+            for dev in self._devs:
+                if dev['device'] == account:
+                    if dev['id'] not in seen_ids:
+                        seen_ids.add(dev['id'])
+                        nodes.append(dev)
+            if not nodes:
+                nodes = [self.false_node]
         return nodes
 
     def get_part_nodes(self, part):
@@ -85,15 +103,18 @@ class Ring(ring.Ring):
                 hardware description
         ======  ===============================================================
         """
-        self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1',
-                           'id': 0, 'meta': '', 'device': 'volume_not_in_ring',
-                           'port': 6012}
         if account.startswith(reseller_prefix):
-            self.acc_name = account.replace(reseller_prefix, '', 1)
-        else:
-            self.acc_name = account
+            account = account.replace(reseller_prefix, '', 1)
 
-        part = 0
+        # Save the account name in the table
+        # This makes part be the index of the location of the account
+        # in the list
+        try:
+            part = self.account_list.index(account)
+        except ValueError:
+            self.account_list.append(account)
+            part = self.account_list.index(account)
+
         return part, self._get_part_nodes(part)
 
     def get_more_nodes(self, part):
