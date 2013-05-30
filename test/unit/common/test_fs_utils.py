@@ -32,8 +32,8 @@ def mock_os_fsync(fd):
 def mock_tpool_execute(func, *args, **kwargs):
     func(*args, **kwargs)
 
-class TestUtils(unittest.TestCase):
-    """ Tests for common.utils """
+class TestFsUtils(unittest.TestCase):
+    """ Tests for common.fs_utils """
 
     def test_do_walk(self):
         # create directory structure

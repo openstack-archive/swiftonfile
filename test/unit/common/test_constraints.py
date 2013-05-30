@@ -40,7 +40,7 @@ def mock_check_mount_err(*args, **kwargs):
     return False
 
 
-class TestUtils(unittest.TestCase):
+class TestConstraints(unittest.TestCase):
     """ Tests for common.constraints """
 
     def tearDown(self):
