@@ -43,13 +43,15 @@ def setup():
         if e.errno != errno.EEXIST:
             raise
 
+
+import gluster.swift.common.DiskDir as dd
+
+
 def teardown():
+    dd._db_file = ""
     shutil.rmtree(gluster.swift.common.Glusterfs.RUN_DIR)
     gluster.swift.common.Glusterfs.RUN_DIR = _saved_RUN_DIR
     gluster.swift.common.Glusterfs._do_getsize = _saved_do_getsize
-
-
-import gluster.swift.common.DiskDir as dd
 
 
 def timestamp_in_range(ts, base):

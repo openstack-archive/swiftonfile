@@ -112,6 +112,7 @@ class Gluster_DiskFile(DiskFile):
         self.keep_cache = False
         self.uid = int(uid)
         self.gid = int(gid)
+        self.suppress_file_closing = False
 
         # Don't store a value for data_file until we know it exists.
         self.data_file = None

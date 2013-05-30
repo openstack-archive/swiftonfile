@@ -30,9 +30,7 @@ from gluster.swift.common import Glusterfs
 DATADIR = 'containers'
 
 # Create a dummy db_file in Glusterfs.RUN_DIR
-_db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
-if not os.path.exists(_db_file):
-    file(_db_file, 'w+')
+_db_file = ""
 
 
 def _read_metadata(dd):
@@ -224,6 +222,12 @@ class DiskDir(DiskCommon):
         self.container_info = None
         self.uid = int(uid)
         self.gid = int(gid)
+        # Create a dummy db_file in Glusterfs.RUN_DIR
+        global _db_file
+        if not _db_file:
+            _db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
+            if not os.path.exists(_db_file):
+                file(_db_file, 'w+')
         self.db_file = _db_file
         self.dir_exists = os_path.exists(self.datadir)
         if self.dir_exists:
@@ -467,6 +471,10 @@ class DiskAccount(DiskDir):
     def __init__(self, root, drive, account, logger):
         super(DiskAccount, self).__init__(root, drive, account, None, logger)
         assert self.dir_exists
+
+    def is_status_deleted(self):
+        """Only returns true if the status field is set to DELETED."""
+        return False
 
     def initialize(self, timestamp):
         """
