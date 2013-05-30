@@ -87,7 +87,7 @@ class TestFsUtils(unittest.TestCase):
         except OSError:
             pass
         else:
-            self.fail("IOError expected")
+            self.fail("OSError expected")
 
     def test_do_write(self):
         fd, tmpfile = mkstemp()
@@ -108,10 +108,10 @@ class TestFsUtils(unittest.TestCase):
                 pass
             else:
                 self.fail("OSError expected")
+            finally:
+                os.close(fd1)
         except OSError as ose:
             self.fail("Open failed with %s" %ose.strerror)
-        else:
-            os.close(fd1)
         finally:
             os.close(fd)
             os.remove(tmpfile)
