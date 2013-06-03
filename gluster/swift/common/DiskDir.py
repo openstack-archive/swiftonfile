@@ -55,71 +55,96 @@ def _read_metadata(dd):
 
 def filter_prefix(objects, prefix):
     """
-    Accept sorted list.
+    Accept a sorted list of strings, returning all strings starting with the
+    given prefix.
     """
-    found = 0
-    filtered_objs = []
+    found = False
     for object_name in objects:
         if object_name.startswith(prefix):
-            filtered_objs.append(object_name)
-            found = 1
+            yield object_name
+            found = True
         else:
+            # Since the list is assumed to be sorted, once we find an object
+            # name that does not start with the prefix we know we won't find
+            # any others, so we exit early.
             if found:
                 break
-    return filtered_objs
 
 
-def filter_delimiter(objects, delimiter, prefix):
+def filter_delimiter(objects, delimiter, prefix, marker, path=None):
     """
-    Accept sorted list.
-    Objects should start with prefix.
+    Accept a sorted list of strings, returning strings that:
+      1. begin with "prefix" (empty string matches all)
+      2. does not match the "path" argument
+      3. does not contain the delimiter in the given prefix length
+      4.
+    be those that start with the prefix.
     """
-    filtered_objs = []
+    assert delimiter
+    assert prefix is not None
+    skip_name = None
     for object_name in objects:
-        tmp_obj = object_name.replace(prefix, '', 1)
-        sufix = tmp_obj.split(delimiter, 1)
-        new_obj = prefix + sufix[0]
-        if new_obj and new_obj not in filtered_objs:
-            filtered_objs.append(new_obj)
-
-    return filtered_objs
+        if prefix and not object_name.startswith(prefix):
+            break
+        if path is not None:
+            if object_name == path:
+                continue
+            if skip_name:
+                if object_name < skip_name:
+                    continue
+                else:
+                    skip_name = None
+            end = object_name.find(delimiter, len(prefix))
+            if end >= 0 and (len(object_name) > (end + 1)):
+                skip_name = object_name[:end] + chr(ord(delimiter) + 1)
+                continue
+        else:
+            if skip_name:
+                if object_name < skip_name:
+                    continue
+                else:
+                    skip_name = None
+            end = object_name.find(delimiter, len(prefix))
+            if end > 0:
+                dir_name = object_name[:end + 1]
+                if dir_name != marker:
+                    yield dir_name
+                skip_name = object_name[:end] + chr(ord(delimiter) + 1)
+                continue
+        yield object_name
 
 
 def filter_marker(objects, marker):
     """
-    TODO: We can traverse in reverse order to optimize.
-    Accept sorted list.
+    Accept sorted list of strings, return all strings whose value is strictly
+    greater than the given marker value.
     """
-    filtered_objs = []
-    if objects[-1] < marker:
-        return filtered_objs
     for object_name in objects:
         if object_name > marker:
-            filtered_objs.append(object_name)
+            yield object_name
 
-    return filtered_objs
+
+def filter_prefix_as_marker(objects, prefix):
+    """
+    Accept sorted list of strings, return all strings whose value is greater
+    than or equal to the given prefix value.
+    """
+    for object_name in objects:
+        if object_name >= prefix:
+            yield object_name
 
 
 def filter_end_marker(objects, end_marker):
     """
-    Accept sorted list.
+    Accept a list of strings, sorted, and return all the strings that are
+    strictly less than the given end_marker string. We perform this as a
+    generator to avoid creating potentially large intermediate object lists.
     """
-    filtered_objs = []
     for object_name in objects:
         if object_name < end_marker:
-            filtered_objs.append(object_name)
+            yield object_name
         else:
             break
-
-    return filtered_objs
-
-
-def filter_limit(objects, limit):
-    filtered_objs = []
-    for i in range(0, limit):
-        filtered_objs.append(objects[i])
-
-    return filtered_objs
 
 
 class DiskCommon(object):
@@ -264,53 +289,82 @@ class DiskDir(DiskCommon):
         """
         Returns tuple of name, created_at, size, content_type, etag.
         """
+        assert limit >= 0
+        assert not delimiter or (len(delimiter) == 1 and ord(delimiter) <= 254)
+
         if path is not None:
-            prefix = path
             if path:
                 prefix = path = path.rstrip('/') + '/'
+            else:
+                prefix = path
             delimiter = '/'
         elif delimiter and not prefix:
             prefix = ''
 
-        objects = self.update_object_count()
+        container_list = []
 
+        objects = self.update_object_count()
         if objects:
             objects.sort()
-
-        if objects and prefix:
-            objects = filter_prefix(objects, prefix)
-
-        if objects and delimiter:
-            objects = filter_delimiter(objects, delimiter, prefix)
-
-        if objects and marker:
-            objects = filter_marker(objects, marker)
+        else:
+            return container_list
 
         if objects and end_marker:
             objects = filter_end_marker(objects, end_marker)
 
-        if objects and limit:
-            if len(objects) > limit:
-                objects = filter_limit(objects, limit)
-
-        container_list = []
         if objects:
-            for obj in objects:
-                obj_path = os.path.join(self.datadir, obj)
-                metadata = read_metadata(obj_path)
-                if not metadata or not validate_object(metadata):
-                    metadata = create_object_metadata(obj_path)
-                if Glusterfs.OBJECT_ONLY and metadata \
-                        and metadata[X_CONTENT_TYPE] == DIR_TYPE:
-                    continue
-                list_item = []
-                list_item.append(obj)
-                if metadata:
-                    list_item.append(metadata[X_TIMESTAMP])
-                    list_item.append(int(metadata[X_CONTENT_LENGTH]))
-                    list_item.append(metadata[X_CONTENT_TYPE])
-                    list_item.append(metadata[X_ETAG])
-                container_list.append(list_item)
+            if marker and marker >= prefix:
+                objects = filter_marker(objects, marker)
+            elif prefix:
+                objects = filter_prefix_as_marker(objects, prefix)
+
+        if prefix is None:
+            # No prefix, we don't need to apply the other arguments, we just
+            # return what we have.
+            pass
+        else:
+            # We have a non-None (for all intents and purposes it is a string)
+            # prefix.
+            if not delimiter:
+                if not prefix:
+                    # We have nothing more to do
+                    pass
+                else:
+                    objects = filter_prefix(objects, prefix)
+            else:
+                objects = filter_delimiter(objects, delimiter, prefix, marker,
+                                           path)
+
+        count = 0
+        for obj in objects:
+            obj_path = os.path.join(self.datadir, obj)
+            metadata = read_metadata(obj_path)
+            if not metadata or not validate_object(metadata):
+                if delimiter == '/' and obj_path[-1] == delimiter:
+                    clean_obj_path = obj_path[:-1]
+                else:
+                    clean_obj_path = obj_path
+                try:
+                    metadata = create_object_metadata(clean_obj_path)
+                except OSError as e:
+                    # FIXME - total hack to get upstream swift ported unit
+                    # test cases working for now.
+                    if e.errno != errno.ENOENT:
+                        raise
+            if Glusterfs.OBJECT_ONLY and metadata \
+                    and metadata[X_CONTENT_TYPE] == DIR_TYPE:
+                continue
+            list_item = []
+            list_item.append(obj)
+            if metadata:
+                list_item.append(metadata[X_TIMESTAMP])
+                list_item.append(int(metadata[X_CONTENT_LENGTH]))
+                list_item.append(metadata[X_CONTENT_TYPE])
+                list_item.append(metadata[X_ETAG])
+            container_list.append(list_item)
+            count += 1
+            if count >= limit:
+                break
 
         return container_list
 
@@ -525,49 +579,62 @@ class DiskAccount(DiskDir):
         if delimiter and not prefix:
             prefix = ''
 
+        account_list = []
         containers = self.update_container_count()
-
         if containers:
             containers.sort()
-
-        if containers and prefix:
-            containers = filter_prefix(containers, prefix)
-
-        if containers and delimiter:
-            containers = filter_delimiter(containers, delimiter, prefix)
-
-        if containers and marker:
-            containers = filter_marker(containers, marker)
+        else:
+            return account_list
 
         if containers and end_marker:
             containers = filter_end_marker(containers, end_marker)
 
-        if containers and limit:
-            if len(containers) > limit:
-                containers = filter_limit(containers, limit)
-
-        account_list = []
         if containers:
-            for cont in containers:
-                list_item = []
-                metadata = None
-                list_item.append(cont)
-                cont_path = os.path.join(self.datadir, cont)
-                metadata = _read_metadata(cont_path)
-                if not metadata or not validate_container(metadata):
-                    try:
-                        metadata = create_container_metadata(cont_path)
-                    except OSError as e:
-                        # FIXME - total hack to get port unit test cases
-                        # working for now.
-                        if e.errno != errno.ENOENT:
-                            raise
+            if marker and marker >= prefix:
+                containers = filter_marker(containers, marker)
+            elif prefix:
+                containers = filter_prefix_as_marker(containers, prefix)
 
-                if metadata:
-                    list_item.append(metadata[X_OBJECTS_COUNT][0])
-                    list_item.append(metadata[X_BYTES_USED][0])
-                    list_item.append(0)
-                account_list.append(list_item)
+        if prefix is None:
+            # No prefix, we don't need to apply the other arguments, we just
+            # return what we have.
+            pass
+        else:
+            # We have a non-None (for all intents and purposes it is a string)
+            # prefix.
+            if not delimiter:
+                if not prefix:
+                    # We have nothing more to do
+                    pass
+                else:
+                    containers = filter_prefix(containers, prefix)
+            else:
+                containers = filter_delimiter(containers, delimiter, prefix,
+                                              marker)
+
+        count = 0
+        for cont in containers:
+            list_item = []
+            metadata = None
+            list_item.append(cont)
+            cont_path = os.path.join(self.datadir, cont)
+            metadata = _read_metadata(cont_path)
+            if not metadata or not validate_container(metadata):
+                try:
+                    metadata = create_container_metadata(cont_path)
+                except OSError as e:
+                    # FIXME - total hack to get port unit test cases
+                    # working for now.
+                    if e.errno != errno.ENOENT:
+                        raise
+            if metadata:
+                list_item.append(metadata[X_OBJECTS_COUNT][0])
+                list_item.append(metadata[X_BYTES_USED][0])
+                list_item.append(0)
+            account_list.append(list_item)
+            count += 1
+            if count >= limit:
+                break
 
         return account_list
 

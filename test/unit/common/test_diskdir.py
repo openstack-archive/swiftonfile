@@ -518,7 +518,7 @@ class TestContainerBroker(unittest.TestCase):
         # Test swift.common.db.ContainerBroker.get_info
         broker = self._get_broker(account='test1',
                                  container='test2')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         info = broker.get_info()
         self.assertEquals(info['account'], 'test1')
@@ -565,7 +565,7 @@ class TestContainerBroker(unittest.TestCase):
     def test_set_x_syncs(self):
         broker = self._get_broker(account='test1',
                                  container='test2')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         info = broker.get_info()
         self.assertEquals(info['x_container_sync_point1'], -1)
@@ -579,7 +579,7 @@ class TestContainerBroker(unittest.TestCase):
     def test_list_objects_iter(self):
         # Test swift.common.db.ContainerBroker.list_objects_iter
         broker = self._get_broker(account='a', container='c')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         for obj1 in xrange(4):
             for obj2 in xrange(125):
@@ -634,17 +634,17 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEquals(len(listing), 0)
 
         listing = broker.list_objects_iter(10, '2.d/0050', None, '2.d/', '/')
-        self.assertEquals(len(listing), 9)
+        self.assertEquals(len(listing), 10)
         self.assertEquals(listing[0][0], '2.d/0051')
         self.assertEquals(listing[1][0], '2.d/0052')
-        self.assertEquals(listing[-1][0], '2.d/0059')
+        self.assertEquals(listing[-1][0], '2.d/0060')
 
         listing = broker.list_objects_iter(10, '3.d/0045', None, '3.d/', '/')
-        self.assertEquals(len(listing), 5)
+        self.assertEquals(len(listing), 10)
         self.assertEquals([row[0] for row in listing],
-                           ['3.d/0046', '3.d/0047',
-                            '3.d/0048', '3.d/0049',
-                            '3.d/0050'])
+                           ['3.d/0046', '3.d/0047', '3.d/0048', '3.d/0049',
+                            '3.d/0050', '3.d/0051', '3.d/0052', '3.d/0053',
+                            '3.d/0054', '3.d/0055'])
 
         # FIXME
         #broker.put_object('3/0049/', normalize_timestamp(time()), 0,
@@ -657,35 +657,141 @@ class TestContainerBroker(unittest.TestCase):
         #    '3.d/0052', '3.d/0052.d/0049'])
 
         listing = broker.list_objects_iter(10, '3.d/0048', None, '3.d/', '/')
-        self.assertEquals(len(listing), 5)
+        self.assertEquals(len(listing), 10)
         self.assertEquals([row[0] for row in listing],
-            ['3.d/0049', '3.d/0050',
-             '3.d/0051', '3.d/0052', '3.d/0053'])
+            ['3.d/0049', '3.d/0050', '3.d/0051', '3.d/0052', '3.d/0053',
+             '3.d/0054', '3.d/0055', '3.d/0056', '3.d/0057', '3.d/0058'])
 
         listing = broker.list_objects_iter(10, None, None, '3.d/0049.d/', '/')
         self.assertEquals(len(listing), 1)
         self.assertEquals([row[0] for row in listing],
             ['3.d/0049.d/0049'])
 
-        # FIXME
-        #listing = broker.list_objects_iter(10, None, None, None, None,
-        #                                   '3.d/0049')
-        #self.assertEquals(len(listing), 1)
-        #self.assertEquals([row[0] for row in listing], ['3.d/0049.d/0049'])
+        listing = broker.list_objects_iter(10, None, None, None, None,
+                                           '3.d/0049.d')
+        self.assertEquals(len(listing), 1)
+        self.assertEquals([row[0] for row in listing], ['3.d/0049.d/0049'])
 
         listing = broker.list_objects_iter(2, None, None, '3.d/', '/')
-        self.assertEquals(len(listing), 1)
-        self.assertEquals([row[0] for row in listing], ['3.d/0000'])
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing], ['3.d/0000', '3.d/0001'])
 
-        # FIXME
-        #listing = broker.list_objects_iter(2, None, None, None, None, '3')
-        #self.assertEquals(len(listing), 2)
-        #self.assertEquals([row[0] for row in listing], ['3.d/0000', '3.d/0001'])
+        listing = broker.list_objects_iter(2, None, None, None, None, '3.d')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing], ['3.d/0000', '3.d/0001'])
+
+    def test_list_objects_iter_non_slash(self):
+        # Test swift.common.db.ContainerBroker.list_objects_iter using a
+        # delimiter that is not a slash
+        broker = self._get_broker(account='a', container='c')
+        broker.initialize(self.initial_ts)
+
+        for obj1 in xrange(4):
+            for obj2 in xrange(125):
+                self._create_file('%d:%04d' % (obj1, obj2))
+        for obj in xrange(125):
+            self._create_file('2:0051:%04d' % obj)
+        for obj in xrange(125):
+            self._create_file('3:%04d:0049' % obj)
+
+        listing = broker.list_objects_iter(100, '', None, None, '')
+        self.assertEquals(len(listing), 100)
+        self.assertEquals(listing[0][0], '0:0000')
+        self.assertEquals(listing[-1][0], '0:0099')
+
+        listing = broker.list_objects_iter(100, '', '0:0050', None, '')
+        self.assertEquals(len(listing), 50)
+        self.assertEquals(listing[0][0], '0:0000')
+        self.assertEquals(listing[-1][0], '0:0049')
+
+        listing = broker.list_objects_iter(100, '0:0099', None, None, '')
+        self.assertEquals(len(listing), 100)
+        self.assertEquals(listing[0][0], '0:0100')
+        self.assertEquals(listing[-1][0], '1:0074')
+
+        listing = broker.list_objects_iter(55, '1:0074', None, None, '')
+        self.assertEquals(len(listing), 55)
+        self.assertEquals(listing[0][0], '1:0075')
+        self.assertEquals(listing[-1][0], '2:0004')
+
+        listing = broker.list_objects_iter(10, '', None, '0:01', '')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals(listing[0][0], '0:0100')
+        self.assertEquals(listing[-1][0], '0:0109')
+
+        listing = broker.list_objects_iter(10, '', None, '0:', ':')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals(listing[0][0], '0:0000')
+        self.assertEquals(listing[-1][0], '0:0009')
+
+        # Same as above, but using the path argument, so nothing should be
+        # returned since path uses a '/' as a delimiter.
+        listing = broker.list_objects_iter(10, '', None, None, '', '0')
+        self.assertEquals(len(listing), 0)
+
+        listing = broker.list_objects_iter(10, '', None, '', ':')
+        self.assertEquals(len(listing), 4)
+        self.assertEquals([row[0] for row in listing],
+                          ['0:', '1:', '2:', '3:'])
+
+        listing = broker.list_objects_iter(10, '2', None, None, ':')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing], ['2:', '3:'])
+
+        listing = broker.list_objects_iter(10, '2:', None,  None, ':')
+        self.assertEquals(len(listing), 1)
+        self.assertEquals([row[0] for row in listing], ['3:'])
+
+        listing = broker.list_objects_iter(10, '2:0050', None, '2:', ':')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals(listing[0][0], '2:0051')
+        self.assertEquals(listing[1][0], '2:0051:')
+        self.assertEquals(listing[2][0], '2:0052')
+        self.assertEquals(listing[-1][0], '2:0059')
+
+        listing = broker.list_objects_iter(10, '3:0045', None, '3:', ':')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals([row[0] for row in listing],
+                           ['3:0045:', '3:0046', '3:0046:', '3:0047',
+                            '3:0047:', '3:0048', '3:0048:', '3:0049',
+                            '3:0049:', '3:0050'])
+
+        self._create_file('3:0049:')
+        listing = broker.list_objects_iter(10, '3:0048', None, None, None)
+        self.assertEquals(len(listing), 10)
+        self.assertEquals([row[0] for row in listing],
+            ['3:0048:0049', '3:0049', '3:0049:',
+            '3:0049:0049', '3:0050', '3:0050:0049', '3:0051', '3:0051:0049',
+            '3:0052', '3:0052:0049'])
+
+        listing = broker.list_objects_iter(10, '3:0048', None, '3:', ':')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals([row[0] for row in listing],
+            ['3:0048:', '3:0049', '3:0049:', '3:0050',
+            '3:0050:', '3:0051', '3:0051:', '3:0052', '3:0052:', '3:0053'])
+
+        listing = broker.list_objects_iter(10, None, None, '3:0049:', ':')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing],
+            ['3:0049:', '3:0049:0049'])
+
+        # Same as above, but using the path argument, so nothing should be
+        # returned since path uses a '/' as a delimiter.
+        listing = broker.list_objects_iter(10, None, None, None, None,
+                                           '3:0049')
+        self.assertEquals(len(listing), 0)
+
+        listing = broker.list_objects_iter(2, None, None, '3:', ':')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing], ['3:0000', '3:0000:'])
+
+        listing = broker.list_objects_iter(2, None, None, None, None, '3')
+        self.assertEquals(len(listing), 0)
 
     def test_list_objects_iter_prefix_delim(self):
         # Test swift.common.db.ContainerBroker.list_objects_iter
         broker = self._get_broker(account='a', container='c')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         os.mkdir(os.path.join(self.container, 'pets'))
         os.mkdir(os.path.join(self.container, 'pets', 'dogs'))
@@ -723,7 +829,7 @@ class TestContainerBroker(unittest.TestCase):
         # Test swift.common.db.ContainerBroker.list_objects_iter for a
         # container that has an odd file with a trailing delimiter
         broker = self._get_broker(account='a', container='c')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         self._create_file('a')
         self._create_file('a.d/a')
@@ -769,10 +875,65 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEquals(len(listing), 2)
         self.assertEquals([row[0] for row in listing], ['b.d/a', 'b.d/b'])
 
+    def test_double_check_trailing_delimiter_non_slash(self):
+        # Test swift.common.db.ContainerBroker.list_objects_iter for a
+        # container that has an odd file with a trailing delimiter
+        broker = self._get_broker(account='a', container='c')
+        broker.initialize(self.initial_ts)
+
+        self._create_file('a')
+        self._create_file('a:')
+        self._create_file('a:a')
+        self._create_file('a:a:a')
+        self._create_file('a:a:b')
+        self._create_file('a:b')
+        self._create_file('b')
+        self._create_file('b:a')
+        self._create_file('b:b')
+        self._create_file('c')
+        self._create_file('a:0')
+        self._create_file('0')
+        self._create_file('0:')
+        self._create_file('00')
+        self._create_file('0:0')
+        self._create_file('0:00')
+        self._create_file('0:1')
+        self._create_file('0:1:')
+        self._create_file('0:1:0')
+        self._create_file('1')
+        self._create_file('1:')
+        self._create_file('1:0')
+
+        listing = broker.list_objects_iter(25, None, None, None, None)
+        self.assertEquals(len(listing), 22)
+        self.assertEquals([row[0] for row in listing],
+        ['0', '00', '0:', '0:0', '0:00', '0:1', '0:1:', '0:1:0', '1', '1:',
+         '1:0', 'a', 'a:', 'a:0', 'a:a', 'a:a:a', 'a:a:b', 'a:b', 'b', 'b:a',
+         'b:b', 'c'])
+        listing = broker.list_objects_iter(25, None, None, '', ':')
+        self.assertEquals(len(listing), 10)
+        self.assertEquals([row[0] for row in listing],
+        ['0', '00', '0:', '1', '1:', 'a', 'a:', 'b', 'b:', 'c'])
+        listing = broker.list_objects_iter(25, None, None, 'a:', ':')
+        self.assertEquals(len(listing), 5)
+        self.assertEquals([row[0] for row in listing],
+        ['a:', 'a:0', 'a:a', 'a:a:', 'a:b'])
+        listing = broker.list_objects_iter(25, None, None, '0:', ':')
+        self.assertEquals(len(listing), 5)
+        self.assertEquals([row[0] for row in listing],
+        ['0:', '0:0', '0:00', '0:1', '0:1:'])
+        listing = broker.list_objects_iter(25, None, None, '0:1:', ':')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing],
+        ['0:1:', '0:1:0'])
+        listing = broker.list_objects_iter(25, None, None, 'b:', ':')
+        self.assertEquals(len(listing), 2)
+        self.assertEquals([row[0] for row in listing], ['b:a', 'b:b'])
+
     def test_metadata(self):
         # Initializes a good broker for us
         broker = self._get_broker(account='a', container='c')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         # Add our first item
         first_timestamp = normalize_timestamp(1)
@@ -916,7 +1077,7 @@ class TestAccountBroker(unittest.TestCase):
     def test_get_info(self):
         # Test swift.common.db.AccountBroker.get_info
         broker = self._get_broker(account='test1')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
 
         info = broker.get_info()
         self.assertEquals(info['account'], 'test1')
@@ -947,7 +1108,7 @@ class TestAccountBroker(unittest.TestCase):
     def test_list_containers_iter(self):
         # Test swift.common.db.AccountBroker.list_containers_iter
         broker = self._get_broker(account='a')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
         for cont1 in xrange(4):
             for cont2 in xrange(125):
                 self._create_container('%d-%04d' % (cont1, cont2))
@@ -994,27 +1155,29 @@ class TestAccountBroker(unittest.TestCase):
         listing = broker.list_containers_iter(10, '', None, '', '-')
         self.assertEquals(len(listing), 4)
         self.assertEquals([row[0] for row in listing],
-                          ['0', '1', '2', '3'])
+                          ['0-', '1-', '2-', '3-'])
 
         listing = broker.list_containers_iter(10, '2-', None, None, '-')
         self.assertEquals(len(listing), 1)
-        self.assertEquals([row[0] for row in listing], ['3'])
+        self.assertEquals([row[0] for row in listing], ['3-'])
 
         listing = broker.list_containers_iter(10, '', None, '2', '-')
         self.assertEquals(len(listing), 1)
-        self.assertEquals([row[0] for row in listing], ['2'])
+        self.assertEquals([row[0] for row in listing], ['2-'])
 
         listing = broker.list_containers_iter(10, '2-0050', None, '2-', '-')
         self.assertEquals(len(listing), 10)
         self.assertEquals(listing[0][0], '2-0051')
-        self.assertEquals(listing[1][0], '2-0052')
-        self.assertEquals(listing[-1][0], '2-0060')
+        self.assertEquals(listing[1][0], '2-0051-')
+        self.assertEquals(listing[2][0], '2-0052')
+        self.assertEquals(listing[-1][0], '2-0059')
 
         listing = broker.list_containers_iter(10, '3-0045', None, '3-', '-')
         self.assertEquals(len(listing), 10)
         self.assertEquals([row[0] for row in listing],
-                           ['3-0046', '3-0047', '3-0048', '3-0049', '3-0050',
-                            '3-0051', '3-0052', '3-0053', '3-0054', '3-0055'])
+                           ['3-0045-', '3-0046', '3-0046-', '3-0047',
+                            '3-0047-', '3-0048', '3-0048-', '3-0049',
+                            '3-0049-', '3-0050'])
 
         self._create_container('3-0049-')
         listing = broker.list_containers_iter(10, '3-0048', None, None, None)
@@ -1027,8 +1190,9 @@ class TestAccountBroker(unittest.TestCase):
         listing = broker.list_containers_iter(10, '3-0048', None, '3-', '-')
         self.assertEquals(len(listing), 10)
         self.assertEquals([row[0] for row in listing],
-                           ['3-0049', '3-0050', '3-0051', '3-0052', '3-0053',
-                            '3-0054', '3-0055', '3-0056', '3-0057', '3-0058'])
+                           ['3-0048-', '3-0049', '3-0049-', '3-0050',
+                            '3-0050-', '3-0051', '3-0051-', '3-0052',
+                            '3-0052-', '3-0053'])
 
         listing = broker.list_containers_iter(10, None, None, '3-0049-', '-')
         self.assertEquals(len(listing), 2)
@@ -1037,9 +1201,9 @@ class TestAccountBroker(unittest.TestCase):
 
     def test_double_check_trailing_delimiter(self):
         # Test swift.common.db.AccountBroker.list_containers_iter for an
-        # account that has an odd file with a trailing delimiter
+        # account that has an odd container with a trailing delimiter
         broker = self._get_broker(account='a')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
         self._create_container('a')
         self._create_container('a-')
         self._create_container('a-a')
@@ -1050,26 +1214,27 @@ class TestAccountBroker(unittest.TestCase):
         self._create_container('b-a')
         self._create_container('b-b')
         self._create_container('c')
+
         listing = broker.list_containers_iter(15, None, None, None, None)
         self.assertEquals(len(listing), 10)
         self.assertEquals([row[0] for row in listing],
                            ['a', 'a-', 'a-a', 'a-a-a', 'a-a-b', 'a-b', 'b',
                             'b-a', 'b-b', 'c'])
         listing = broker.list_containers_iter(15, None, None, '', '-')
-        self.assertEquals(len(listing), 3)
+        self.assertEquals(len(listing), 5)
         self.assertEquals([row[0] for row in listing],
-                          ['a', 'b', 'c'])
+                          ['a', 'a-', 'b', 'b-', 'c'])
         listing = broker.list_containers_iter(15, None, None, 'a-', '-')
-        self.assertEquals(len(listing), 3)
+        self.assertEquals(len(listing), 4)
         self.assertEquals([row[0] for row in listing],
-                          ['a-', 'a-a', 'a-b'])
+                          ['a-', 'a-a', 'a-a-', 'a-b'])
         listing = broker.list_containers_iter(15, None, None, 'b-', '-')
         self.assertEquals(len(listing), 2)
         self.assertEquals([row[0] for row in listing], ['b-a', 'b-b'])
 
     def test_delete_db(self):
         broker = self._get_broker(account='a')
-        broker.initialize(normalize_timestamp('1'))
+        broker.initialize(self.initial_ts)
         self.assertEqual(broker.db_file, dd._db_file)
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
