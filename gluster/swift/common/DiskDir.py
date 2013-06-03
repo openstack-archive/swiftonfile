@@ -53,73 +53,78 @@ def _read_metadata(dd):
     return metadata
 
 
+def filter_prefix(objects, prefix):
+    """
+    Accept sorted list.
+    """
+    found = 0
+    filtered_objs = []
+    for object_name in objects:
+        if object_name.startswith(prefix):
+            filtered_objs.append(object_name)
+            found = 1
+        else:
+            if found:
+                break
+    return filtered_objs
+
+
+def filter_delimiter(objects, delimiter, prefix):
+    """
+    Accept sorted list.
+    Objects should start with prefix.
+    """
+    filtered_objs = []
+    for object_name in objects:
+        tmp_obj = object_name.replace(prefix, '', 1)
+        sufix = tmp_obj.split(delimiter, 1)
+        new_obj = prefix + sufix[0]
+        if new_obj and new_obj not in filtered_objs:
+            filtered_objs.append(new_obj)
+
+    return filtered_objs
+
+
+def filter_marker(objects, marker):
+    """
+    TODO: We can traverse in reverse order to optimize.
+    Accept sorted list.
+    """
+    filtered_objs = []
+    if objects[-1] < marker:
+        return filtered_objs
+    for object_name in objects:
+        if object_name > marker:
+            filtered_objs.append(object_name)
+
+    return filtered_objs
+
+
+def filter_end_marker(objects, end_marker):
+    """
+    Accept sorted list.
+    """
+    filtered_objs = []
+    for object_name in objects:
+        if object_name < end_marker:
+            filtered_objs.append(object_name)
+        else:
+            break
+
+    return filtered_objs
+
+
+def filter_limit(objects, limit):
+    filtered_objs = []
+    for i in range(0, limit):
+        filtered_objs.append(objects[i])
+
+    return filtered_objs
+
+
 class DiskCommon(object):
     def is_deleted(self):
         return not os_path.exists(self.datadir)
-
-    def filter_prefix(self, objects, prefix):
-        """
-        Accept sorted list.
-        """
-        found = 0
-        filtered_objs = []
-        for object_name in objects:
-            if object_name.startswith(prefix):
-                filtered_objs.append(object_name)
-                found = 1
-            else:
-                if found:
-                    break
-        return filtered_objs
-
-    def filter_delimiter(self, objects, delimiter, prefix):
-        """
-        Accept sorted list.
-        Objects should start with prefix.
-        """
-        filtered_objs = []
-        for object_name in objects:
-            tmp_obj = object_name.replace(prefix, '', 1)
-            sufix = tmp_obj.split(delimiter, 1)
-            new_obj = prefix + sufix[0]
-            if new_obj and new_obj not in filtered_objs:
-                filtered_objs.append(new_obj)
-
-        return filtered_objs
-
-    def filter_marker(self, objects, marker):
-        """
-        TODO: We can traverse in reverse order to optimize.
-        Accept sorted list.
-        """
-        filtered_objs = []
-        if objects[-1] < marker:
-            return filtered_objs
-        for object_name in objects:
-            if object_name > marker:
-                filtered_objs.append(object_name)
-
-        return filtered_objs
-
-    def filter_end_marker(self, objects, end_marker):
-        """
-        Accept sorted list.
-        """
-        filtered_objs = []
-        for object_name in objects:
-            if object_name < end_marker:
-                filtered_objs.append(object_name)
-            else:
-                break
-
-        return filtered_objs
-
-    def filter_limit(self, objects, limit):
-        filtered_objs = []
-        for i in range(0, limit):
-            filtered_objs.append(objects[i])
-
-        return filtered_objs
 
 
 class DiskDir(DiskCommon):
@@ -273,20 +278,20 @@ class DiskDir(DiskCommon):
             objects.sort()
 
         if objects and prefix:
-            objects = self.filter_prefix(objects, prefix)
+            objects = filter_prefix(objects, prefix)
 
         if objects and delimiter:
-            objects = self.filter_delimiter(objects, delimiter, prefix)
+            objects = filter_delimiter(objects, delimiter, prefix)
 
         if objects and marker:
-            objects = self.filter_marker(objects, marker)
+            objects = filter_marker(objects, marker)
 
         if objects and end_marker:
-            objects = self.filter_end_marker(objects, end_marker)
+            objects = filter_end_marker(objects, end_marker)
 
         if objects and limit:
             if len(objects) > limit:
-                objects = self.filter_limit(objects, limit)
+                objects = filter_limit(objects, limit)
 
         container_list = []
         if objects:
@@ -526,20 +531,20 @@ class DiskAccount(DiskDir):
             containers.sort()
 
         if containers and prefix:
-            containers = self.filter_prefix(containers, prefix)
+            containers = filter_prefix(containers, prefix)
 
         if containers and delimiter:
-            containers = self.filter_delimiter(containers, delimiter, prefix)
+            containers = filter_delimiter(containers, delimiter, prefix)
 
         if containers and marker:
-            containers = self.filter_marker(containers, marker)
+            containers = filter_marker(containers, marker)
 
         if containers and end_marker:
-            containers = self.filter_end_marker(containers, end_marker)
+            containers = filter_end_marker(containers, end_marker)
 
         if containers and limit:
             if len(containers) > limit:
-                containers = self.filter_limit(containers, limit)
+                containers = filter_limit(containers, limit)
 
         account_list = []
         if containers:
