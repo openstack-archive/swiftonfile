@@ -24,7 +24,6 @@ import shutil
 import tarfile
 import hashlib
 from time import time
-from nose import SkipTest
 from swift.common.utils import normalize_timestamp
 from gluster.swift.common import utils
 import gluster.swift.common.Glusterfs
@@ -63,9 +62,6 @@ def timestamp_in_range(ts, base):
 
 class TestDiskDirModuleFunctions(unittest.TestCase):
     """ Tests for gluster.swift.common.DiskDir module functions """
-
-    def setUp(self):
-        raise SkipTest
 
     def test__read_metadata(self):
         def fake_read_metadata(p):
@@ -180,90 +176,83 @@ class TestDiskDirModuleFunctions(unittest.TestCase):
         out_objs = dd.filter_prefix(in_objs, prefix)
         assert list(out_objs) == ['abc_123', 'abc_456', 'abc_789']
 
+        in_objs, prefix = ['ABC_123', 'ABC_456', 'abc_123', 'abc_456', 'abc_789', 'def_101'], 'abc'
+        out_objs = dd.filter_prefix(in_objs, prefix)
+        assert list(out_objs) == ['abc_123', 'abc_456', 'abc_789']
+
         in_objs, prefix = ['abc_123', 'def_101', 'abc_456', 'abc_789'], 'abc'
         out_objs = dd.filter_prefix(in_objs, prefix)
         assert list(out_objs) == ['abc_123',]
 
     def test_filter_delimiter(self):
-        in_objs, delimiter, prefix = [], None, ''
+        in_objs, delimiter, prefix, marker = [], None, '', ''
         try:
-            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
-        except AssertionError:
-            pass
-        except Exception:
-            raise SkipTest
-            self.fail("Failed to raise assertion")
-
-        in_objs, delimiter, prefix = [], '', ''
-        try:
-            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         except AssertionError:
             pass
         except Exception:
             self.fail("Failed to raise assertion")
 
-        in_objs, delimiter, prefix = [], str(255), ''
+        in_objs, delimiter, prefix, marker = [], '', '', ''
         try:
-            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         except AssertionError:
             pass
         except Exception:
             self.fail("Failed to raise assertion")
 
-        in_objs, delimiter, prefix = [], '_', ''
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+        in_objs, delimiter, prefix, marker = [], str(255), '', ''
+        try:
+            out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
+        except AssertionError:
+            pass
+        except Exception:
+            self.fail("Failed to raise assertion")
+
+        in_objs, delimiter, prefix, marker = [], '_', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         assert list(out_objs) == []
 
-        in_objs, delimiter, prefix = ['abc_'], '_', ''
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+        in_objs, delimiter, prefix, marker = ['abc_'], '_', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         assert list(out_objs) == in_objs
 
-        in_objs, delimiter, prefix = ['abc_123', 'abc_456'], '_', ''
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+        in_objs, delimiter, prefix, marker = ['abc_123', 'abc_456'], '_', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         assert list(out_objs) == ['abc_']
 
-        in_objs, delimiter, prefix = ['abc_123', 'abc_456', 'def_123', 'def_456'], '_', ''
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+        in_objs, delimiter, prefix, marker = ['abc_123', 'abc_456', 'def_123', 'def_456'], '_', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         assert list(out_objs) == ['abc_', 'def_']
 
-        in_objs, delimiter, prefix = ['abc_123', 'abc_456', 'abc_789', 'def_101'], '_', 'abc_'
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
+        in_objs, delimiter, prefix, marker = ['abc_123', 'abc_456', 'abc_789', 'def_101'], '_', 'abc_', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
         l = list(out_objs)
         assert l == ['abc_123', 'abc_456', 'abc_789'], repr(l)
 
-        in_objs, delimiter, prefix = ['abc_123_a', 'abc_456', 'abc_789_', 'def_101'], '_', 'abc_'
-        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix)
-        assert list(out_objs) == ['abc_123_a', 'abc_789_']
+        in_objs, delimiter, prefix, marker = ['abc_123_a', 'abc_456', 'abc_789_', 'def_101'], '_', 'abc_', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker)
+        l = list(out_objs)
+        assert l == ['abc_123_', 'abc_456', 'abc_789_'], repr(l)
 
-    def test_filter_limit(self):
-        try:
-            l = list(dd.filter_limit([], 0))
-        except AssertionError:
-            pass
-        else:
-            self.fail("Accepted a zero limit")
+        in_objs, delimiter, prefix, marker, path = ['abc_123_a', 'abc_456', 'abc_789_', 'def_101'], '_', 'abc_', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker, path)
+        l = list(out_objs)
+        # FIXME: This appears to be a bug due to this upstream swift reference
+        # implementation of list_objects_iter, where the presence of a path
+        # forces a code path that does not add the match on a delimiter
+        assert l == ['abc_456', 'abc_789_'], repr(l)
 
-        l = list(dd.filter_limit([], 1))
-        assert l == []
-        l = list(dd.filter_limit([1,], 1))
-        assert l == [1,]
-        l = list(dd.filter_limit([1,], 10))
-        assert l == [1,]
-        l = list(dd.filter_limit([1,2,3], 1))
-        assert l == [1,]
-        l = list(dd.filter_limit([1,2,3], 2))
-        assert l == [1,2]
-        l = list(dd.filter_limit([1,2,3], 3))
-        assert l == [1,2,3]
-        l = list(dd.filter_limit([1,2,3], 4))
-        assert l == [1,2,3]
+        in_objs, delimiter, prefix, marker, path = ['abc/123', 'abc/456', 'def/123', 'def/456'], '/', 'abc/', '', ''
+        out_objs = dd.filter_delimiter(in_objs, delimiter, prefix, marker, path)
+        l = list(out_objs)
+        assert l == ['abc/123', 'abc/456'], repr(l)
 
 
 class TestDiskCommon(unittest.TestCase):
     """ Tests for gluster.swift.common.DiskDir.DiskCommon """
 
     def setUp(self):
-        raise SkipTest
         _initxattr()
         self.fake_logger = FakeLogger()
         self.td = tempfile.mkdtemp()
@@ -322,20 +311,6 @@ class TestDiskCommon(unittest.TestCase):
         assert dc.datadir == os.path.join(self.td, "dne0")
         assert dc._dir_exists is False
 
-    def test_initialize(self):
-        dc = dd.DiskCommon(self.td, self.fake_drives[0],
-                            self.fake_accounts[0], self.fake_logger)
-        dc.initialize('12345')
-        assert dc.metadata == {}
-        assert dc.db_file == dd._db_file
-        assert dc.pending_timeout == 0
-        assert dc.stale_reads_ok == False
-        assert dc.root == self.td
-        assert dc.logger == self.fake_logger
-        assert dc.account == self.fake_accounts[0]
-        assert dc.datadir == os.path.join(self.td, self.fake_drives[0])
-        assert dc._dir_exists is None
-
     def test_is_deleted(self):
         dc = dd.DiskCommon(self.td, self.fake_drives[0],
                             self.fake_accounts[0], self.fake_logger)
@@ -368,45 +343,6 @@ class TestDiskCommon(unittest.TestCase):
         assert dc.metadata == md, "%r != %r" % (dc.metadata, md)
         del dc.metadata['X-Container-Meta-foo']
         assert dc.metadata == md_copy
-
-
-class TestDiskDir(unittest.TestCase):
-    """ Tests for gluster.swift.common.DiskDir.DiskDir """
-
-    def setUp(self):
-        _initxattr()
-        self.fake_logger = FakeLogger()
-        self.td = tempfile.mkdtemp()
-        self.fake_drives = []
-        self.fake_accounts = []
-        for i in range(0,3):
-            self.fake_drives.append("drv%d" % i)
-            os.makedirs(os.path.join(self.td, self.fake_drives[i]))
-            self.fake_accounts.append(self.fake_drives[i])
-
-    def tearDown(self):
-        _destroyxattr()
-        shutil.rmtree(self.td)
-
-    def test_constructor(self):
-        raise SkipTest
-        self.fail("Implement me")
-
-    def test_empty(self):
-        raise SkipTest
-        self.fail("Implement me")
-
-    def test_list_objects_iter(self):
-        raise SkipTest
-        self.fail("Implement me")
-
-    def test_get_info(self):
-        raise SkipTest
-        self.fail("Implement me")
-
-    def test_delete_db(self):
-        raise SkipTest
-        self.fail("Implement me")
 
 
 class TestContainerBroker(unittest.TestCase):
@@ -1281,8 +1217,6 @@ class TestDiskAccount(unittest.TestCase):
     def test_constructor_no_metadata(self):
         da = dd.DiskAccount(self.td, self.fake_drives[0],
                             self.fake_accounts[0], self.fake_logger)
-        raise SkipTest
-        assert da._container_info is None
         assert da._dir_exists is True
         ctime = os.path.getctime(da.datadir)
         mtime = os.path.getmtime(da.datadir)
@@ -1298,8 +1232,6 @@ class TestDiskAccount(unittest.TestCase):
     def test_constructor_metadata_not_valid(self):
         da = dd.DiskAccount(self.td, self.fake_drives[1],
                             self.fake_accounts[1], self.fake_logger)
-        raise SkipTest
-        assert da._container_info is None
         assert da._dir_exists is True
         ctime = os.path.getctime(da.datadir)
         mtime = os.path.getmtime(da.datadir)
@@ -1316,8 +1248,6 @@ class TestDiskAccount(unittest.TestCase):
     def test_constructor_metadata_valid(self):
         da = dd.DiskAccount(self.td, self.fake_drives[2],
                             self.fake_accounts[2], self.fake_logger)
-        raise SkipTest
-        assert da._container_info is None
         assert da._dir_exists is True
         ctime = os.path.getctime(da.datadir)
         mtime = os.path.getmtime(da.datadir)
@@ -1329,12 +1259,6 @@ class TestDiskAccount(unittest.TestCase):
             'X-PUT-Timestamp': (normalize_timestamp(mtime), 0),
             'X-Container-Count': (0, 0)}
         assert da.metadata == exp_md, repr(da.metadata)
-
-    def test_list_containers_iter(self):
-        da = dd.DiskAccount(self.td, self.fake_drives[0],
-                            self.fake_accounts[0], self.fake_logger)
-        raise SkipTest
-        self.fail("Implement me")
 
     get_info_keys = set(['account', 'created_at', 'put_timestamp',
                         'delete_timestamp', 'container_count',
@@ -1380,7 +1304,6 @@ class TestDiskAccount(unittest.TestCase):
     def test_update_put_timestamp_not_updated(self):
         da = dd.DiskAccount(self.td, self.fake_drives[0],
                             self.fake_accounts[0], self.fake_logger)
-        raise SkipTest
         da.update_put_timestamp('12345')
         assert da.metadata['X-PUT-Timestamp'][0] != '12345', repr(da.metadata)
 
@@ -1389,23 +1312,16 @@ class TestDiskAccount(unittest.TestCase):
                             self.fake_accounts[0], self.fake_logger)
         exp_pts = str(float(da.metadata['X-PUT-Timestamp'][0]) + 100)
         da.update_put_timestamp(exp_pts)
-        raise SkipTest
         assert da.metadata['X-PUT-Timestamp'][0] == exp_pts, repr(da.metadata)
 
     def test_delete_db(self):
         da = dd.DiskAccount(self.td, self.fake_drives[0],
                             self.fake_accounts[0], self.fake_logger)
-        raise SkipTest
         assert da._dir_exists == True
         da.delete_db('12345')
         assert da._dir_exists == True
 
-    def test_put_container(self):
-        raise SkipTest
-        self.fail("Implement me")
-
     def test_is_status_deleted(self):
         da = dd.DiskAccount(self.td, self.fake_drives[0],
                             self.fake_accounts[0], self.fake_logger)
-        raise SkipTest
         assert da.is_status_deleted() == False

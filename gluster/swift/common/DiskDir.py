@@ -77,8 +77,6 @@ def filter_delimiter(objects, delimiter, prefix, marker, path=None):
       1. begin with "prefix" (empty string matches all)
       2. does not match the "path" argument
       3. does not contain the delimiter in the given prefix length
-      4.
-    be those that start with the prefix.
     """
     assert delimiter
     assert prefix is not None
@@ -148,8 +146,54 @@ def filter_end_marker(objects, end_marker):
 
 
 class DiskCommon(object):
+    """
+    Common fields and methods shared between DiskDir and DiskAccount classes.
+    """
+    def __init__(self, root, drive, account, logger):
+        # WARNING: The following four fields are referenced as fields by our
+        # callers outside of this module, do not remove.
+        # Create a dummy db_file in Glusterfs.RUN_DIR
+        global _db_file
+        if not _db_file:
+            _db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
+            if not os.path.exists(_db_file):
+                file(_db_file, 'w+')
+        self.db_file = _db_file
+        self.metadata = {}
+        self.pending_timeout = 0
+        self.stale_reads_ok = False
+        # The following fields are common
+        self.root = root
+        assert logger is not None
+        self.logger = logger
+        self.account = account
+        self.datadir = os.path.join(root, drive)
+        self._dir_exists = None
+
+    def _dir_exists_read_metadata(self):
+        self._dir_exists = os_path.exists(self.datadir)
+        if self._dir_exists:
+            self.metadata = _read_metadata(self.datadir)
+        return self._dir_exists
+
     def is_deleted(self):
+        # The intention of this method is to check the file system to see if
+        # the directory actually exists.
         return not os_path.exists(self.datadir)
+
+    def empty(self):
+        # FIXME: Common because ported swift AccountBroker unit tests use it.
+        return dir_empty(self.datadir)
+
+    def update_metadata(self, metadata):
+        assert self.metadata, "Valid container/account metadata should have " \
+            "been created by now"
+        if metadata:
+            new_metadata = self.metadata.copy()
+            new_metadata.update(metadata)
+            if new_metadata != self.metadata:
+                write_metadata(self.datadir, new_metadata)
+                self.metadata = new_metadata
 
 
 class DiskDir(DiskCommon):
@@ -236,53 +280,24 @@ class DiskDir(DiskCommon):
 
     def __init__(self, path, drive, account, container, logger,
                  uid=DEFAULT_UID, gid=DEFAULT_GID):
-        self.root = path
-        if container:
-            self.container = container
-        else:
-            self.container = None
-        if self.container:
-            self.datadir = os.path.join(path, drive, self.container)
-        else:
-            self.datadir = os.path.join(path, drive)
-        self.account = account
-        assert logger is not None
-        self.logger = logger
-        self.metadata = {}
-        self.container_info = None
+        super(DiskDir, self).__init__(path, drive, account, logger)
+
         self.uid = int(uid)
         self.gid = int(gid)
-        # Create a dummy db_file in Glusterfs.RUN_DIR
-        global _db_file
-        if not _db_file:
-            _db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
-            if not os.path.exists(_db_file):
-                file(_db_file, 'w+')
-        self.db_file = _db_file
-        self.dir_exists = os_path.exists(self.datadir)
-        if self.dir_exists:
+
+        self.container = container
+        self.datadir = os.path.join(self.datadir, self.container)
+
+        if not self._dir_exists_read_metadata():
+            return
+
+        if not self.metadata:
+            create_container_metadata(self.datadir)
             self.metadata = _read_metadata(self.datadir)
         else:
-            return
-        if self.container:
-            if not self.metadata:
+            if not validate_container(self.metadata):
                 create_container_metadata(self.datadir)
                 self.metadata = _read_metadata(self.datadir)
-            else:
-                if not validate_container(self.metadata):
-                    create_container_metadata(self.datadir)
-                    self.metadata = _read_metadata(self.datadir)
-        else:
-            if not self.metadata:
-                create_account_metadata(self.datadir)
-                self.metadata = _read_metadata(self.datadir)
-            else:
-                if not validate_account(self.metadata):
-                    create_account_metadata(self.datadir)
-                    self.metadata = _read_metadata(self.datadir)
-
-    def empty(self):
-        return dir_empty(self.datadir)
 
     def list_objects_iter(self, limit, marker, end_marker,
                           prefix, delimiter, path=None):
@@ -303,7 +318,7 @@ class DiskDir(DiskCommon):
 
         container_list = []
 
-        objects = self.update_object_count()
+        objects = self._update_object_count()
         if objects:
             objects.sort()
         else:
@@ -368,7 +383,7 @@ class DiskDir(DiskCommon):
 
         return container_list
 
-    def update_object_count(self):
+    def _update_object_count(self):
         objects, object_count, bytes_used = get_container_details(self.datadir)
 
         if X_OBJECTS_COUNT not in self.metadata \
@@ -381,33 +396,21 @@ class DiskDir(DiskCommon):
 
         return objects
 
-    def update_container_count(self):
-        containers, container_count = get_account_details(self.datadir)
-
-        if X_CONTAINER_COUNT not in self.metadata \
-                or int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
-            self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
-            write_metadata(self.datadir, self.metadata)
-
-        return containers
-
-    def get_info(self, include_metadata=False):
+    def get_info(self):
         """
         Get global data for the container.
         :returns: dict with keys: account, container, object_count, bytes_used,
                       hash, id, created_at, put_timestamp, delete_timestamp,
                       reported_put_timestamp, reported_delete_timestamp,
                       reported_object_count, and reported_bytes_used.
-                  If include_metadata is set, metadata is included as a key
-                  pointing to a dict of tuples of the metadata
         """
         if not Glusterfs.OBJECT_ONLY:
             # If we are not configured for object only environments, we should
             # update the object counts in case they changed behind our back.
-            self.update_object_count()
+            self._update_object_count()
         else:
             # FIXME: to facilitate testing, we need to update all the time
-            self.update_object_count()
+            self._update_object_count()
 
         data = {'account': self.account, 'container': self.container,
                 'object_count': self.metadata.get(
@@ -425,8 +428,6 @@ class DiskDir(DiskCommon):
                 'x_container_sync_point2': self.metadata.get(
                     'x_container_sync_point2', -1),
                 }
-        if include_metadata:
-            data['metadata'] = self.metadata
         return data
 
     def put_object(self, name, timestamp, size, content_type, etag, deleted=0):
@@ -439,7 +440,7 @@ class DiskDir(DiskCommon):
         Create and write metatdata to directory/container.
         :param metadata: Metadata to write.
         """
-        if not self.dir_exists:
+        if not self._dir_exists:
             mkdirs(self.datadir)
             # If we create it, ensure we own it.
             os.chown(self.datadir, self.uid, self.gid)
@@ -447,48 +448,47 @@ class DiskDir(DiskCommon):
         metadata[X_TIMESTAMP] = timestamp
         write_metadata(self.datadir, metadata)
         self.metadata = metadata
-        self.dir_exists = True
+        self._dir_exists = True
 
     def update_put_timestamp(self, timestamp):
         """
-        Create the container if it doesn't exist and update the timestamp
+        Update the PUT timestamp for the container.
+
+        If the container does not exist, create it using a PUT timestamp of
+        the given value.
+
+        If the container does exist, update the PUT timestamp only if it is
+        later than the existing value.
         """
         if not os_path.exists(self.datadir):
             self.initialize(timestamp)
         else:
-            self.metadata[X_PUT_TIMESTAMP] = timestamp
-            write_metadata(self.datadir, self.metadata)
+            if timestamp > self.metadata[X_PUT_TIMESTAMP]:
+                self.metadata[X_PUT_TIMESTAMP] = (timestamp, 0)
+                write_metadata(self.datadir, self.metadata)
 
     def delete_object(self, name, timestamp):
         # NOOP - should never be called since object file removal occurs
         # within a directory implicitly.
-        pass
+        return
 
     def delete_db(self, timestamp):
         """
-        Delete the container
+        Delete the container (directory) if empty.
 
         :param timestamp: delete timestamp
         """
-        if dir_empty(self.datadir):
-            rmdirs(self.datadir)
-
-    def update_metadata(self, metadata):
-        assert self.metadata, "Valid container/account metadata should have" \
-            " been created by now"
-        if metadata:
-            new_metadata = self.metadata.copy()
-            new_metadata.update(metadata)
-            if new_metadata != self.metadata:
-                write_metadata(self.datadir, new_metadata)
-                self.metadata = new_metadata
+        if not dir_empty(self.datadir):
+            # FIXME: This is a failure condition here, isn't it?
+            return
+        rmdirs(self.datadir)
 
     def set_x_container_sync_points(self, sync_point1, sync_point2):
         self.metadata['x_container_sync_point1'] = sync_point1
         self.metadata['x_container_sync_point2'] = sync_point2
 
 
-class DiskAccount(DiskDir):
+class DiskAccount(DiskCommon):
     """
     Usage pattern from account/server.py (Havana, 1.8.0+):
         DELETE:
@@ -528,11 +528,26 @@ class DiskAccount(DiskDir):
     """
 
     def __init__(self, root, drive, account, logger):
-        super(DiskAccount, self).__init__(root, drive, account, None, logger)
-        assert self.dir_exists
+        super(DiskAccount, self).__init__(root, drive, account, logger)
+
+        # Since accounts should always exist (given an account maps to a
+        # gluster volume directly, and the mount has already been checked at
+        # the beginning of the REST API handling), just assert that that
+        # assumption still holds.
+        assert self._dir_exists_read_metadata()
+        assert self._dir_exists
+
+        if not self.metadata or not validate_account(self.metadata):
+            create_account_metadata(self.datadir)
+            self.metadata = _read_metadata(self.datadir)
 
     def is_status_deleted(self):
-        """Only returns true if the status field is set to DELETED."""
+        """
+        Only returns true if the status field is set to DELETED.
+        """
+        # This function should always return False. Accounts are not created
+        # and deleted, they exist if a Gluster volume can be mounted. There is
+        # no way to delete accounts, so this could never return True.
         return False
 
     def initialize(self, timestamp):
@@ -545,14 +560,30 @@ class DiskAccount(DiskDir):
         write_metadata(self.datadir, metadata)
         self.metadata = metadata
 
+    def update_put_timestamp(self, timestamp):
+        # Since accounts always exists at this point, just update the account
+        # PUT timestamp if this given timestamp is later than what we already
+        # know.
+        assert self._dir_exists
+
+        if timestamp > self.metadata[X_PUT_TIMESTAMP][0]:
+            self.metadata[X_PUT_TIMESTAMP] = (timestamp, 0)
+            write_metadata(self.datadir, self.metadata)
+
     def delete_db(self, timestamp):
         """
         Mark the account as deleted
 
         :param timestamp: delete timestamp
         """
-        # NOOP - Accounts map to gluster volumes, and so they cannot be
-        # deleted.
+        # Deleting an account is a no-op, since accounts are one-to-one
+        # mappings to gluster volumes.
+        #
+        # FIXME: This means the caller will end up returning a success status
+        # code for an operation that really should not be allowed. Instead, we
+        # should modify the account server to not allow the DELETE method, and
+        # should probably modify the proxy account controller to not allow the
+        # DELETE method as well.
         return
 
     def put_container(self, container, put_timestamp, del_timestamp,
@@ -570,6 +601,16 @@ class DiskAccount(DiskDir):
         # occurs from within the account directory implicitly.
         return
 
+    def _update_container_count(self):
+        containers, container_count = get_account_details(self.datadir)
+
+        if X_CONTAINER_COUNT not in self.metadata \
+                or int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
+            self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
+            write_metadata(self.datadir, self.metadata)
+
+        return containers
+
     def list_containers_iter(self, limit, marker, end_marker,
                              prefix, delimiter):
         """
@@ -580,7 +621,7 @@ class DiskAccount(DiskDir):
             prefix = ''
 
         account_list = []
-        containers = self.update_container_count()
+        containers = self._update_container_count()
         if containers:
             containers.sort()
         else:
@@ -623,8 +664,8 @@ class DiskAccount(DiskDir):
                 try:
                     metadata = create_container_metadata(cont_path)
                 except OSError as e:
-                    # FIXME - total hack to get port unit test cases
-                    # working for now.
+                    # FIXME - total hack to get upstream swift ported unit
+                    # test cases working for now.
                     if e.errno != errno.ENOENT:
                         raise
             if metadata:
@@ -638,7 +679,7 @@ class DiskAccount(DiskDir):
 
         return account_list
 
-    def get_info(self, include_metadata=False):
+    def get_info(self):
         """
         Get global data for the account.
         :returns: dict with keys: account, created_at, put_timestamp,
@@ -648,10 +689,10 @@ class DiskAccount(DiskDir):
         if not Glusterfs.OBJECT_ONLY:
             # If we are not configured for object only environments, we should
             # update the container counts in case they changed behind our back.
-            self.update_container_count()
+            self._update_container_count()
         else:
             # FIXME: to facilitate testing, we need to update all the time
-            self.update_container_count()
+            self._update_container_count()
 
         data = {'account': self.account, 'created_at': '1',
                 'put_timestamp': '1', 'delete_timestamp': '1',
@@ -660,7 +701,4 @@ class DiskAccount(DiskDir):
                 'object_count': self.metadata.get(X_OBJECTS_COUNT, (0, 0))[0],
                 'bytes_used': self.metadata.get(X_BYTES_USED, (0, 0))[0],
                 'hash': '', 'id': ''}
-
-        if include_metadata:
-            data['metadata'] = self.metadata
         return data
