@@ -4512,6 +4512,41 @@ class TestContainerController(unittest.TestCase):
             self.assert_status_map(controller.DELETE,
                                    (200, 404, 404, 404), 404)
 
+    def test_DELETE_container_that_does_not_exist(self):
+        prolis = _test_sockets[0]
+        # Create a container
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/aaabbbccc HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Delete container
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/aaabbbccc HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 204'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Delete again
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/aaabbbccc HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 404'
+        self.assertEquals(headers[:len(exp)], exp)
+
     def test_response_get_accept_ranges_header(self):
         with save_globals():
             set_http_connect(200, 200, body='{}')

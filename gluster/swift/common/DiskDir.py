@@ -25,6 +25,7 @@ from gluster.swift.common.utils import validate_account, validate_container, \
     X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_ETAG, X_OBJECTS_COUNT, \
     X_BYTES_USED, X_CONTAINER_COUNT, DIR_TYPE
 from gluster.swift.common import Glusterfs
+from gluster.swift.common.exceptions import FileOrDirNotFoundError
 
 
 DATADIR = 'containers'
@@ -182,8 +183,15 @@ class DiskCommon(object):
         return not os_path.exists(self.datadir)
 
     def empty(self):
-        # FIXME: Common because ported swift AccountBroker unit tests use it.
-        return dir_empty(self.datadir)
+        # If it does not exist, then it is empty.  A value of True is
+        # what is expected by OpenStack Swift when the directory does
+        # not exist.  Check swift/common/db.py:ContainerBroker.empty()
+        # and swift/container/server.py:ContainerController.DELETE()
+        # for more information
+        try:
+            return dir_empty(self.datadir)
+        except FileOrDirNotFoundError:
+            return True
 
     def update_metadata(self, metadata):
         assert self.metadata, "Valid container/account metadata should have " \
@@ -404,13 +412,16 @@ class DiskDir(DiskCommon):
                       reported_put_timestamp, reported_delete_timestamp,
                       reported_object_count, and reported_bytes_used.
         """
-        if not Glusterfs.OBJECT_ONLY:
-            # If we are not configured for object only environments, we should
-            # update the object counts in case they changed behind our back.
-            self._update_object_count()
-        else:
-            # FIXME: to facilitate testing, we need to update all the time
-            self._update_object_count()
+        if self._dir_exists:
+            if not Glusterfs.OBJECT_ONLY:
+                # If we are not configured for object only environments,
+                # we should update the object counts in case they changed
+                # behind our back.
+                self._update_object_count()
+            else:
+                # FIXME: to facilitate testing, we need to update all
+                # the time
+                self._update_object_count()
 
         data = {'account': self.account, 'container': self.container,
                 'object_count': self.metadata.get(
@@ -478,8 +489,11 @@ class DiskDir(DiskCommon):
 
         :param timestamp: delete timestamp
         """
-        if not dir_empty(self.datadir):
-            # FIXME: This is a failure condition here, isn't it?
+        try:
+            if not dir_empty(self.datadir):
+                # FIXME: This is a failure condition here, isn't it?
+                return
+        except FileOrDirNotFoundError:
             return
         rmdirs(self.datadir)
 

@@ -344,6 +344,22 @@ class TestDiskCommon(unittest.TestCase):
         del dc.metadata['X-Container-Meta-foo']
         assert dc.metadata == md_copy
 
+    def test_empty_dir_is_not_empty(self):
+        dc = dd.DiskCommon(self.td, self.fake_drives[0],
+                    self.fake_accounts[0], self.fake_logger)
+        os.makedirs(os.path.join(self.td, self.fake_drives[0], 'aaabbbccc'))
+        self.assertFalse(dc.empty())
+
+    def test_empty_dir_is_empty(self):
+        dc = dd.DiskCommon(self.td, self.fake_drives[0],
+                    self.fake_accounts[0], self.fake_logger)
+        self.assertTrue(dc.empty())
+
+    def test_empty_dir_does_not_exist(self):
+        dc = dd.DiskCommon(self.td, 'non_existent_drive',
+                    self.fake_accounts[0], self.fake_logger)
+        self.assertTrue(dc.empty())
+
 
 class TestContainerBroker(unittest.TestCase):
     """
@@ -497,6 +513,24 @@ class TestContainerBroker(unittest.TestCase):
         info = broker.get_info()
         self.assertEquals(info['x_container_sync_point1'], -1)
         self.assertEquals(info['x_container_sync_point2'], -1)
+
+    def test_get_info_nonexistent_container(self):
+        broker = dd.DiskDir(self.path, self.drive, account='no_account',
+                          container='no_container', logger=FakeLogger())
+        info = broker.get_info()
+
+        #
+        # Because broker._dir_exists is False and _update_object_count()
+        # has not been called yet, the values returned for
+        # object_count, bytes_used, and put_timestamp are '0' as
+        # a string.  OpenStack Swift handles this situation by
+        # passing the value to float().
+        #
+        self.assertEquals(info['account'], 'no_account')
+        self.assertEquals(info['container'], 'no_container')
+        self.assertEquals(info['object_count'], '0')
+        self.assertEquals(info['bytes_used'], '0')
+        self.assertEquals(info['put_timestamp'], '0')
 
     def test_set_x_syncs(self):
         broker = self._get_broker(account='test1',
