@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from datetime import datetime
+import os
 import locale
 import random
 import StringIO
@@ -32,6 +33,8 @@ from swift.common.constraints import MAX_FILE_SIZE, MAX_META_NAME_LENGTH, \
     MAX_META_VALUE_LENGTH, MAX_META_COUNT, MAX_META_OVERALL_SIZE, \
     MAX_OBJECT_NAME_LENGTH, CONTAINER_LISTING_LIMIT, ACCOUNT_LISTING_LIMIT, \
     MAX_ACCOUNT_NAME_LENGTH, MAX_CONTAINER_NAME_LENGTH
+from gluster.swift.common.constraints import \
+    set_object_name_component_length, get_object_name_component_length
 
 default_constraints = dict((
     ('max_file_size', MAX_FILE_SIZE),
@@ -69,6 +72,7 @@ for k in default_constraints:
 
 web_front_end = config.get('web_front_end', 'integral')
 normalized_urls = config.get('normalized_urls', False)
+set_object_name_component_length()
 
 def load_constraint(name):
     c = config[name]
@@ -77,6 +81,31 @@ def load_constraint(name):
     return c
 
 locale.setlocale(locale.LC_COLLATE, config.get('collate', 'C'))
+
+
+def create_limit_filename(name_limit):
+    """
+    Convert a split a large object name with
+    slashes so as to conform the GlusterFS file name
+    constraints.
+    Example:  Take a object name: 'a'*1024, and
+    convert it to a*255/a*255/...
+    """
+    # Get the file name limit from the configuration file
+    filename_limit = get_object_name_component_length()
+
+    # Convert string to a list:  "abc" -> ['a', 'b', 'c']
+    filename_list = list('a' * name_limit)
+
+    # Replace chars at filename limits to '/'
+    for index in range(filename_limit, name_limit, filename_limit):
+        filename_list[index] = os.path.sep
+
+    # Cannot end in a '/'
+    if os.path.sep == filename_list[-1]:
+        return "".join(filename_list[:-1])
+    else:
+        return "".join(filename_list)
 
 
 def chunks(s, length=3):
@@ -675,6 +704,7 @@ class TestContainerUTF8(Base2, TestContainer):
 class TestContainerPathsEnv:
     @classmethod
     def setUp(cls):
+        raise SkipTest('Objects ending in / are not supported')
         cls.conn = Connection(config)
         cls.conn.authenticate()
         cls.account = Account(cls.conn, config.get('account',
@@ -1034,7 +1064,7 @@ class TestFile(Base):
         limit = load_constraint('max_object_name_length')
 
         for l in (1, 10, limit / 2, limit - 1, limit, limit + 1, limit * 2):
-            file = self.env.container.file('a' * l)
+            file = self.env.container.file(create_limit_filename(l))
 
             if l <= limit:
                 self.assert_(file.write())

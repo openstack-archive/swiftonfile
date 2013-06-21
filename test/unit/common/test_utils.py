@@ -367,7 +367,7 @@ class TestUtils(unittest.TestCase):
             for key in self.obj_keys:
                 assert key in md, "Expected key %s in %r" % (key, md)
             assert md[utils.X_TYPE] == utils.OBJECT
-            assert md[utils.X_OBJECT_TYPE] == utils.DIR
+            assert md[utils.X_OBJECT_TYPE] == utils.DIR_NON_OBJECT
             assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
             assert md[utils.X_CONTENT_LENGTH] == 0
             assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
@@ -413,7 +413,7 @@ class TestUtils(unittest.TestCase):
             for key in self.obj_keys:
                 assert key in md, "Expected key %s in %r" % (key, md)
             assert md[utils.X_TYPE] == utils.OBJECT
-            assert md[utils.X_OBJECT_TYPE] == utils.DIR
+            assert md[utils.X_OBJECT_TYPE] == utils.DIR_NON_OBJECT
             assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
             assert md[utils.X_CONTENT_LENGTH] == 0
             assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
@@ -802,3 +802,56 @@ class TestUtils(unittest.TestCase):
                utils.X_OBJECT_TYPE: 'na' }
         ret = utils.validate_object(md)
         assert ret
+
+class TestUtilsDirObjects(unittest.TestCase):
+    def setUp(self):
+        _initxattr()
+        self.dirs = ['dir1',
+                'dir1/dir2',
+                'dir1/dir2/dir3' ]
+        self.files = ['file1',
+                'file2',
+                'dir1/dir2/file3']
+        self.tempdir = tempfile.mkdtemp()
+        self.rootdir = os.path.join(self.tempdir, 'a')
+        for d in self.dirs:
+            os.makedirs(os.path.join(self.rootdir, d))
+        for f in self.files:
+            open(os.path.join(self.rootdir, f), 'w').close()
+
+    def tearDown(self):
+        _destroyxattr()
+        shutil.rmtree(self.tempdir)
+
+    def _set_dir_object(self, obj):
+        metadata = utils.read_metadata(os.path.join(self.rootdir, obj))
+        metadata[utils.X_OBJECT_TYPE] = utils.DIR_OBJECT
+        utils.write_metadata(os.path.join(self.rootdir, self.dirs[0]),
+                metadata)
+
+    def _clear_dir_object(self, obj):
+        metadata = utils.read_metadata(os.path.join(self.rootdir, obj))
+        metadata[utils.X_OBJECT_TYPE] = utils.DIR_NON_OBJECT
+        utils.write_metadata(os.path.join(self.rootdir, obj),
+                metadata)
+
+    def test_rmobjdir_removing_files(self):
+        self.assertFalse(utils.rmobjdir(self.rootdir))
+
+        # Remove the files
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        self.assertTrue(utils.rmobjdir(self.rootdir))
+
+    def test_rmobjdir_removing_dirs(self):
+        self.assertFalse(utils.rmobjdir(self.rootdir))
+
+        # Remove the files
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        self._set_dir_object(self.dirs[0])
+        self.assertFalse(utils.rmobjdir(self.rootdir))
+        self._clear_dir_object(self.dirs[0])
+        self.assertTrue(utils.rmobjdir(self.rootdir))

@@ -19,17 +19,16 @@ import random
 from hashlib import md5
 from contextlib import contextmanager
 from swift.common.utils import renamer
-from swift.common.exceptions import DiskFileNotExist
+from swift.common.exceptions import DiskFileNotExist, DiskFileError
 from gluster.swift.common.exceptions import AlreadyExistsAsDir
-from gluster.swift.common.fs_utils import mkdirs, rmdirs, do_open, do_close, \
+from gluster.swift.common.fs_utils import mkdirs, do_open, do_close, \
     do_unlink, do_chown, os_path, do_fsync, do_fchown
 from gluster.swift.common.utils import read_metadata, write_metadata, \
-    validate_object, create_object_metadata
+    validate_object, create_object_metadata, rmobjdir, dir_is_object
 from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
-    X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, MARKER_DIR, OBJECT, DIR_TYPE, \
-    FILE_TYPE, DEFAULT_UID, DEFAULT_GID
+    X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
+    FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT
 
-import logging
 from swift.obj.server import DiskFile
 
 
@@ -50,18 +49,26 @@ def _adjust_metadata(metadata):
         # FIXME: If the file exists, we would already know it is a
         # directory. So why are we assuming it is a file object?
         metadata[X_CONTENT_TYPE] = FILE_TYPE
-        x_object_type = FILE
+        metadata[X_OBJECT_TYPE] = FILE
     else:
-        x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE \
-            else FILE
+        if content_type.lower() == DIR_TYPE:
+            metadata[X_OBJECT_TYPE] = DIR_OBJECT
+        else:
+            metadata[X_OBJECT_TYPE] = FILE
+
     metadata[X_TYPE] = OBJECT
-    metadata[X_OBJECT_TYPE] = x_object_type
     return metadata
 
 
 class Gluster_DiskFile(DiskFile):
     """
     Manage object files on disk.
+
+    Object names ending or beginning with a '/' as in /a, a/, /a/b/,
+    etc, or object names with multiple consecutive slahes, like a//b,
+    are not supported.  The proxy server's contraints filter
+    gluster.common.constrains.gluster_check_object_creation() should
+    reject such requests.
 
     :param path: path to devices on the node/mount path for UFO.
     :param device: device name/account_name for UFO.
@@ -82,9 +89,8 @@ class Gluster_DiskFile(DiskFile):
                  uid=DEFAULT_UID, gid=DEFAULT_GID, iter_hook=None):
         self.disk_chunk_size = disk_chunk_size
         self.iter_hook = iter_hook
-        # Don't support obj_name ending/begining with '/', like /a, a/, /a/b/,
-        # etc.
         obj = obj.strip(os.path.sep)
+
         if os.path.sep in obj:
             self._obj_path, self._obj = os.path.split(obj)
         else:
@@ -167,14 +173,13 @@ class Gluster_DiskFile(DiskFile):
         return not self.data_file
 
     def _create_dir_object(self, dir_path):
-        #TODO: if object already exists???
-        if os_path.exists(dir_path) and not os_path.isdir(dir_path):
-            self.logger.error("Deleting file %s", dir_path)
-            do_unlink(dir_path)
-        #If dir aleady exist just override metadata.
-        mkdirs(dir_path)
-        do_chown(dir_path, self.uid, self.gid)
-        create_object_metadata(dir_path)
+        if not os_path.exists(dir_path):
+            mkdirs(dir_path)
+            do_chown(dir_path, self.uid, self.gid)
+            create_object_metadata(dir_path)
+        elif not os_path.isdir(dir_path):
+            raise DiskFileError("Cannot overwrite "
+                                "file %s with a directory" % dir_path)
 
     def put_metadata(self, metadata, tombstone=False):
         """
@@ -208,7 +213,7 @@ class Gluster_DiskFile(DiskFile):
 
         metadata = _adjust_metadata(metadata)
 
-        if metadata[X_OBJECT_TYPE] == MARKER_DIR:
+        if dir_is_object(metadata):
             if not self.data_file:
                 self.data_file = os.path.join(self.datadir, self._obj)
                 self._create_dir_object(self.data_file)
@@ -217,8 +222,10 @@ class Gluster_DiskFile(DiskFile):
 
         # Check if directory already exists.
         if self._is_dir:
-            # FIXME: How can we have a directory and it not be marked as a
-            # MARKER_DIR (see above)?
+            # A pre-existing directory already exists on the file
+            # system, perhaps gratuitously created when another
+            # object was created, or created externally to Swift
+            # REST API servicing (UFO use case).
             msg = 'File object exists as a directory: %s' % self.data_file
             raise AlreadyExistsAsDir(msg)
 
@@ -256,14 +263,37 @@ class Gluster_DiskFile(DiskFile):
             "Have metadata, %r, but no data_file" % self.metadata
 
         if self._is_dir:
-            # Marker directory object
-            if not rmdirs(self.data_file):
-                logging.error('Unable to delete dir object: %s',
-                              self.data_file)
-                return
+            # Marker, or object, directory.
+            #
+            # Delete from the filesystem only if it contains
+            # no objects.  If it does contain objects, then just
+            # remove the object metadata tag which will make this directory a
+            # fake-filesystem-only directory and will be deleted
+            # when the container or parent directory is deleted.
+            metadata = read_metadata(self.data_file)
+            if dir_is_object(metadata):
+                metadata[X_OBJECT_TYPE] = DIR_NON_OBJECT
+                write_metadata(self.data_file, metadata)
+            rmobjdir(self.data_file)
+
         else:
-            # File object
+            # Delete file object
             do_unlink(self.data_file)
+
+        # Garbage collection of non-object directories.
+        # Now that we deleted the file, determine
+        # if the current directory and any parent
+        # directory may be deleted.
+        dirname = os.path.dirname(self.data_file)
+        while dirname and dirname != self._container_path:
+            # Try to remove any directories that are not
+            # objects.
+            if not rmobjdir(dirname):
+                # If a directory with objects has been
+                # found, we can stop garabe collection
+                break
+            else:
+                dirname = os.path.dirname(dirname)
 
         self.metadata = {}
         self.data_file = None

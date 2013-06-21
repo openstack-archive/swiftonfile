@@ -23,7 +23,7 @@ import tempfile
 import shutil
 from hashlib import md5
 from swift.common.utils import normalize_timestamp
-from swift.common.exceptions import DiskFileNotExist
+from swift.common.exceptions import DiskFileNotExist, DiskFileError
 import gluster.swift.common.DiskFile
 import gluster.swift.common.utils
 from gluster.swift.common.DiskFile import Gluster_DiskFile, \
@@ -54,8 +54,8 @@ class MockException(Exception):
     pass
 
 
-def _mock_rmdirs(p):
-    raise MockException("gluster.swift.common.DiskFile.rmdirs() called")
+def _mock_rmobjdir(p):
+    raise MockException("gluster.swift.common.DiskFile.rmobjdir() called")
 
 def _mock_do_fsync(fd):
     return
@@ -348,12 +348,12 @@ class TestDiskFile(unittest.TestCase):
                 assert g == DEFAULT_GID
             dc = gluster.swift.common.DiskFile.do_chown
             gluster.swift.common.DiskFile.do_chown = _mock_do_chown
-            try:
-                gdf._create_dir_object(the_dir)
-            finally:
-                gluster.swift.common.DiskFile.do_chown = dc
-            assert os.path.isdir(the_dir)
-            assert the_dir in _metadata
+            self.assertRaises(DiskFileError,
+                    gdf._create_dir_object,
+                    the_dir)
+            gluster.swift.common.DiskFile.do_chown = dc
+            self.assertFalse(os.path.isdir(the_dir))
+            self.assertFalse(the_dir in _metadata)
         finally:
             shutil.rmtree(td)
 
@@ -571,14 +571,14 @@ class TestDiskFile(unittest.TestCase):
         gdf = Gluster_DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
                                "z", self.lg)
         assert gdf.metadata == {}
-        _saved_rmdirs = gluster.swift.common.DiskFile.rmdirs
-        gluster.swift.common.DiskFile.rmdirs = _mock_rmdirs
+        _saved_rmobjdir = gluster.swift.common.DiskFile.rmobjdir
+        gluster.swift.common.DiskFile.rmobjdir = _mock_rmobjdir
         try:
             gdf.unlinkold(None)
         except MockException as exp:
             self.fail(str(exp))
         finally:
-            gluster.swift.common.DiskFile.rmdirs = _saved_rmdirs
+            gluster.swift.common.DiskFile.rmobjdir = _saved_rmobjdir
 
     def test_unlinkold_same_timestamp(self):
         assert not os.path.exists("/tmp/foo")
@@ -586,14 +586,14 @@ class TestDiskFile(unittest.TestCase):
                                "z", self.lg)
         assert gdf.metadata == {}
         gdf.metadata['X-Timestamp'] = 1
-        _saved_rmdirs = gluster.swift.common.DiskFile.rmdirs
-        gluster.swift.common.DiskFile.rmdirs = _mock_rmdirs
+        _saved_rmobjdir = gluster.swift.common.DiskFile.rmobjdir
+        gluster.swift.common.DiskFile.rmobjdir = _mock_rmobjdir
         try:
             gdf.unlinkold(1)
         except MockException as exp:
             self.fail(str(exp))
         finally:
-            gluster.swift.common.DiskFile.rmdirs = _saved_rmdirs
+            gluster.swift.common.DiskFile.rmobjdir = _saved_rmobjdir
 
     def test_unlinkold_file(self):
         td = tempfile.mkdtemp()
@@ -717,7 +717,7 @@ class TestDiskFile(unittest.TestCase):
                 os.chmod(gdf.datadir, stats.st_mode)
                 os.rmdir = __os_rmdir
             assert os.path.isdir(gdf.datadir)
-            assert os.path.isdir(gdf.data_file)
+            self.assertTrue(gdf.data_file is None)
         finally:
             shutil.rmtree(td)
 

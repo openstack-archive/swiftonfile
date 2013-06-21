@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 try:
     from webob.exc import HTTPBadRequest
 except ImportError:
@@ -45,6 +46,8 @@ def get_object_name_component_length():
 
 
 def validate_obj_name_component(obj):
+    if not obj:
+        return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
     if len(obj) > MAX_OBJECT_NAME_COMPONENT_LENGTH:
         return 'too long (%d)' % len(obj)
     if obj == '.' or obj == '..':
@@ -74,7 +77,7 @@ def gluster_check_object_creation(req, object_name):
     ret = __check_object_creation(req, object_name)
 
     if ret is None:
-        for obj in object_name.split('/'):
+        for obj in object_name.split(os.path.sep):
             reason = validate_obj_name_component(obj)
             if reason:
                 bdy = 'Invalid object name "%s", component "%s" %s' \

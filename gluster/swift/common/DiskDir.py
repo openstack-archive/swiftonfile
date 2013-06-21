@@ -16,15 +16,14 @@
 import os
 import errno
 
-from gluster.swift.common.fs_utils import dir_empty, rmdirs, mkdirs, os_path, \
-    do_chown
+from gluster.swift.common.fs_utils import dir_empty, mkdirs, os_path, do_chown
 from gluster.swift.common.utils import validate_account, validate_container, \
     get_container_details, get_account_details, create_container_metadata, \
     create_account_metadata, DEFAULT_GID, get_container_metadata, \
     get_account_metadata, DEFAULT_UID, validate_object, \
     create_object_metadata, read_metadata, write_metadata, X_CONTENT_TYPE, \
     X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_ETAG, X_OBJECTS_COUNT, \
-    X_BYTES_USED, X_CONTAINER_COUNT, DIR_TYPE
+    X_BYTES_USED, X_CONTAINER_COUNT, DIR_TYPE, rmobjdir, dir_is_object
 from gluster.swift.common import Glusterfs
 from gluster.swift.common.exceptions import FileOrDirNotFoundError
 
@@ -333,14 +332,13 @@ class DiskDir(DiskCommon):
         else:
             return container_list
 
-        if objects and end_marker:
+        if end_marker:
             objects = filter_end_marker(objects, end_marker)
 
-        if objects:
-            if marker and marker >= prefix:
-                objects = filter_marker(objects, marker)
-            elif prefix:
-                objects = filter_prefix_as_marker(objects, prefix)
+        if marker and marker >= prefix:
+            objects = filter_marker(objects, marker)
+        elif prefix:
+            objects = filter_prefix_as_marker(objects, prefix)
 
         if prefix is None:
             # No prefix, we don't need to apply the other arguments, we just
@@ -376,7 +374,8 @@ class DiskDir(DiskCommon):
                     if e.errno != errno.ENOENT:
                         raise
             if Glusterfs.OBJECT_ONLY and metadata \
-                    and metadata[X_CONTENT_TYPE] == DIR_TYPE:
+                    and metadata[X_CONTENT_TYPE] == DIR_TYPE \
+                    and not dir_is_object(metadata):
                 continue
             list_item = []
             list_item.append(obj)
@@ -484,19 +483,22 @@ class DiskDir(DiskCommon):
         # within a directory implicitly.
         return
 
+    def empty(self):
+        try:
+            return dir_empty(self.datadir)
+        except FileOrDirNotFoundError:
+            return True
+
     def delete_db(self, timestamp):
         """
         Delete the container (directory) if empty.
 
         :param timestamp: delete timestamp
         """
-        try:
-            if not dir_empty(self.datadir):
-                # FIXME: This is a failure condition here, isn't it?
-                return
-        except FileOrDirNotFoundError:
-            return
-        rmdirs(self.datadir)
+        # Let's check and see if it has directories that
+        # where created by the code, but not by the
+        # caller as objects
+        rmobjdir(self.datadir)
 
     def set_x_container_sync_points(self, sync_point1, sync_point2):
         self.metadata['x_container_sync_point1'] = sync_point1

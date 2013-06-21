@@ -742,6 +742,46 @@ class TestObjectController(unittest.TestCase):
             res = method(req)
             self.assertEquals(res.status_int, expected)
 
+    def test_illegal_object_name(self):
+        prolis = _test_sockets[0]
+        prosrv = _test_servers[0]
+
+        # Create a container
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/illegal_name HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a file obj
+        fakedata = 'a' * 1024
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/illegal_name/file/ HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: %s\r\n'
+                 'Content-Type: application/octect-stream\r\n'
+                 '\r\n%s' % (str(len(fakedata)), fakedata))
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 400'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Delete continer
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/illegal_name HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 204'
+        self.assertEquals(headers[:len(exp)], exp)
+
     def test_GET_newest_large_file(self):
         calls = [0]
 
@@ -4545,6 +4585,244 @@ class TestContainerController(unittest.TestCase):
         fd.flush()
         headers = readuntil2crlfs(fd)
         exp = 'HTTP/1.1 404'
+        self.assertEquals(headers[:len(exp)], exp)
+
+    def test_dir_object_not_lost(self):
+        prolis = _test_sockets[0]
+        prosrv = _test_servers[0]
+
+        # Create a container
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/dir_obj_test HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a dir obj A
+        dir_list = ['a', 'a/b', 'a/b/c']
+
+        for dir_obj in dir_list:
+            sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+            fd = sock.makefile()
+            fd.write('PUT /v1/a/dir_obj_test/%s HTTP/1.1\r\nHost: localhost\r\n'
+                     'Connection: close\r\nX-Storage-Token: t\r\n'
+                     'Content-Length: 0\r\n'
+                     'Content-type: application/directory\r\n\r\n' % dir_obj)
+            fd.flush()
+            headers = readuntil2crlfs(fd)
+            exp = 'HTTP/1.1 201'
+            self.assertEquals(headers[:len(exp)], exp)
+
+        # Check we see all the objects we created
+        req = Request.blank('/v1/a/dir_obj_test',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        for dir_obj in dir_list:
+            self.assertTrue(dir_obj in obj_list)
+
+        # Now let's create a file obj
+        fakedata = 'a' * 1024
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/dir_obj_test/a/b/c/file1 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: %s\r\n'
+                 'Content-Type: application/octect-stream\r\n'
+                 '\r\n%s' % (str(len(fakedata)), fakedata))
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Now check we get all dir objs and the file obj
+        req = Request.blank('/v1/a/dir_obj_test',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        for dir_obj in dir_list:
+            self.assertTrue(dir_obj in obj_list)
+        self.assertTrue('a/b/c/file1' in obj_list)
+
+        # Delete dir objects, file should still be available
+        for dir_obj in dir_list:
+            sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+            fd = sock.makefile()
+            fd.write('DELETE /v1/a/dir_obj_test/%s HTTP/1.1\r\nHost: localhost\r\n'
+                     'Connection: close\r\nX-Storage-Token: t\r\n'
+                     '\r\n' % dir_obj)
+            fd.flush()
+            headers = readuntil2crlfs(fd)
+            exp = 'HTTP/1.1 204'
+            self.assertEquals(headers[:len(exp)], exp)
+
+        # Now check file is still available
+        req = Request.blank('/v1/a/dir_obj_test',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        for dir_obj in dir_list:
+            self.assertFalse(dir_obj in obj_list)
+        self.assertTrue('a/b/c/file1' in obj_list)
+
+        # Delete file
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/dir_obj_test/a/b/c/file1 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 '\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 204'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Delete continer
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/dir_obj_test HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 204'
+        self.assertEquals(headers[:len(exp)], exp)
+
+    def test_container_lists_dir_and_file_objects(self):
+        prolis = _test_sockets[0]
+        prosrv = _test_servers[0]
+
+        # Create a container
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/list_test HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a file obj
+        fakedata = 'a' * 1024
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/list_test/a/b/c/file1 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: %s\r\n'
+                 'Content-Type: application/octect-stream\r\n'
+                 '\r\n%s' % (str(len(fakedata)), fakedata))
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a second file obj
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/list_test/a/b/c/file2 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: %s\r\n'
+                 'Content-Type: application/octect-stream\r\n'
+                 '\r\n%s' % (str(len(fakedata)), fakedata))
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a third file obj
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/list_test/file3 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: %s\r\n'
+                 'Content-Type: application/octect-stream\r\n'
+                 '\r\n%s' % (str(len(fakedata)), fakedata))
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Create a dir obj
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('PUT /v1/a/list_test/a/b/c/dir1 HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n'
+                 'Content-type: application/directory\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 201'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Path tests
+        req = Request.blank('/v1/a/list_test?path=',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        self.assertFalse('a/b/c/file1' in obj_list)
+        self.assertFalse('a/b/c/file2' in obj_list)
+        self.assertFalse('a/b/c/dir1' in obj_list)
+        self.assertTrue('file3' in obj_list)
+
+        req = Request.blank('/v1/a/list_test?path=a/b/c',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        self.assertTrue('a/b/c/file1' in obj_list)
+        self.assertTrue('a/b/c/file2' in obj_list)
+        self.assertTrue('a/b/c/dir1' in obj_list)
+        self.assertFalse('file3' in obj_list)
+
+        # Try to delete, but expect failure since the
+        # container is not empty
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/list_test HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 409'
+        self.assertEquals(headers[:len(exp)], exp)
+
+        # Get object list
+        req = Request.blank('/v1/a/list_test',
+                            environ={'REQUEST_METHOD': 'GET'})
+        res = req.get_response(prosrv)
+        obj_list = res.body.split('\n')
+        self.assertTrue('a/b/c/file1' in obj_list)
+        self.assertTrue('a/b/c/file2' in obj_list)
+        self.assertTrue('a/b/c/dir1' in obj_list)
+        self.assertTrue('file3' in obj_list)
+        self.assertEqual(res.headers['x-container-object-count'], '4')
+
+        # Now let's delete the objects
+        for obj in obj_list:
+            if not obj:
+                continue
+            sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+            fd = sock.makefile()
+            fd.write('DELETE /v1/a/list_test/%s HTTP/1.1\r\nHost: localhost\r\n'
+                     'Connection: close\r\nX-Storage-Token: t\r\n'
+                     '\r\n' % obj)
+            fd.flush()
+            headers = readuntil2crlfs(fd)
+            exp = 'HTTP/1.1 204'
+            self.assertEquals(headers[:len(exp)], exp)
+
+        # Delete continer which has stale directies a/b/c
+        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
+        fd = sock.makefile()
+        fd.write('DELETE /v1/a/list_test HTTP/1.1\r\nHost: localhost\r\n'
+                 'Connection: close\r\nX-Storage-Token: t\r\n'
+                 'Content-Length: 0\r\n\r\n')
+        fd.flush()
+        headers = readuntil2crlfs(fd)
+        exp = 'HTTP/1.1 204'
         self.assertEquals(headers[:len(exp)], exp)
 
     def test_response_get_accept_ranges_header(self):

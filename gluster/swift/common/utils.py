@@ -23,8 +23,9 @@ from eventlet import sleep
 import cPickle as pickle
 from swift.common.utils import normalize_timestamp
 from gluster.swift.common.fs_utils import do_rename, do_fsync, os_path, \
-    do_stat, do_listdir, do_walk
+    do_stat, do_listdir, do_walk, dir_empty, rmdirs
 from gluster.swift.common import Glusterfs
+from gluster.swift.common.exceptions import FileOrDirNotFoundError
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -41,8 +42,8 @@ ACCOUNT = 'Account'
 METADATA_KEY = 'user.swift.metadata'
 MAX_XATTR_SIZE = 65536
 CONTAINER = 'container'
-DIR = 'dir'
-MARKER_DIR = 'marker_dir'
+DIR_NON_OBJECT = 'dir'
+DIR_OBJECT = 'marker_dir'
 TEMP_DIR = 'tmp'
 ASYNCDIR = 'async_pending'  # Keep in sync with swift.obj.server.ASYNCDIR
 FILE = 'file'
@@ -231,6 +232,12 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
     obj_path = path.replace(cont_path, '').strip(os.path.sep)
 
     for obj_name in src_list:
+        if not reg_file and Glusterfs.OBJECT_ONLY:
+            metadata = \
+                read_metadata(os.path.join(cont_path, obj_path, obj_name))
+            if not dir_is_object(metadata):
+                continue
+
         if obj_path:
             obj_list.append(os.path.join(obj_path, obj_name))
         else:
@@ -247,11 +254,12 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
 
 def update_list(path, cont_path, dirs=[], files=[], object_count=0,
                 bytes_used=0, obj_list=[]):
+
     if files:
         object_count, bytes_used = _update_list(path, cont_path, files, True,
                                                 object_count, bytes_used,
                                                 obj_list)
-    if not Glusterfs.OBJECT_ONLY and dirs:
+    if dirs:
         object_count, bytes_used = _update_list(path, cont_path, dirs, False,
                                                 object_count, bytes_used,
                                                 obj_list)
@@ -368,7 +376,7 @@ def get_object_metadata(obj_path):
             X_TYPE: OBJECT,
             X_TIMESTAMP: normalize_timestamp(stats.st_ctime),
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
-            X_OBJECT_TYPE: DIR if is_dir else FILE,
+            X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
             X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path)}
     return metadata
@@ -474,6 +482,56 @@ def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
         fo.flush()
         do_fsync(fo)
     do_rename(tmppath, dest)
+
+
+# The following dir_xxx calls should definitely be replaced
+# with a Metadata class to encapsulate their implementation.
+# :FIXME: For now we have them as functions, but we should
+# move them to a class.
+def dir_is_object(metadata):
+    """
+    Determine if the directory with the path specified
+    has been identified as an object
+    """
+    return metadata.get(X_OBJECT_TYPE, "") == DIR_OBJECT
+
+
+def rmobjdir(dir_path):
+    """
+    Removes the directory as long as there are
+    no objects stored in it.  This works for containers also.
+    """
+    try:
+        if dir_empty(dir_path):
+            rmdirs(dir_path)
+            return True
+    except FileOrDirNotFoundError:
+        # No such directory exists
+        return False
+
+    for (path, dirs, files) in do_walk(dir_path, topdown=False):
+        for directory in dirs:
+            fullpath = os.path.join(path, directory)
+            metadata = read_metadata(fullpath)
+
+            if not dir_is_object(metadata):
+                # Directory is not an object created by the caller
+                # so we can go ahead and delete it.
+                try:
+                    if dir_empty(fullpath):
+                        rmdirs(fullpath)
+                    else:
+                        # Non-object dir is not empty!
+                        return False
+                except FileOrDirNotFoundError:
+                    # No such dir!
+                    return False
+            else:
+                # Wait, this is an object created by the caller
+                # We cannot delete
+                return False
+    rmdirs(dir_path)
+    return True
 
 
 # Over-ride Swift's utils.write_pickle with ours
