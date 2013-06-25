@@ -16,7 +16,8 @@
 import os
 import errno
 
-from gluster.swift.common.fs_utils import dir_empty, rmdirs, mkdirs, os_path
+from gluster.swift.common.fs_utils import dir_empty, rmdirs, mkdirs, os_path, \
+    do_chown
 from gluster.swift.common.utils import validate_account, validate_container, \
     get_container_details, get_account_details, create_container_metadata, \
     create_account_metadata, DEFAULT_GID, get_container_metadata, \
@@ -454,7 +455,7 @@ class DiskDir(DiskCommon):
         if not self._dir_exists:
             mkdirs(self.datadir)
             # If we create it, ensure we own it.
-            os.chown(self.datadir, self.uid, self.gid)
+            do_chown(self.datadir, self.uid, self.gid)
         metadata = get_container_metadata(self.datadir)
         metadata[X_TIMESTAMP] = timestamp
         write_metadata(self.datadir, metadata)

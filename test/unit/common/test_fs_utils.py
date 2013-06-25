@@ -363,6 +363,45 @@ class TestFsUtils(unittest.TestCase):
         else:
             self.fail("Expected OSError")
 
+    def test_fchown(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            buf = os.stat(tmpfile)
+            if buf.st_uid == 0:
+                raise SkipTest
+            else:
+                try:
+                    fs.do_fchown(fd, 20000, 20000)
+                except OSError as ex:
+                    if ex.errno != errno.EPERM:
+                        self.fail("Expected OSError")
+                else:
+                        self.fail("Expected OSError")
+        finally:
+            os.close(fd)
+            shutil.rmtree(tmpdir)
+
+    def test_fchown_err(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            fd_rd = os.open(tmpfile, os.O_RDONLY)
+            buf = os.stat(tmpfile)
+            if buf.st_uid == 0:
+                raise SkipTest
+            else:
+                try:
+                    fs.do_fchown(fd_rd, 20000, 20000)
+                except OSError as ex:
+                    if ex.errno != errno.EPERM:
+                        self.fail("Expected OSError")
+                else:
+                    self.fail("Expected OSError")
+        finally:
+            os.close(fd_rd)
+            os.close(fd)
+            shutil.rmtree(tmpdir)
 
     def test_do_fsync(self):
         tmpdir = mkdtemp()

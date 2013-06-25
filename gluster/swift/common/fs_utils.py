@@ -74,6 +74,15 @@ def do_chown(path, uid, gid):
     return True
 
 
+def do_fchown(fd, uid, gid):
+    try:
+        os.fchown(fd, uid, gid)
+    except OSError as err:
+        logging.exception("fchown failed on %d err: %s", fd, err.strerror)
+        raise
+    return True
+
+
 def do_stat(path):
     try:
         #Check for fd.

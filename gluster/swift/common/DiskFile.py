@@ -22,7 +22,7 @@ from swift.common.utils import renamer
 from swift.common.exceptions import DiskFileNotExist
 from gluster.swift.common.exceptions import AlreadyExistsAsDir
 from gluster.swift.common.fs_utils import mkdirs, rmdirs, do_open, do_close, \
-    do_unlink, do_chown, os_path, do_fsync
+    do_unlink, do_chown, os_path, do_fsync, do_fchown
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata
 from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
@@ -234,9 +234,9 @@ class Gluster_DiskFile(DiskFile):
                 tmp_path = os.path.join(tmp_path, dir_name)
                 self._create_dir_object(tmp_path)
 
+        do_fchown(fd, self.uid, self.gid)
         newpath = os.path.join(self.datadir, self._obj)
         renamer(self.tmppath, newpath)
-        do_chown(newpath, self.uid, self.gid)
         self.metadata = metadata
         self.data_file = newpath
         self.filter_metadata()
