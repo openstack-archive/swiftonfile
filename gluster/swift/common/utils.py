@@ -53,11 +53,6 @@ DEFAULT_UID = -1
 DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
 CHUNK_SIZE = 65536
-MEMCACHE_KEY_PREFIX = 'gluster.swift.'
-MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + \
-    'account.details.'
-MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + \
-    'container.details.'
 
 
 def read_metadata(path):
@@ -292,27 +287,12 @@ def _get_container_details_from_fs(cont_path):
     return ContainerDetails(bytes_used, object_count, obj_list, dir_list)
 
 
-def get_container_details(cont_path, memcache=None):
+def get_container_details(cont_path):
     """
     Return object_list, object_count and bytes_used.
     """
-    mkey = ''
-    if memcache:
-        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + cont_path
-        cd = memcache.get(mkey)
-        if cd:
-            if not cd.dir_list:
-                cd = None
-            else:
-                for (path, mtime) in cd.dir_list:
-                    if mtime != do_stat(path).st_mtime:
-                        cd = None
-    else:
-        cd = None
-    if not cd:
-        cd = _get_container_details_from_fs(cont_path)
-        if memcache:
-            memcache.set(mkey, cd)
+    cd = _get_container_details_from_fs(cont_path)
+
     return cd.obj_list, cd.object_count, cd.bytes_used
 
 
@@ -330,12 +310,14 @@ class AccountDetails(object):
         self.container_list = container_list
 
 
-def _get_account_details_from_fs(acc_path, acc_stats):
+def _get_account_details_from_fs(acc_path):
+    """
+    Return container_list and container_count.
+    """
     container_list = []
     container_count = 0
 
-    if not acc_stats:
-        acc_stats = do_stat(acc_path)
+    acc_stats = do_stat(acc_path)
     is_dir = (acc_stats.st_mode & 0040000) != 0
     if is_dir:
         for name in do_listdir(acc_path):
@@ -349,29 +331,12 @@ def _get_account_details_from_fs(acc_path, acc_stats):
     return AccountDetails(acc_stats.st_mtime, container_count, container_list)
 
 
-def get_account_details(acc_path, memcache=None):
+def get_account_details(acc_path):
     """
     Return container_list and container_count.
     """
-    acc_stats = None
-    mkey = ''
-    if memcache:
-        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + acc_path
-        ad = memcache.get(mkey)
-        if ad:
-            # FIXME: Do we really need to stat the file? If we are object
-            # only, then we can track the other Swift HTTP APIs that would
-            # modify the account and invalidate the cached entry there. If we
-            # are not object only, are we even called on this path?
-            acc_stats = do_stat(acc_path)
-            if ad.mtime != acc_stats.st_mtime:
-                ad = None
-    else:
-        ad = None
-    if not ad:
-        ad = _get_account_details_from_fs(acc_path, acc_stats)
-        if memcache:
-            memcache.set(mkey, ad)
+    ad = _get_account_details_from_fs(acc_path)
+
     return ad.container_list, ad.container_count
 
 
@@ -422,12 +387,11 @@ def _add_timestamp(metadata_i):
     return metadata
 
 
-def get_container_metadata(cont_path, memcache=None):
+def get_container_metadata(cont_path):
     objects = []
     object_count = 0
     bytes_used = 0
-    objects, object_count, bytes_used = get_container_details(cont_path,
-                                                              memcache)
+    objects, object_count, bytes_used = get_container_details(cont_path)
     metadata = {X_TYPE: CONTAINER,
                 X_TIMESTAMP: normalize_timestamp(
                     os_path.getctime(cont_path)),
@@ -438,10 +402,10 @@ def get_container_metadata(cont_path, memcache=None):
     return _add_timestamp(metadata)
 
 
-def get_account_metadata(acc_path, memcache=None):
+def get_account_metadata(acc_path):
     containers = []
     container_count = 0
-    containers, container_count = get_account_details(acc_path, memcache)
+    containers, container_count = get_account_details(acc_path)
     metadata = {X_TYPE: ACCOUNT,
                 X_TIMESTAMP: normalize_timestamp(
                     os_path.getctime(acc_path)),
@@ -470,13 +434,13 @@ def create_object_metadata(obj_path):
     return restore_metadata(obj_path, metadata)
 
 
-def create_container_metadata(cont_path, memcache=None):
-    metadata = get_container_metadata(cont_path, memcache)
+def create_container_metadata(cont_path):
+    metadata = get_container_metadata(cont_path)
     return restore_metadata(cont_path, metadata)
 
 
-def create_account_metadata(acc_path, memcache=None):
-    metadata = get_account_metadata(acc_path, memcache)
+def create_account_metadata(acc_path):
+    metadata = get_account_metadata(acc_path)
     return restore_metadata(acc_path, metadata)
 
 

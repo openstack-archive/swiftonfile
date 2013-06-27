@@ -422,7 +422,7 @@ class TestUtils(unittest.TestCase):
             os.rmdir(td)
 
     def test_get_container_metadata(self):
-        def _mock_get_container_details(path, memcache=None):
+        def _mock_get_container_details(path):
             o_list = [ 'a', 'b', 'c' ]
             o_count = 3
             b_used = 47
@@ -445,7 +445,7 @@ class TestUtils(unittest.TestCase):
             os.rmdir(td)
 
     def test_get_account_metadata(self):
-        def _mock_get_account_details(path, memcache=None):
+        def _mock_get_account_details(path):
             c_list = [ '123', 'abc' ]
             c_count = 2
             return c_list, c_count
@@ -520,247 +520,6 @@ class TestUtils(unittest.TestCase):
         finally:
             os.rmdir(td)
 
-    def test_container_details_uncached(self):
-        the_path = "/tmp/bar"
-        def mock_get_container_details_from_fs(cont_path):
-            bu = 5
-            oc = 1
-            ol = ['foo',]
-            dl = [('a',100),]
-            return utils.ContainerDetails(bu, oc, ol, dl)
-        orig_gcdff = utils._get_container_details_from_fs
-        utils._get_container_details_from_fs = mock_get_container_details_from_fs
-        try:
-            retval = utils.get_container_details(the_path)
-            cd = mock_get_container_details_from_fs(the_path)
-            assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-        finally:
-            utils._get_container_details_from_fs = orig_gcdff
-
-    def test_container_details_cached_hit(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_container_details_from_fs(cont_path, bu_p=5):
-            bu = bu_p
-            oc = 1
-            ol = ['foo',]
-            dl = [('a',100),]
-            return utils.ContainerDetails(bu, oc, ol, dl)
-        def mock_do_stat(path):
-            class MockStat(object):
-                def __init__(self, mtime):
-                    self.st_mtime = mtime
-            return MockStat(100)
-        cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path, cd)
-        orig_gcdff = utils._get_container_details_from_fs
-        utils._get_container_details_from_fs = mock_get_container_details_from_fs
-        orig_ds = utils.do_stat
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_container_details(the_path, memcache=mc)
-            # If it did not properly use memcache, the default mocked version
-            # of get details from fs would return 5 bytes used instead of the
-            # 6 we specified above.
-            cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-            assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-        finally:
-            utils._get_container_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_container_details_cached_miss_key(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_container_details_from_fs(cont_path, bu_p=5):
-            bu = bu_p
-            oc = 1
-            ol = ['foo',]
-            dl = [('a',100),]
-            return utils.ContainerDetails(bu, oc, ol, dl)
-        def mock_do_stat(path):
-            # Be sure we don't miss due to mtimes not matching
-            self.fail("do_stat should not have been called")
-        cd = mock_get_container_details_from_fs(the_path + "u", bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path + "u", cd)
-        orig_gcdff = utils._get_container_details_from_fs
-        utils._get_container_details_from_fs = mock_get_container_details_from_fs
-        orig_ds = utils.do_stat
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_container_details(the_path, memcache=mc)
-            cd = mock_get_container_details_from_fs(the_path)
-            assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path
-            assert mkey in mc._d
-        finally:
-            utils._get_container_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_container_details_cached_miss_dir_list(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_container_details_from_fs(cont_path, bu_p=5):
-            bu = bu_p
-            oc = 1
-            ol = ['foo',]
-            dl = []
-            return utils.ContainerDetails(bu, oc, ol, dl)
-        def mock_do_stat(path):
-            # Be sure we don't miss due to mtimes not matching
-            self.fail("do_stat should not have been called")
-        cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path, cd)
-        orig_gcdff = utils._get_container_details_from_fs
-        utils._get_container_details_from_fs = mock_get_container_details_from_fs
-        orig_ds = utils.do_stat
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_container_details(the_path, memcache=mc)
-            cd = mock_get_container_details_from_fs(the_path)
-            assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path
-            assert mkey in mc._d
-            assert 5 == mc._d[mkey].bytes_used
-        finally:
-            utils._get_container_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_container_details_cached_miss_mtime(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_container_details_from_fs(cont_path, bu_p=5):
-            bu = bu_p
-            oc = 1
-            ol = ['foo',]
-            dl = [('a',100),]
-            return utils.ContainerDetails(bu, oc, ol, dl)
-        def mock_do_stat(path):
-            # Be sure we miss due to mtimes not matching
-            class MockStat(object):
-                def __init__(self, mtime):
-                    self.st_mtime = mtime
-            return MockStat(200)
-        cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path, cd)
-        orig_gcdff = utils._get_container_details_from_fs
-        utils._get_container_details_from_fs = mock_get_container_details_from_fs
-        orig_ds = utils.do_stat
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_container_details(the_path, memcache=mc)
-            cd = mock_get_container_details_from_fs(the_path)
-            assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + the_path
-            assert mkey in mc._d
-            assert 5 == mc._d[mkey].bytes_used
-        finally:
-            utils._get_container_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_account_details_uncached(self):
-        the_path = "/tmp/bar"
-        def mock_get_account_details_from_fs(acc_path, acc_stats):
-            mt = 100
-            cc = 2
-            cl = ['a', 'b']
-            return utils.AccountDetails(mt, cc, cl)
-        orig_gcdff = utils._get_account_details_from_fs
-        utils._get_account_details_from_fs = mock_get_account_details_from_fs
-        try:
-            retval = utils.get_account_details(the_path)
-            ad = mock_get_account_details_from_fs(the_path, None)
-            assert retval == (ad.container_list, ad.container_count)
-        finally:
-            utils._get_account_details_from_fs = orig_gcdff
-
-    def test_account_details_cached_hit(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_account_details_from_fs(acc_path, acc_stats):
-            mt = 100
-            cc = 2
-            cl = ['a', 'b']
-            return utils.AccountDetails(mt, cc, cl)
-        def mock_do_stat(path):
-            class MockStat(object):
-                def __init__(self, mtime):
-                    self.st_mtime = mtime
-            return MockStat(100)
-        ad = mock_get_account_details_from_fs(the_path, None)
-        ad.container_list = ['x', 'y']
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + the_path, ad)
-        orig_gcdff = utils._get_account_details_from_fs
-        orig_ds = utils.do_stat
-        utils._get_account_details_from_fs = mock_get_account_details_from_fs
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_account_details(the_path, memcache=mc)
-            assert retval == (ad.container_list, ad.container_count)
-            wrong_ad = mock_get_account_details_from_fs(the_path, None)
-            assert wrong_ad != ad
-        finally:
-            utils._get_account_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_account_details_cached_miss(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_account_details_from_fs(acc_path, acc_stats):
-            mt = 100
-            cc = 2
-            cl = ['a', 'b']
-            return utils.AccountDetails(mt, cc, cl)
-        def mock_do_stat(path):
-            class MockStat(object):
-                def __init__(self, mtime):
-                    self.st_mtime = mtime
-            return MockStat(100)
-        ad = mock_get_account_details_from_fs(the_path, None)
-        ad.container_list = ['x', 'y']
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + the_path + 'u', ad)
-        orig_gcdff = utils._get_account_details_from_fs
-        orig_ds = utils.do_stat
-        utils._get_account_details_from_fs = mock_get_account_details_from_fs
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_account_details(the_path, memcache=mc)
-            correct_ad = mock_get_account_details_from_fs(the_path, None)
-            assert retval == (correct_ad.container_list, correct_ad.container_count)
-            assert correct_ad != ad
-        finally:
-            utils._get_account_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
-    def test_account_details_cached_miss_mtime(self):
-        mc = SimMemcache()
-        the_path = "/tmp/bar"
-        def mock_get_account_details_from_fs(acc_path, acc_stats):
-            mt = 100
-            cc = 2
-            cl = ['a', 'b']
-            return utils.AccountDetails(mt, cc, cl)
-        def mock_do_stat(path):
-            class MockStat(object):
-                def __init__(self, mtime):
-                    self.st_mtime = mtime
-            return MockStat(100)
-        ad = mock_get_account_details_from_fs(the_path, None)
-        ad.container_list = ['x', 'y']
-        ad.mtime = 200
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + the_path, ad)
-        orig_gcdff = utils._get_account_details_from_fs
-        orig_ds = utils.do_stat
-        utils._get_account_details_from_fs = mock_get_account_details_from_fs
-        utils.do_stat = mock_do_stat
-        try:
-            retval = utils.get_account_details(the_path, memcache=mc)
-            correct_ad = mock_get_account_details_from_fs(the_path, None)
-            assert retval == (correct_ad.container_list, correct_ad.container_count)
-            assert correct_ad != ad
-        finally:
-            utils._get_account_details_from_fs = orig_gcdff
-            utils.do_stat = orig_ds
-
     def test_get_account_details_from_fs(self):
         orig_cwd = os.getcwd()
         td = tempfile.mkdtemp()
@@ -769,7 +528,7 @@ class TestUtils(unittest.TestCase):
             os.chdir(td)
             tf.extractall()
 
-            ad = utils._get_account_details_from_fs(td, None)
+            ad = utils._get_account_details_from_fs(td)
             assert ad.mtime == os.path.getmtime(td)
             assert ad.container_count == 3
             assert set(ad.container_list) == set(['c1', 'c2', 'c3'])
@@ -887,14 +646,14 @@ class TestUtils(unittest.TestCase):
 
     def test_get_account_details_from_fs_notadir_w_stats(self):
         tf = tempfile.NamedTemporaryFile()
-        ad = utils._get_account_details_from_fs(tf.name, os.stat(tf.name))
+        ad = utils._get_account_details_from_fs(tf.name)
         assert ad.mtime == os.path.getmtime(tf.name)
         assert ad.container_count == 0
         assert ad.container_list == []
 
     def test_get_account_details_from_fs_notadir(self):
         tf = tempfile.NamedTemporaryFile()
-        ad = utils._get_account_details_from_fs(tf.name, None)
+        ad = utils._get_account_details_from_fs(tf.name)
         assert ad.mtime == os.path.getmtime(tf.name)
         assert ad.container_count == 0
         assert ad.container_list == []
