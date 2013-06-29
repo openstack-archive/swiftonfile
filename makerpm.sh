@@ -28,8 +28,8 @@ create_dir()
 gittotar()
 {
 	# Only archives committed changes
-	git archive --format=tar.gz --prefix=${SRCTAR_DIR}/ HEAD --output ${SRCTAR}
-	if [ $? -ne 0 ] ; then
+	git archive --format=tar --prefix=${SRCTAR_DIR}/ HEAD | gzip -c > ${SRCTAR}
+	if [ $? -ne 0 -o \! -s ${SRCTAR} ] ; then
 		fail "Unable to create git archive" $?
 	fi
 }
