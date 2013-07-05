@@ -28,7 +28,7 @@ We recommend using this tool to upload, modify, and query changes in Gerrit.
 The tool can be installed by running the following command:
 
 ~~~
-pip install git-review
+sudo pip install git-review
 ~~~
 
 Note that while many distros offer a version of `git review`, they don't

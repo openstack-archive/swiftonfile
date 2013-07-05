@@ -7,6 +7,6 @@ the Swift API.
 
 # Table of Contents
 1. [Overview and Concepts](doc/markdown/concepts.md)
-1. [Usage Guide](doc/markdown/user_guide.md)
+1. [User Guide](doc/markdown/user_guide.md)
 1. [Developer Guide](doc/markdown/dev_guide.md)
 
