@@ -158,6 +158,20 @@ git review -d CHANGE_NUMBER
 
 where CHANGE_NUMBER is the Gerrit change number.
 
+If you need to create a new patch for a change and include your update(s)
+to your last commit type:
+
+~~~
+git commit -as --amend
+~~~
+
+Now that you have finished updating your change, you need to re-upload
+to Gerrit using the following command:
+
+~~~
+git review
+~~~
+
 ## Creating Distribution Packages
 
 ### Tools Installation
