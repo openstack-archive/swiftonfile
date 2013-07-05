@@ -108,8 +108,22 @@ where *ENV* is either `py27` for systems with Python 2.7+, or `py26` for
 systems with Python 2.6+.
 
 #### Functional Tests
-Fuctional tests are used to test a running Gluster for Swift environment.
-**TBD**.
+To run the functional tests the following requirements must be met.
+
+1) "/etc/swift" must not exist. So that test would not interfere with
+existing setup. Functional test would create "/etc/swift" and populate
+it with necessary configuration files.
+2) User need to have administrative access.
+2) "/mnt/gluster-object" directory must be created.
+3) Volumes named "test", "test2" should be created. (Gluster volume / XFS
+volume)
+4) Volumes should be mounted under "/mnt/gluster-object/test" and
+"/mnt/gluster-object/test2" respectively.
+
+####To run functional tests:
+~~~
+tools/functional_tests.sh
+~~~
 
 ### Commiting changes
 After making the changes needed, you can commit your changes by typing:
