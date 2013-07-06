@@ -42,6 +42,13 @@ Requires : openstack-swift-account >= 1.8.0
 Requires : openstack-swift-container >= 1.8.0
 Requires : openstack-swift-object >= 1.8.0
 Requires : openstack-swift-proxy >= 1.8.0
+Obsoletes: glusterfs-swift-plugin
+Obsoletes: glusterfs-swift
+Obsoletes: glusterfs-ufo
+Obsoletes: glusterfs-swift-container
+Obsoletes: glusterfs-swift-object
+Obsoletes: glusterfs-swift-proxy
+Obsoletes: glusterfs-swift-account
 
 %description
 Gluster-For-Swift (G4S, pronounced "gee-force") integrates GlusterFS as an
