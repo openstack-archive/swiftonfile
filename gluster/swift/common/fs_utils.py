@@ -137,19 +137,6 @@ def do_unlink(path, log=True):
     return True
 
 
-def do_rmdir(path):
-    try:
-        os.rmdir(path)
-    except OSError as err:
-        if err.errno != errno.ENOENT:
-            logging.exception("Rmdir failed on %s err: %s", path, err.strerror)
-            raise
-        res = False
-    else:
-        res = True
-    return res
-
-
 def do_rename(old_path, new_path):
     try:
         os.rename(old_path, new_path)

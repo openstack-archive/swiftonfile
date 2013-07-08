@@ -237,24 +237,6 @@ class TestFsUtils(unittest.TestCase):
         finally:
             os.rmdir(tmpdir)
 
-    def test_do_rmdir(self):
-        tmpdir = mkdtemp()
-        fs.do_rmdir(tmpdir)
-        assert not os.path.exists(tmpdir)
-        assert not fs.do_rmdir(os.path.join('/tmp', str(random.random())))
-
-    def test_do_rmdir_err(self):
-        fd, tmpfile = mkstemp()
-        try:
-            fs.do_rmdir(tmpfile)
-        except OSError:
-            pass
-        else:
-            self.fail('OSError expected')
-        finally:
-            os.close(fd)
-            os.remove(tmpfile)
-
     def test_do_rename(self):
         srcpath = mkdtemp()
         try:

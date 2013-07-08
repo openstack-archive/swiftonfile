@@ -49,7 +49,6 @@ ASYNCDIR = 'async_pending'  # Keep in sync with swift.obj.server.ASYNCDIR
 FILE = 'file'
 FILE_TYPE = 'application/octet-stream'
 OBJECT = 'Object'
-OBJECT_TYPE = 'application/octet-stream'
 DEFAULT_UID = -1
 DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
