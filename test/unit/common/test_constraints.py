@@ -73,6 +73,7 @@ class TestConstraints(unittest.TestCase):
         self.assertTrue(cnt.validate_obj_name_component('tests'*(max_obj_len/5+1)))
         self.assertTrue(cnt.validate_obj_name_component('.'))
         self.assertTrue(cnt.validate_obj_name_component('..'))
+        self.assertTrue(cnt.validate_obj_name_component(''))
 
     def test_gluster_check_object_creation(self):
         with patch('gluster.swift.common.constraints.__check_object_creation',
@@ -83,14 +84,3 @@ class TestConstraints(unittest.TestCase):
         with patch('gluster.swift.common.constraints.__check_object_creation',
                    mock_check_object_creation):
             self.assertTrue(cnt.gluster_check_object_creation(None, 'dir/.'))
-
-    def test_gluster_check_mount(self):
-        with patch('gluster.swift.common.constraints.__check_mount',
-                   mock_check_mount):
-            self.assertTrue(cnt.gluster_check_mount('/tmp/drive', 'vol0'))
-
-        with patch('gluster.swift.common.constraints.__check_mount',
-                   mock_check_mount_err):
-            with patch('gluster.swift.common.Glusterfs.mount',
-                       mock_glusterfs_mount):
-                self.assertTrue(cnt.gluster_check_mount('/tmp/drive', 'vol0'))

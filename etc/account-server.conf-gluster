@@ -1,17 +1,32 @@
 [DEFAULT]
 devices = /mnt/gluster-object
+#
+# Once you are confident that your startup processes will always have your
+# gluster volumes properly mounted *before* the account-server workers start,
+# you can *consider* setting this value to "false" to reduce the per-request
+# overhead it can incur.
 mount_check = true
 bind_port = 6012
-user = root
-log_facility = LOG_LOCAL2
+#
 # Override swift's default behaviour for fallocate.
 disable_fallocate = true
+#
+# One or two workers should be sufficient for almost any installation of
+# Gluster.
+workers = 1
 
 [pipeline:main]
 pipeline = account-server
 
 [app:account-server]
 use = egg:gluster_swift#account
+user = root
+log_facility = LOG_LOCAL2
+#
+# After ensuring things are running in a stable manner, you can turn off
+# normal request logging for the account server to unclutter the log
+# files. Warnings and errors will still be logged.
+log_requests = on
 
 [account-replicator]
 vm_test_mode = yes

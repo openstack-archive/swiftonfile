@@ -25,8 +25,10 @@ import hashlib
 import tarfile
 import shutil
 from collections import defaultdict
+from mock import patch
 from swift.common.utils import normalize_timestamp
 from gluster.swift.common import utils, Glusterfs
+from gluster.swift.common.exceptions import GlusterFileSystemOSError
 
 #
 # Somewhat hacky way of emulating the operation of xattr calls. They are made
@@ -126,6 +128,10 @@ class SimMemcache(object):
 
     def set(self, key, value):
         self._d[key] = value
+
+
+def _mock_os_fsync(fd):
+    return
 
 
 class TestUtils(unittest.TestCase):
@@ -338,8 +344,9 @@ class TestUtils(unittest.TestCase):
     def test_get_object_metadata_err(self):
         tf = tempfile.NamedTemporaryFile()
         try:
-            md = utils.get_object_metadata(os.path.join(tf.name,"doesNotEx1st"))
-        except OSError as e:
+            md = utils.get_object_metadata(
+                os.path.join(tf.name, "doesNotEx1st"))
+        except GlusterFileSystemOSError as e:
             assert e.errno != errno.ENOENT
         else:
             self.fail("Expected exception")
@@ -520,7 +527,7 @@ class TestUtils(unittest.TestCase):
         finally:
             os.rmdir(td)
 
-    def test_get_account_details_from_fs(self):
+    def test_get_account_details(self):
         orig_cwd = os.getcwd()
         td = tempfile.mkdtemp()
         try:
@@ -528,23 +535,28 @@ class TestUtils(unittest.TestCase):
             os.chdir(td)
             tf.extractall()
 
-            ad = utils._get_account_details_from_fs(td)
-            assert ad.mtime == os.path.getmtime(td)
-            assert ad.container_count == 3
-            assert set(ad.container_list) == set(['c1', 'c2', 'c3'])
+            container_list, container_count = utils.get_account_details(td)
+            assert container_count == 3
+            assert set(container_list) == set(['c1', 'c2', 'c3'])
         finally:
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_get_container_details_from_fs_notadir(self):
+    def test_get_account_details_notadir(self):
         tf = tempfile.NamedTemporaryFile()
-        cd = utils._get_container_details_from_fs(tf.name)
-        assert cd.bytes_used == 0
-        assert cd.object_count == 0
-        assert cd.obj_list == []
-        assert cd.dir_list == []
+        container_list, container_count = utils.get_account_details(tf.name)
+        assert container_count == 0
+        assert container_list == []
 
-    def test_get_container_details_from_fs(self):
+    def test_get_container_details_notadir(self):
+        tf = tempfile.NamedTemporaryFile()
+        obj_list, object_count, bytes_used = \
+            utils.get_container_details(tf.name)
+        assert bytes_used == 0
+        assert object_count == 0
+        assert obj_list == []
+
+    def test_get_container_details(self):
         orig_cwd = os.getcwd()
         td = tempfile.mkdtemp()
         try:
@@ -552,13 +564,14 @@ class TestUtils(unittest.TestCase):
             os.chdir(td)
             tf.extractall()
 
-            cd = utils._get_container_details_from_fs(td)
-            assert cd.bytes_used == 0, repr(cd.bytes_used)
+            obj_list, object_count, bytes_used = \
+                utils.get_container_details(td)
+            assert bytes_used == 0, repr(bytes_used)
             # Should not include the directories
-            assert cd.object_count == 5, repr(cd.object_count)
-            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
-                                   'dir1/file1', 'dir1/file2'
-                                   ]), repr(cd.obj_list)
+            assert object_count == 5, repr(object_count)
+            assert set(obj_list) == set(['file1', 'file3', 'file2',
+                                         'dir1/file1', 'dir1/file2'
+                                         ]), repr(obj_list)
 
             full_dir1 = os.path.join(td, 'dir1')
             full_dir2 = os.path.join(td, 'dir2')
@@ -568,14 +581,11 @@ class TestUtils(unittest.TestCase):
                              full_dir2: os.path.getmtime(full_dir2),
                              full_dir3: os.path.getmtime(full_dir3),
                              }
-            for d,m in cd.dir_list:
-                assert d in exp_dir_dict
-                assert exp_dir_dict[d] == m
         finally:
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_get_container_details_from_fs_ufo(self):
+    def test_get_container_details_ufo(self):
         orig_cwd = os.getcwd()
         __obj_only = Glusterfs.OBJECT_ONLY
         td = tempfile.mkdtemp()
@@ -586,13 +596,14 @@ class TestUtils(unittest.TestCase):
 
             Glusterfs.OBJECT_ONLY = False
 
-            cd = utils._get_container_details_from_fs(td)
-            assert cd.bytes_used == 0, repr(cd.bytes_used)
-            assert cd.object_count == 8, repr(cd.object_count)
-            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
-                                   'dir3', 'dir1', 'dir2',
-                                   'dir1/file1', 'dir1/file2'
-                                   ]), repr(cd.obj_list)
+            obj_list, object_count, bytes_used = \
+                utils.get_container_details(td)
+            assert bytes_used == 0, repr(bytes_used)
+            assert object_count == 8, repr(object_count)
+            assert set(obj_list) == set(['file1', 'file3', 'file2',
+                                         'dir3', 'dir1', 'dir2',
+                                         'dir1/file1', 'dir1/file2'
+                                         ]), repr(obj_list)
 
             full_dir1 = os.path.join(td, 'dir1')
             full_dir2 = os.path.join(td, 'dir2')
@@ -602,9 +613,6 @@ class TestUtils(unittest.TestCase):
                              full_dir2: os.path.getmtime(full_dir2),
                              full_dir3: os.path.getmtime(full_dir3),
                              }
-            for d,m in cd.dir_list:
-                assert d in exp_dir_dict
-                assert exp_dir_dict[d] == m
         finally:
             os.chdir(orig_cwd)
             shutil.rmtree(td)
@@ -621,12 +629,13 @@ class TestUtils(unittest.TestCase):
 
             Glusterfs._do_getsize = True
 
-            cd = utils._get_container_details_from_fs(td)
-            assert cd.bytes_used == 30, repr(cd.bytes_used)
-            assert cd.object_count == 5, repr(cd.object_count)
-            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
-                                   'dir1/file1', 'dir1/file2'
-                                   ]), repr(cd.obj_list)
+            obj_list, object_count, bytes_used = \
+                utils.get_container_details(td)
+            assert bytes_used == 30, repr(bytes_used)
+            assert object_count == 5, repr(object_count)
+            assert set(obj_list) == set(['file1', 'file3', 'file2',
+                                         'dir1/file1', 'dir1/file2'
+                                         ]), repr(obj_list)
 
             full_dir1 = os.path.join(td, 'dir1')
             full_dir2 = os.path.join(td, 'dir2')
@@ -636,33 +645,18 @@ class TestUtils(unittest.TestCase):
                              full_dir2: os.path.getmtime(full_dir2),
                              full_dir3: os.path.getmtime(full_dir3),
                              }
-            for d,m in cd.dir_list:
-                assert d in exp_dir_dict
-                assert exp_dir_dict[d] == m
         finally:
             Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_get_account_details_from_fs_notadir_w_stats(self):
-        tf = tempfile.NamedTemporaryFile()
-        ad = utils._get_account_details_from_fs(tf.name)
-        assert ad.mtime == os.path.getmtime(tf.name)
-        assert ad.container_count == 0
-        assert ad.container_list == []
-
-    def test_get_account_details_from_fs_notadir(self):
-        tf = tempfile.NamedTemporaryFile()
-        ad = utils._get_account_details_from_fs(tf.name)
-        assert ad.mtime == os.path.getmtime(tf.name)
-        assert ad.container_count == 0
-        assert ad.container_list == []
-
     def test_write_pickle(self):
         td = tempfile.mkdtemp()
         try:
             fpp = os.path.join(td, 'pp')
-            utils.write_pickle('pickled peppers', fpp)
+            # FIXME: Remove this patch when coverage.py can handle eventlet
+            with patch("os.fsync", _mock_os_fsync):
+                utils.write_pickle('pickled peppers', fpp)
             with open(fpp, "rb") as f:
                 contents = f.read()
             s = pickle.loads(contents)
@@ -676,7 +670,10 @@ class TestUtils(unittest.TestCase):
         try:
             fpp = os.path.join(td, 'pp')
             # Also test an explicity pickle protocol
-            utils.write_pickle('pickled peppers', fpp, tmp=tf.name, pickle_protocol=2)
+            # FIXME: Remove this patch when coverage.py can handle eventlet
+            with patch("os.fsync", _mock_os_fsync):
+                utils.write_pickle('pickled peppers', fpp, tmp=tf.name,
+                                   pickle_protocol=2)
             with open(fpp, "rb") as f:
                 contents = f.read()
             s = pickle.loads(contents)
@@ -855,3 +852,168 @@ class TestUtilsDirObjects(unittest.TestCase):
         self.assertFalse(utils.rmobjdir(self.rootdir))
         self._clear_dir_object(self.dirs[0])
         self.assertTrue(utils.rmobjdir(self.rootdir))
+
+    def test_rmobjdir_metadata_errors(self):
+
+        def _mock_rm(path):
+            print "_mock_rm-metadata_errors(%s)" % path
+            if path.endswith("dir3"):
+                raise OSError(13, "foo")
+            return {}
+
+        _orig_rm = utils.read_metadata
+        utils.read_metadata = _mock_rm
+        try:
+            try:
+                utils.rmobjdir(self.rootdir)
+            except OSError:
+                pass
+            else:
+                self.fail("Expected OSError")
+        finally:
+            utils.read_metadata = _orig_rm
+
+    def test_rmobjdir_metadata_enoent(self):
+
+        def _mock_rm(path):
+            print "_mock_rm-metadata_enoent(%s)" % path
+            shutil.rmtree(path)
+            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+        # Remove the files
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        _orig_rm = utils.read_metadata
+        utils.read_metadata = _mock_rm
+        try:
+            try:
+                self.assertTrue(utils.rmobjdir(self.rootdir))
+            except OSError:
+                self.fail("Unexpected OSError")
+            else:
+                pass
+        finally:
+            utils.read_metadata = _orig_rm
+
+    def test_rmobjdir_rmdir_enoent(self):
+
+        seen = [0]
+        _orig_rm = utils.do_rmdir
+
+        def _mock_rm(path):
+            print "_mock_rm-rmdir_enoent(%s)" % path
+            if path == self.rootdir and not seen[0]:
+                seen[0] = 1
+                raise OSError(errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY))
+            else:
+                shutil.rmtree(path)
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+        # Remove the files
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        utils.do_rmdir = _mock_rm
+        try:
+            try:
+                self.assertTrue(utils.rmobjdir(self.rootdir))
+            except OSError:
+                self.fail("Unexpected OSError")
+            else:
+                pass
+        finally:
+            utils.do_rmdir = _orig_rm
+
+    def test_rmobjdir_rmdir_error(self):
+
+        seen = [0]
+        _orig_rm = utils.do_rmdir
+
+        def _mock_rm(path):
+            print "_mock_rm-rmdir_enoent(%s)" % path
+            if path == self.rootdir and not seen[0]:
+                seen[0] = 1
+                raise OSError(errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY))
+            else:
+                raise OSError(errno.EACCES, os.strerror(errno.EACCES))
+
+        # Remove the files
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        utils.do_rmdir = _mock_rm
+        try:
+            try:
+                utils.rmobjdir(self.rootdir)
+            except OSError:
+                pass
+            else:
+                self.fail("Expected OSError")
+        finally:
+            utils.do_rmdir = _orig_rm
+
+    def test_rmobjdir_files_left_in_top_dir(self):
+
+        seen = [0]
+        _orig_rm = utils.do_rmdir
+
+        def _mock_rm(path):
+            print "_mock_rm-files_left_in_top_dir(%s)" % path
+            if path == self.rootdir:
+                if not seen[0]:
+                    seen[0] = 1
+                    raise OSError(errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY))
+                else:
+                    return _orig_rm(path)
+            else:
+                shutil.rmtree(path)
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+        # Remove the files, leaving the ones at the root
+        for f in self.files:
+            if f.startswith('dir'):
+                os.unlink(os.path.join(self.rootdir, f))
+
+        utils.do_rmdir = _mock_rm
+        try:
+            try:
+                self.assertFalse(utils.rmobjdir(self.rootdir))
+            except OSError:
+                self.fail("Unexpected OSError")
+            else:
+                pass
+        finally:
+            utils.do_rmdir = _orig_rm
+
+    def test_rmobjdir_error_final_rmdir(self):
+
+        seen = [0]
+        _orig_rm = utils.do_rmdir
+
+        def _mock_rm(path):
+            print "_mock_rm-files_left_in_top_dir(%s)" % path
+            if path == self.rootdir:
+                if not seen[0]:
+                    seen[0] = 1
+                    raise OSError(errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY))
+                else:
+                    raise OSError(errno.EACCES, os.strerror(errno.EACCES))
+            else:
+                shutil.rmtree(path)
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+        # Remove the files, leaving the ones at the root
+        for f in self.files:
+            os.unlink(os.path.join(self.rootdir, f))
+
+        utils.do_rmdir = _mock_rm
+        try:
+            try:
+                utils.rmobjdir(self.rootdir)
+            except OSError:
+                pass
+            else:
+                self.fail("Expected OSError")
+        finally:
+            utils.do_rmdir = _orig_rm

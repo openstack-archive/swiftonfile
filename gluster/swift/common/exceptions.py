@@ -14,7 +14,19 @@
 # limitations under the License.
 
 
+class GlusterFileSystemOSError(OSError):
+    pass
+
+
+class GlusterFileSystemIOError(IOError):
+    pass
+
+
 class GlusterfsException(Exception):
+    pass
+
+
+class FailureToMountError(GlusterfsException):
     pass
 
 
@@ -27,4 +39,8 @@ class NotDirectoryError(GlusterfsException):
 
 
 class AlreadyExistsAsDir(GlusterfsException):
+    pass
+
+
+class AlreadyExistsAsFile(GlusterfsException):
     pass

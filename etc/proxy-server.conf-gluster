@@ -1,7 +1,6 @@
 [DEFAULT]
 bind_port = 8080
 user = root
-log_facility = LOG_LOCAL1
 # Consider using 1 worker per CPU
 workers = 1
 

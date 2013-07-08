@@ -50,7 +50,12 @@ def _init():
 def _init_mock_variables(tmpdir):
     os.system            = mock_os_system
     os.path.ismount      = mock_os_path_ismount
-    gfs.RUN_DIR          = os.path.join(tmpdir, 'var/run/swift')
+    try:
+        os.makedirs(os.path.join(tmpdir, "var", "run"))
+    except OSError as err:
+        if err.errno != errno.EEXIST:
+            raise
+    gfs.RUN_DIR          = os.path.join(tmpdir, 'var', 'run', 'swift')
     gfs._get_export_list = mock_get_export_list
 
 def _reset_mock_variables():
@@ -108,8 +113,16 @@ class TestGlusterfs(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
     def test_mount_get_export_list_err(self):
-        gfs._get_export_list = mock_get_export_list
-        assert not gfs.mount(None, 'drive')
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'test3'
+
+            _init_mock_variables(tmpdir)
+            gfs._get_export_list = mock_get_export_list
+            assert not gfs.mount(root, drive)
+        finally:
+            shutil.rmtree(tmpdir)
 
     def tearDown(self):
         _reset_mock_variables()

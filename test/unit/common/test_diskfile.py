@@ -21,15 +21,15 @@ import errno
 import unittest
 import tempfile
 import shutil
+from mock import patch
 from hashlib import md5
 from swift.common.utils import normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError
 import gluster.swift.common.DiskFile
 import gluster.swift.common.utils
-from gluster.swift.common.DiskFile import Gluster_DiskFile, \
-    AlreadyExistsAsDir
+from gluster.swift.common.DiskFile import Gluster_DiskFile
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
-    X_OBJECT_TYPE
+    X_OBJECT_TYPE, DIR_OBJECT
 from test_utils import _initxattr, _destroyxattr
 from test.unit import FakeLogger
 
@@ -59,21 +59,6 @@ def _mock_rmobjdir(p):
 
 def _mock_do_fsync(fd):
     return
-
-def _mock_os_unlink_eacces_err(f):
-    ose = OSError()
-    ose.errno = errno.EACCES
-    raise ose
-
-def _mock_getsize_eaccess_err(f):
-    ose = OSError()
-    ose.errno = errno.EACCES
-    raise ose
-
-def _mock_do_rmdir_eacces_err(f):
-    ose = OSError()
-    ose.errno = errno.EACCES
-    raise ose
 
 class MockRenamerCalled(Exception):
     pass
@@ -293,7 +278,7 @@ class TestDiskFile(unittest.TestCase):
         gdf._is_dir = True
         gdf.fp = "123"
         # Should still be a no-op as is_dir is True (marker directory)
-        gdf.close()
+        self.assertRaises(AssertionError, gdf.close)
         assert gdf.fp == "123"
 
         gdf._is_dir = False
@@ -317,21 +302,69 @@ class TestDiskFile(unittest.TestCase):
         gdf.data_file = "/tmp/foo/bar"
         assert not gdf.is_deleted()
 
-    def test_create_dir_object(self):
+    def test_create_dir_object_no_md(self):
         td = tempfile.mkdtemp()
-        the_dir = os.path.join(td, "vol0", "bar", "dir")
+        the_cont = os.path.join(td, "vol0", "bar")
+        the_dir = "dir"
         try:
+            os.makedirs(the_cont)
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
-                                   "dir/z", self.lg)
+                                   os.path.join(the_dir, "z"), self.lg)
             # Not created, dir object path is different, just checking
             assert gdf._obj == "z"
             gdf._create_dir_object(the_dir)
-            assert os.path.isdir(the_dir)
-            assert the_dir in _metadata
+            full_dir_path = os.path.join(the_cont, the_dir)
+            assert os.path.isdir(full_dir_path)
+            assert full_dir_path not in _metadata
+        finally:
+            shutil.rmtree(td)
+
+    def test_create_dir_object_with_md(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        the_dir = "dir"
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
+                                   os.path.join(the_dir, "z"), self.lg)
+            # Not created, dir object path is different, just checking
+            assert gdf._obj == "z"
+            dir_md = {'Content-Type': 'application/directory',
+                      X_OBJECT_TYPE: DIR_OBJECT}
+            gdf._create_dir_object(the_dir, dir_md)
+            full_dir_path = os.path.join(the_cont, the_dir)
+            assert os.path.isdir(full_dir_path)
+            assert full_dir_path in _metadata
         finally:
             shutil.rmtree(td)
 
     def test_create_dir_object_exists(self):
+        td = tempfile.mkdtemp()
+        the_path = os.path.join(td, "vol0", "bar")
+        the_dir = os.path.join(the_path, "dir")
+        try:
+            os.makedirs(the_path)
+            with open(the_dir, "wb") as fd:
+                fd.write("1234")
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
+                                   "dir/z", self.lg)
+            # Not created, dir object path is different, just checking
+            assert gdf._obj == "z"
+            def _mock_do_chown(p, u, g):
+                assert u == DEFAULT_UID
+                assert g == DEFAULT_GID
+            dc = gluster.swift.common.DiskFile.do_chown
+            gluster.swift.common.DiskFile.do_chown = _mock_do_chown
+            self.assertRaises(DiskFileError,
+                    gdf._create_dir_object,
+                    the_dir)
+            gluster.swift.common.DiskFile.do_chown = dc
+            self.assertFalse(os.path.isdir(the_dir))
+            self.assertFalse(the_dir in _metadata)
+        finally:
+            shutil.rmtree(td)
+
+    def test_create_dir_object_do_stat_failure(self):
         td = tempfile.mkdtemp()
         the_path = os.path.join(td, "vol0", "bar")
         the_dir = os.path.join(the_path, "dir")
@@ -452,21 +485,24 @@ class TestDiskFile(unittest.TestCase):
 
     def test_put_w_marker_dir_create(self):
         td = tempfile.mkdtemp()
-        the_path = os.path.join(td, "vol0", "bar")
-        the_dir = os.path.join(the_path, "dir")
+        the_cont = os.path.join(td, "vol0", "bar")
+        the_dir = os.path.join(the_cont, "dir")
         try:
+            os.makedirs(the_cont)
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "dir", self.lg)
             assert gdf.metadata == {}
             newmd = {
-                'Content-Length': 0,
                 'ETag': 'etag',
                 'X-Timestamp': 'ts',
                 'Content-Type': 'application/directory'}
             gdf.put(None, newmd, extension='.dir')
             assert gdf.data_file == the_dir
-            assert gdf.metadata == newmd
-            assert _metadata[the_dir] == newmd
+            for key,val in newmd.items():
+                assert gdf.metadata[key] == val
+                assert _metadata[the_dir][key] == val
+            assert gdf.metadata[X_OBJECT_TYPE] == DIR_OBJECT
+            assert _metadata[the_dir][X_OBJECT_TYPE] == DIR_OBJECT
         finally:
             shutil.rmtree(td)
 
@@ -487,10 +523,11 @@ class TestDiskFile(unittest.TestCase):
             newmd['X-Object-Meta-test'] = '1234'
             try:
                 gdf.put(None, newmd, extension='.data')
-            except AlreadyExistsAsDir:
+            except DiskFileError:
                 pass
             else:
-                self.fail("Expected to encounter 'already-exists-as-dir' exception")
+                self.fail("Expected to encounter"
+                          " 'already-exists-as-dir' exception")
             assert gdf.metadata == origmd
             assert _metadata[the_dir] == origfmd
         finally:
@@ -498,13 +535,15 @@ class TestDiskFile(unittest.TestCase):
 
     def test_put(self):
         td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
         try:
+            os.makedirs(the_cont)
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "z", self.lg)
             assert gdf._obj == "z"
             assert gdf._obj_path == ""
             assert gdf.name == "bar"
-            assert gdf.datadir == os.path.join(td, "vol0", "bar")
+            assert gdf.datadir == the_cont
             assert gdf.data_file is None
 
             body = '1234\n'
@@ -656,20 +695,22 @@ class TestDiskFile(unittest.TestCase):
 
             later = float(gdf.metadata['X-Timestamp']) + 1
 
-            stats = os.stat(the_path)
-            os.chmod(the_path, stats.st_mode & (~stat.S_IWUSR))
+            def _mock_os_unlink_eacces_err(f):
+                raise OSError(errno.EACCES, os.strerror(errno.EACCES))
 
-            # Handle the case os_unlink() raises an OSError
-            __os_unlink = os.unlink
-            os.unlink = _mock_os_unlink_eacces_err
+            stats = os.stat(the_path)
             try:
-                gdf.unlinkold(normalize_timestamp(later))
-            except OSError as e:
-                assert e.errno == errno.EACCES
-            else:
-                self.fail("Excepted an OSError when unlinking file")
+                os.chmod(the_path, stats.st_mode & (~stat.S_IWUSR))
+
+                # Handle the case os_unlink() raises an OSError
+                with patch("os.unlink", _mock_os_unlink_eacces_err):
+                    try:
+                        gdf.unlinkold(normalize_timestamp(later))
+                    except OSError as e:
+                        assert e.errno == errno.EACCES
+                    else:
+                        self.fail("Excepted an OSError when unlinking file")
             finally:
-                os.unlink = __os_unlink
                 os.chmod(the_path, stats.st_mode)
 
             assert os.path.isdir(gdf.datadir)
@@ -692,32 +733,6 @@ class TestDiskFile(unittest.TestCase):
             gdf.unlinkold(normalize_timestamp(later))
             assert os.path.isdir(gdf.datadir)
             assert not os.path.exists(os.path.join(gdf.datadir, gdf._obj))
-        finally:
-            shutil.rmtree(td)
-
-    def test_unlinkold_is_dir_failure(self):
-        td = tempfile.mkdtemp()
-        the_path = os.path.join(td, "vol0", "bar")
-        the_dir = os.path.join(the_path, "d")
-        try:
-            os.makedirs(the_dir)
-            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
-                                   "d", self.lg, keep_data_fp=True)
-            assert gdf.data_file == the_dir
-            assert gdf._is_dir
-
-            stats = os.stat(gdf.datadir)
-            os.chmod(gdf.datadir, 0)
-            __os_rmdir = os.rmdir
-            os.rmdir = _mock_do_rmdir_eacces_err
-            try:
-                later = float(gdf.metadata['X-Timestamp']) + 1
-                gdf.unlinkold(normalize_timestamp(later))
-            finally:
-                os.chmod(gdf.datadir, stats.st_mode)
-                os.rmdir = __os_rmdir
-            assert os.path.isdir(gdf.datadir)
-            self.assertTrue(gdf.data_file is None)
         finally:
             shutil.rmtree(td)
 
@@ -806,17 +821,20 @@ class TestDiskFile(unittest.TestCase):
             assert gdf.data_file == the_file
             assert not gdf._is_dir
             stats = os.stat(the_path)
-            os.chmod(the_path, 0)
-            __os_path_getsize = os.path.getsize
-            os.path.getsize = _mock_getsize_eaccess_err
             try:
-                s = gdf.get_data_file_size()
-            except OSError as err:
-                assert err.errno == errno.EACCES
-            else:
-                self.fail("Expected OSError exception")
+                os.chmod(the_path, 0)
+
+                def _mock_getsize_eaccess_err(f):
+                    raise OSError(errno.EACCES, os.strerror(errno.EACCES))
+
+                with patch("os.path.getsize", _mock_getsize_eaccess_err):
+                    try:
+                        s = gdf.get_data_file_size()
+                    except OSError as err:
+                        assert err.errno == errno.EACCES
+                    else:
+                        self.fail("Expected OSError exception")
             finally:
-                os.path.getsize = __os_path_getsize
                 os.chmod(the_path, stats.st_mode)
         finally:
             shutil.rmtree(td)

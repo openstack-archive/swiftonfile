@@ -24,7 +24,8 @@ from mock import patch
 from tempfile import mkdtemp, mkstemp
 from gluster.swift.common import fs_utils as fs
 from gluster.swift.common.exceptions import NotDirectoryError, \
-    FileOrDirNotFoundError
+    FileOrDirNotFoundError, GlusterFileSystemOSError, \
+    GlusterFileSystemIOError
 
 def mock_os_fsync(fd):
     return True
@@ -54,9 +55,135 @@ class TestFsUtils(unittest.TestCase):
         finally:
             shutil.rmtree(tmpparent)
 
+    def test_do_ismount_path_does_not_exist(self):
+        tmpdir = mkdtemp()
+        try:
+            assert False == fs.do_ismount(os.path.join(tmpdir, 'bar'))
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_path_not_mount(self):
+        tmpdir = mkdtemp()
+        try:
+            assert False == fs.do_ismount(tmpdir)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_path_error(self):
+
+        def _mock_os_lstat(path):
+            raise OSError(13, "foo")
+
+        tmpdir = mkdtemp()
+        try:
+            with patch("os.lstat", _mock_os_lstat):
+                try:
+                    fs.do_ismount(tmpdir)
+                except GlusterFileSystemOSError as err:
+                    pass
+                else:
+                    self.fail("Expected GlusterFileSystemOSError")
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_path_is_symlink(self):
+        tmpdir = mkdtemp()
+        try:
+            link = os.path.join(tmpdir, "tmp")
+            os.symlink("/tmp", link)
+            assert False == fs.do_ismount(link)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_path_is_root(self):
+        assert True == fs.do_ismount('/')
+
+    def test_do_ismount_parent_path_error(self):
+
+        _os_lstat = os.lstat
+
+        def _mock_os_lstat(path):
+            if path.endswith(".."):
+                raise OSError(13, "foo")
+            else:
+                return _os_lstat(path)
+
+        tmpdir = mkdtemp()
+        try:
+            with patch("os.lstat", _mock_os_lstat):
+                try:
+                    fs.do_ismount(tmpdir)
+                except GlusterFileSystemOSError as err:
+                    pass
+                else:
+                    self.fail("Expected GlusterFileSystemOSError")
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_successes_dev(self):
+
+        _os_lstat = os.lstat
+
+        class MockStat(object):
+            def __init__(self, mode, dev, ino):
+                self.st_mode = mode
+                self.st_dev = dev
+                self.st_ino = ino
+
+        def _mock_os_lstat(path):
+            if path.endswith(".."):
+                parent = _os_lstat(path)
+                return MockStat(parent.st_mode, parent.st_dev + 1,
+                                parent.st_ino)
+            else:
+                return _os_lstat(path)
+
+        tmpdir = mkdtemp()
+        try:
+            with patch("os.lstat", _mock_os_lstat):
+                try:
+                    fs.do_ismount(tmpdir)
+                except GlusterFileSystemOSError as err:
+                    self.fail("Unexpected exception")
+                else:
+                    pass
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_ismount_successes_ino(self):
+
+        _os_lstat = os.lstat
+
+        class MockStat(object):
+            def __init__(self, mode, dev, ino):
+                self.st_mode = mode
+                self.st_dev = dev
+                self.st_ino = ino
+
+        def _mock_os_lstat(path):
+            if path.endswith(".."):
+                return _os_lstat(path)
+            else:
+                parent_path = os.path.join(path, "..")
+                child = _os_lstat(path)
+                parent = _os_lstat(parent_path)
+                return MockStat(child.st_mode, parent.st_ino,
+                                child.st_dev)
+
+        tmpdir = mkdtemp()
+        try:
+            with patch("os.lstat", _mock_os_lstat):
+                try:
+                    fs.do_ismount(tmpdir)
+                except GlusterFileSystemOSError as err:
+                    self.fail("Unexpected exception")
+                else:
+                    pass
+        finally:
+            shutil.rmtree(tmpdir)
 
     def test_do_open(self):
-        fd, tmpfile = mkstemp()
+        _fd, tmpfile = mkstemp()
         try:
             f = fs.do_open(tmpfile, 'r')
             try:
@@ -67,27 +194,36 @@ class TestFsUtils(unittest.TestCase):
                 self.fail("IOError expected")
             finally:
                 f.close()
-        finally:
-            os.close(fd)
-            os.remove(tmpfile)
 
+            fd = fs.do_open(tmpfile, os.O_RDONLY)
+            try:
+                os.write(fd, 'test')
+            except OSError as err:
+                pass
+            else:
+                self.fail("OSError expected")
+            finally:
+                os.close(fd)
+        finally:
+            os.close(_fd)
+            os.remove(tmpfile)
 
     def test_do_open_err(self):
         try:
             fs.do_open(os.path.join('/tmp', str(random.random())), 'r')
-        except IOError:
+        except GlusterFileSystemIOError:
             pass
         else:
-            self.fail("IOError expected")
+            self.fail("GlusterFileSystemIOError expected")
 
     def test_do_open_err_int_mode(self):
         try:
             fs.do_open(os.path.join('/tmp', str(random.random())),
                        os.O_RDONLY)
-        except OSError:
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail("OSError expected")
+            self.fail("GlusterFileSystemOSError expected")
 
     def test_do_write(self):
         fd, tmpfile = mkstemp()
@@ -104,13 +240,13 @@ class TestFsUtils(unittest.TestCase):
             fd1 = os.open(tmpfile, os.O_RDONLY)
             try:
                 fs.do_write(fd1, "test")
-            except OSError:
+            except GlusterFileSystemOSError:
                 pass
             else:
-                self.fail("OSError expected")
+                self.fail("GlusterFileSystemOSError expected")
             finally:
                 os.close(fd1)
-        except OSError as ose:
+        except GlusterFileSystemOSError as ose:
             self.fail("Open failed with %s" %ose.strerror)
         finally:
             os.close(fd)
@@ -125,6 +261,72 @@ class TestFsUtils(unittest.TestCase):
             assert fs.mkdirs(path)
         finally:
             shutil.rmtree(subdir)
+
+    def test_mkdirs_already_dir(self):
+        tmpdir = mkdtemp()
+        try:
+            fs.mkdirs(tmpdir)
+        except (GlusterFileSystemOSError, OSError):
+            self.fail("Unexpected exception")
+        else:
+            pass
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_mkdirs(self):
+        tmpdir = mkdtemp()
+        try:
+            fs.mkdirs(os.path.join(tmpdir, "a", "b", "c"))
+        except OSError:
+            self.fail("Unexpected exception")
+        else:
+            pass
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_mkdirs_existing_file(self):
+        tmpdir = mkdtemp()
+        fd, tmpfile = mkstemp(dir=tmpdir)
+        try:
+            fs.mkdirs(tmpfile)
+        except OSError:
+            pass
+        else:
+            self.fail("Expected GlusterFileSystemOSError exception")
+        finally:
+            os.close(fd)
+            shutil.rmtree(tmpdir)
+
+    def test_mkdirs_existing_file_on_path(self):
+        tmpdir = mkdtemp()
+        fd, tmpfile = mkstemp(dir=tmpdir)
+        try:
+            fs.mkdirs(os.path.join(tmpfile, 'b'))
+        except OSError:
+            pass
+        else:
+            self.fail("Expected GlusterFileSystemOSError exception")
+        finally:
+            os.close(fd)
+            shutil.rmtree(tmpdir)
+
+    def test_do_mkdir(self):
+        try:
+            path = os.path.join('/tmp', str(random.random()))
+            fs.do_mkdir(path)
+            assert os.path.exists(path)
+            assert fs.do_mkdir(path) is None
+        finally:
+            os.rmdir(path)
+
+    def test_do_mkdir_err(self):
+        try:
+            path = os.path.join('/tmp', str(random.random()), str(random.random()))
+            fs.do_mkdir(path)
+        except GlusterFileSystemOSError:
+            pass
+        else:
+            self.fail("GlusterFileSystemOSError expected")
 
     def test_do_listdir(self):
         tmpdir = mkdtemp()
@@ -141,38 +343,106 @@ class TestFsUtils(unittest.TestCase):
         try:
             path = os.path.join('/tmp', str(random.random()))
             fs.do_listdir(path)
-        except OSError:
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail("OSError expected")
+            self.fail("GlusterFileSystemOSError expected")
+
+    def test_do_fstat(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            buf1 = os.stat(tmpfile)
+            buf2 = fs.do_fstat(fd)
+
+            assert buf1 == buf2
+        finally:
+            os.close(fd)
+            os.remove(tmpfile)
+            os.rmdir(tmpdir)
+
+    def test_do_fstat_err(self):
+        try:
+            fs.do_fstat(1000)
+        except GlusterFileSystemOSError:
+            pass
+        else:
+            self.fail("Expected GlusterFileSystemOSError")
+
 
     def test_do_stat(self):
         tmpdir = mkdtemp()
         try:
             fd, tmpfile = mkstemp(dir=tmpdir)
             buf1 = os.stat(tmpfile)
-            buf2 = fs.do_stat(fd)
-            buf3 = fs.do_stat(tmpfile)
+            buf2 = fs.do_stat(tmpfile)
 
             assert buf1 == buf2
-            assert buf1 == buf3
         finally:
             os.close(fd)
             os.remove(tmpfile)
             os.rmdir(tmpdir)
 
+    def test_do_stat_enoent(self):
+        res = fs.do_stat(os.path.join('/tmp', str(random.random())))
+        assert res is None
+
     def test_do_stat_err(self):
+
+        def mock_os_stat_eacces(path):
+            raise OSError(errno.EACCES, os.strerror(errno.EACCES))
+
         try:
-            fs.do_stat(os.path.join('/tmp', str(random.random())))
-        except OSError:
+            with patch('os.stat', mock_os_stat_eacces):
+                fs.do_stat('/tmp')
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail("OSError expected")
+            self.fail("GlusterFileSystemOSError expected")
+
+    def test_do_stat_eio_once(self):
+        count = [0]
+        _os_stat = os.stat
+
+        def mock_os_stat_eio(path):
+            count[0] += 1
+            if count[0] <= 1:
+                raise OSError(errno.EIO, os.strerror(errno.EIO))
+            return _os_stat(path)
+
+        with patch('os.stat', mock_os_stat_eio):
+            fs.do_stat('/tmp') is not None
+
+    def test_do_stat_eio_twice(self):
+        count = [0]
+        _os_stat = os.stat
+
+        def mock_os_stat_eio(path):
+            count[0] += 1
+            if count[0] <= 2:
+                raise OSError(errno.EIO, os.strerror(errno.EIO))
+            return _os_stat(path)
+
+        with patch('os.stat', mock_os_stat_eio):
+            fs.do_stat('/tmp') is not None
+
+    def test_do_stat_eio_ten(self):
+
+        def mock_os_stat_eio(path):
+            raise OSError(errno.EIO, os.strerror(errno.EIO))
+
+        try:
+            with patch('os.stat', mock_os_stat_eio):
+                fs.do_stat('/tmp')
+        except GlusterFileSystemOSError:
+            pass
+        else:
+            self.fail("GlusterFileSystemOSError expected")
 
     def test_do_close(self):
         fd, tmpfile = mkstemp()
         try:
-            fs.do_close(fd);
+            fs.do_close(fd)
             try:
                 os.write(fd, "test")
             except OSError:
@@ -184,26 +454,43 @@ class TestFsUtils(unittest.TestCase):
         finally:
             os.remove(tmpfile)
 
-    def test_do_close_err(self):
+    def test_do_close_err_fd(self):
         fd, tmpfile = mkstemp()
         try:
-            fs.do_close(fd);
+            fs.do_close(fd)
 
             try:
-                fs.do_close(fd);
-            except OSError:
+                fs.do_close(fd)
+            except GlusterFileSystemOSError:
                 pass
             else:
-                self.fail("OSError expected")
+                self.fail("GlusterFileSystemOSError expected")
+        finally:
+            os.remove(tmpfile)
+
+    def test_do_close_err_fp(self):
+        fd, tmpfile = mkstemp()
+        os.close(fd)
+        fp = open(tmpfile, 'w')
+        try:
+            fd = fp.fileno()
+            os.close(fd)
+            try:
+                fs.do_close(fp)
+            except GlusterFileSystemIOError:
+                pass
+            else:
+                self.fail("GlusterFileSystemIOError expected")
         finally:
             os.remove(tmpfile)
 
     def test_do_unlink(self):
         fd, tmpfile = mkstemp()
         try:
-            fs.do_unlink(tmpfile)
+            assert fs.do_unlink(tmpfile) is None
             assert not os.path.exists(tmpfile)
-            assert fs.do_unlink(os.path.join('/tmp', str(random.random())))
+            res = fs.do_unlink(os.path.join('/tmp', str(random.random())))
+            assert res is None
         finally:
             os.close(fd)
 
@@ -211,10 +498,10 @@ class TestFsUtils(unittest.TestCase):
         tmpdir = mkdtemp()
         try:
             fs.do_unlink(tmpdir)
-        except OSError:
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail('OSError expected')
+            self.fail('GlusterFileSystemOSError expected')
         finally:
             os.rmdir(tmpdir)
 
@@ -233,10 +520,10 @@ class TestFsUtils(unittest.TestCase):
             srcpath = os.path.join('/tmp', str(random.random()))
             destpath = os.path.join('/tmp', str(random.random()))
             fs.do_rename(srcpath, destpath)
-        except OSError:
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail("OSError expected")
+            self.fail("GlusterFileSystemOSError expected")
 
     def test_dir_empty(self):
         tmpdir = mkdtemp()
@@ -248,15 +535,28 @@ class TestFsUtils(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
     def test_dir_empty_err(self):
-        try:
+        def _mock_os_listdir(path):
+            raise OSError(13, "foo")
+
+        with patch("os.listdir", _mock_os_listdir):
             try:
-                assert fs.dir_empty(os.path.join('/tmp', str(random.random())))
-            except FileOrDirNotFoundError:
+                fs.dir_empty("/tmp")
+            except GlusterFileSystemOSError:
                 pass
             else:
-                self.fail("FileOrDirNotFoundError exception expected")
+                self.fail("GlusterFileSystemOSError exception expected")
 
-            fd, tmpfile = mkstemp()
+    def test_dir_empty_notfound(self):
+        try:
+            assert fs.dir_empty(os.path.join('/tmp', str(random.random())))
+        except FileOrDirNotFoundError:
+            pass
+        else:
+            self.fail("FileOrDirNotFoundError exception expected")
+
+    def test_dir_empty_notdir(self):
+        fd, tmpfile = mkstemp()
+        try:
             try:
                 fs.dir_empty(tmpfile)
             except NotDirectoryError:
@@ -267,14 +567,26 @@ class TestFsUtils(unittest.TestCase):
             os.close(fd)
             os.unlink(tmpfile)
 
-    def test_rmdirs(self):
+    def test_do_rmdir(self):
         tmpdir = mkdtemp()
         try:
             subdir = mkdtemp(dir=tmpdir)
             fd, tmpfile = mkstemp(dir=tmpdir)
-            assert not fs.rmdirs(tmpfile)
-            assert not fs.rmdirs(tmpdir)
-            assert fs.rmdirs(subdir)
+            try:
+                fs.do_rmdir(tmpfile)
+            except GlusterFileSystemOSError:
+                pass
+            else:
+                self.fail("Expected GlusterFileSystemOSError")
+            assert os.path.exists(subdir)
+            try:
+                fs.do_rmdir(tmpdir)
+            except GlusterFileSystemOSError:
+                pass
+            else:
+                self.fail("Expected GlusterFileSystemOSError")
+            assert os.path.exists(subdir)
+            fs.do_rmdir(subdir)
             assert not os.path.exists(subdir)
         finally:
             os.close(fd)
@@ -290,11 +602,12 @@ class TestFsUtils(unittest.TestCase):
             else:
                 try:
                     fs.do_chown(subdir, 20000, 20000)
-                except OSError as ex:
+                except GlusterFileSystemOSError as ex:
                     if ex.errno != errno.EPERM:
-                        self.fail("Expected OSError")
+                        self.fail(
+                            "Expected GlusterFileSystemOSError(errno=EPERM)")
                 else:
-                        self.fail("Expected OSError")
+                    self.fail("Expected GlusterFileSystemOSError")
         finally:
             shutil.rmtree(tmpdir)
 
@@ -308,11 +621,12 @@ class TestFsUtils(unittest.TestCase):
             else:
                 try:
                     fs.do_chown(tmpfile, 20000, 20000)
-                except OSError as ex:
+                except GlusterFileSystemOSError as ex:
                     if ex.errno != errno.EPERM:
-                        self.fail("Expected OSError")
+                        self.fail(
+                            "Expected GlusterFileSystemOSError(errno=EPERM")
                 else:
-                        self.fail("Expected OSError")
+                    self.fail("Expected GlusterFileSystemOSError")
         finally:
             os.close(fd)
             shutil.rmtree(tmpdir)
@@ -321,10 +635,10 @@ class TestFsUtils(unittest.TestCase):
         try:
             fs.do_chown(os.path.join('/tmp', str(random.random())),
                         20000, 20000)
-        except OSError:
+        except GlusterFileSystemOSError:
             pass
         else:
-            self.fail("Expected OSError")
+            self.fail("Expected GlusterFileSystemOSError")
 
     def test_fchown(self):
         tmpdir = mkdtemp()
@@ -336,11 +650,12 @@ class TestFsUtils(unittest.TestCase):
             else:
                 try:
                     fs.do_fchown(fd, 20000, 20000)
-                except OSError as ex:
+                except GlusterFileSystemOSError as ex:
                     if ex.errno != errno.EPERM:
-                        self.fail("Expected OSError")
+                        self.fail(
+                            "Expected GlusterFileSystemOSError(errno=EPERM)")
                 else:
-                        self.fail("Expected OSError")
+                    self.fail("Expected GlusterFileSystemOSError")
         finally:
             os.close(fd)
             shutil.rmtree(tmpdir)
@@ -356,11 +671,12 @@ class TestFsUtils(unittest.TestCase):
             else:
                 try:
                     fs.do_fchown(fd_rd, 20000, 20000)
-                except OSError as ex:
+                except GlusterFileSystemOSError as ex:
                     if ex.errno != errno.EPERM:
-                        self.fail("Expected OSError")
+                        self.fail(
+                            "Expected GlusterFileSystemOSError(errno=EPERM)")
                 else:
-                    self.fail("Expected OSError")
+                    self.fail("Expected GlusterFileSystemOSError")
         finally:
             os.close(fd_rd)
             os.close(fd)
@@ -374,8 +690,8 @@ class TestFsUtils(unittest.TestCase):
                 os.write(fd, 'test')
                 with patch('eventlet.tpool.execute', mock_tpool_execute):
                     with patch('os.fsync', mock_os_fsync):
-                        assert fs.do_fsync(fd)
-            except OSError as ose:
+                        assert fs.do_fsync(fd) is None
+            except GlusterFileSystemOSError as ose:
                 self.fail('Opening a temporary file failed with %s' %ose.strerror)
             else:
                 os.close(fd)
@@ -390,13 +706,13 @@ class TestFsUtils(unittest.TestCase):
             os.write(fd, 'test')
             with patch('eventlet.tpool.execute', mock_tpool_execute):
                 with patch('os.fsync', mock_os_fsync):
-                    assert fs.do_fsync(fd)
+                    assert fs.do_fsync(fd) is None
                 os.close(fd)
                 try:
                     fs.do_fsync(fd)
-                except OSError:
+                except GlusterFileSystemOSError:
                     pass
                 else:
-                    self.fail("Expected OSError")
+                    self.fail("Expected GlusterFileSystemOSError")
         finally:
             shutil.rmtree(tmpdir)

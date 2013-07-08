@@ -91,23 +91,8 @@ def gluster_check_object_creation(req, object_name):
 # Replace the original check object creation with ours
 swift.common.constraints.check_object_creation = gluster_check_object_creation
 
-# Save the original check mount
-__check_mount = swift.common.constraints.check_mount
-
-
-# Define our new one which invokes the original
-def gluster_check_mount(root, drive):
-    # FIXME: Potential performance optimization here to not call the original
-    # check mount which makes two stat calls. We could do what they do with
-    # just one.
-    if __check_mount(root, drive):
-        return True
-
-    return Glusterfs.mount(root, drive)
-
-
 # Replace the original check mount with ours
-swift.common.constraints.check_mount = gluster_check_mount
+swift.common.constraints.check_mount = Glusterfs.mount
 
 # Save the original Ring class
 __Ring = _ring.Ring

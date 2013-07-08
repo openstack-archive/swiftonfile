@@ -21,7 +21,7 @@ from gluster.swift.common.ring import Ring
 
 
 class TestRing(unittest.TestCase):
-    """ Tests for common.utils """
+    """ Tests for common.ring """
 
     def setUp(self):
         swift.common.utils.HASH_PATH_SUFFIX = 'endcap'
@@ -66,4 +66,3 @@ class TestRing(unittest.TestCase):
     def test_invalid_partition(self):
         nodes = self.ring.get_part_nodes(0)
         self.assertEqual(nodes[0]['device'], 'volume_not_in_ring')
-

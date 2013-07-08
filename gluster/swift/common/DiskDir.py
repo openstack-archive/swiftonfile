@@ -483,12 +483,6 @@ class DiskDir(DiskCommon):
         # within a directory implicitly.
         return
 
-    def empty(self):
-        try:
-            return dir_empty(self.datadir)
-        except FileOrDirNotFoundError:
-            return True
-
     def delete_db(self, timestamp):
         """
         Delete the container (directory) if empty.

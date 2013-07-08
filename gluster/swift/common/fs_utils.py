@@ -16,10 +16,13 @@
 import logging
 import os
 import errno
+import stat
+import random
 import os.path as os_path    # noqa
 from eventlet import tpool
+from eventlet import sleep
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
-    NotDirectoryError
+    NotDirectoryError, GlusterFileSystemOSError, GlusterFileSystemIOError
 
 
 def do_walk(*args, **kwargs):
@@ -30,78 +33,191 @@ def do_write(fd, msg):
     try:
         cnt = os.write(fd, msg)
     except OSError as err:
-        logging.exception("Write failed, err: %s", str(err))
-        raise
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
     return cnt
+
+
+def do_ismount(path):
+    """
+    Test whether a path is a mount point.
+
+    This is code hijacked from C Python 2.6.8, adapted to remove the extra
+    lstat() system call.
+    """
+    try:
+        s1 = os.lstat(path)
+    except os.error as err:
+        if err.errno == errno.ENOENT:
+            # It doesn't exist -- so not a mount point :-)
+            return False
+        else:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.lstat("%s")' % (err.strerror, path))
+
+    if stat.S_ISLNK(s1.st_mode):
+        # A symlink can never be a mount point
+        return False
+
+    try:
+        s2 = os.lstat(os.path.join(path, '..'))
+    except os.error as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.lstat("%s")' % (err.strerror,
+                                               os.path.join(path, '..')))
+
+    dev1 = s1.st_dev
+    dev2 = s2.st_dev
+    if dev1 != dev2:
+        # path/.. on a different device as path
+        return True
+
+    ino1 = s1.st_ino
+    ino2 = s2.st_ino
+    if ino1 == ino2:
+        # path/.. is the same i-node as path
+        return True
+
+    return False
+
+
+def do_mkdir(path):
+    try:
+        os.mkdir(path)
+    except OSError as err:
+        if err.errno == errno.EEXIST:
+            logging.warn("fs_utils: os.mkdir - path %s already exists", path)
+        else:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.mkdir("%s")' % (err.strerror, path))
 
 
 def do_listdir(path):
     try:
         buf = os.listdir(path)
     except OSError as err:
-        logging.exception("Listdir failed on %s err: %s", path, err.strerror)
-        raise
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.listdir("%s")' % (err.strerror, path))
     return buf
+
+
+def dir_empty(path):
+    """
+    Return true if directory is empty (or does not exist), false otherwise.
+
+    :param path: Directory path
+    :returns: True/False
+    """
+    try:
+        files = do_listdir(path)
+        return not files
+    except GlusterFileSystemOSError as err:
+        if err.errno == errno.ENOENT:
+            raise FileOrDirNotFoundError()
+        if err.errno == errno.ENOTDIR:
+            raise NotDirectoryError()
+        raise
+
+
+def do_rmdir(path):
+    try:
+        os.rmdir(path)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.rmdir("%s")' % (err.strerror, path))
 
 
 def do_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except OSError as err:
-        logging.exception("Chown failed on %s err: %s", path, err.strerror)
-        raise
-    return True
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.chown("%s", %s, %s)' % (
+                err.strerror, path, uid, gid))
 
 
 def do_fchown(fd, uid, gid):
     try:
         os.fchown(fd, uid, gid)
     except OSError as err:
-        logging.exception("fchown failed on %d err: %s", fd, err.strerror)
-        raise
-    return True
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.fchown(%s, %s, %s)' % (
+                err.strerror, fd, uid, gid))
+
+
+_STAT_ATTEMPTS = 10
 
 
 def do_stat(path):
-    try:
-        #Check for fd.
-        if isinstance(path, int):
-            buf = os.fstat(path)
-        else:
-            buf = os.stat(path)
-    except OSError as err:
-        logging.exception("Stat failed on %s err: %s", path, err.strerror)
-        raise
-    return buf
-
-
-def do_open(path, mode):
-    if isinstance(mode, int):
+    serr = None
+    for i in range(0, _STAT_ATTEMPTS):
         try:
-            fd = os.open(path, mode)
+            stats = os.stat(path)
         except OSError as err:
-            logging.exception("Open failed on %s err: %s", path, str(err))
-            raise
+            if err.errno == errno.EIO:
+                # Retry EIO assuming it is a transient error from FUSE after a
+                # short random sleep
+                serr = err
+                sleep(random.uniform(0.001, 0.005))
+                continue
+            if err.errno == errno.ENOENT:
+                stats = None
+            else:
+                raise GlusterFileSystemOSError(
+                    err.errno, '%s, os.stat("%s")[%d attempts]' % (
+                        err.strerror, path, i))
+        if i > 0:
+            logging.warn("fs_utils.do_stat():"
+                         " os.stat('%s') retried %d times (%s)",
+                         path, i, 'success' if stats else 'failure')
+        return stats
+    else:
+        raise GlusterFileSystemOSError(
+            serr.errno, '%s, os.stat("%s")[%d attempts]' % (
+                serr.strerror, path, _STAT_ATTEMPTS))
+
+
+def do_fstat(fd):
+    try:
+        stats = os.fstat(fd)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.fstat(%s)' % (err.strerror, fd))
+    return stats
+
+
+def do_open(path, flags, **kwargs):
+    if isinstance(flags, int):
+        try:
+            fd = os.open(path, flags, **kwargs)
+        except OSError as err:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.open("%s", %x, %r)' % (
+                    err.strerror, path, flags, kwargs))
+        return fd
     else:
         try:
-            fd = open(path, mode)
+            fp = open(path, flags, **kwargs)
         except IOError as err:
-            logging.exception("Open failed on %s err: %s", path, str(err))
-            raise
-    return fd
+            raise GlusterFileSystemIOError(
+                err.errno, '%s, open("%s", %s, %r)' % (
+                    err.strerror, path, flags, kwargs))
+        return fp
 
 
 def do_close(fd):
-    #fd could be file or int type.
-    try:
-        if isinstance(fd, int):
-            os.close(fd)
-        else:
+    if isinstance(fd, file):
+        try:
             fd.close()
-    except OSError as err:
-        logging.exception("Close failed on %s err: %s", fd, err.strerror)
-        raise
-    return True
+        except IOError as err:
+            raise GlusterFileSystemIOError(
+                err.errno, '%s, os.close(%s)' % (err.strerror, fd))
+    else:
+        try:
+            os.close(fd)
+        except OSError as err:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.close(%s)' % (err.strerror, fd))
 
 
 def do_unlink(path, log=True):
@@ -109,21 +225,28 @@ def do_unlink(path, log=True):
         os.unlink(path)
     except OSError as err:
         if err.errno != errno.ENOENT:
-            if log:
-                logging.exception("Unlink failed on %s err: %s",
-                                  path, err.strerror)
-            raise
-    return True
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.unlink("%s")' % (err.strerror, path))
+        elif log:
+            logging.warn("fs_utils: os.unlink failed on non-existent path: %s",
+                         path)
 
 
 def do_rename(old_path, new_path):
     try:
         os.rename(old_path, new_path)
     except OSError as err:
-        logging.exception("Rename failed on %s to %s  err: %s",
-                          old_path, new_path, err.strerror)
-        raise
-    return True
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.rename("%s", "%s")' % (
+                err.strerror, old_path, new_path))
+
+
+def do_fsync(fd):
+    try:
+        tpool.execute(os.fsync, fd)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
 
 
 def mkdirs(path):
@@ -133,47 +256,10 @@ def mkdirs(path):
 
     :param path: path to create
     """
-    if not os.path.isdir(path):
-        try:
-            os.makedirs(path)
-        except OSError as err:
-            if err.errno != errno.EEXIST:
-                logging.exception("Makedirs failed on %s err: %s",
-                                  path, err.strerror)
-                raise
-    return True
-
-
-def dir_empty(path):
-    """
-    Return true if directory/container is empty.
-    :param path: Directory path.
-    :returns: True/False.
-    """
-    if os.path.isdir(path):
-        files = do_listdir(path)
-        return not files
-    elif not os.path.exists(path):
-        raise FileOrDirNotFoundError()
-    raise NotDirectoryError()
-
-
-def rmdirs(path):
-    if not os.path.isdir(path):
-        return False
     try:
-        os.rmdir(path)
+        os.makedirs(path)
     except OSError as err:
-        if err.errno != errno.ENOENT:
-            logging.error("rmdirs failed on %s, err: %s", path, err.strerror)
-            return False
-    return True
-
-
-def do_fsync(fd):
-    try:
-        tpool.execute(os.fsync, fd)
-    except OSError as err:
-        logging.exception("fsync failed with err: %s", err.strerror)
-        raise
-    return True
+        if err.errno == errno.EEXIST and os.path.isdir(path):
+            return
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.makedirs("%s")' % (err.strerror, path))

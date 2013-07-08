@@ -1,6 +1,7 @@
 [DEFAULT]
-# IP address of a GlusterFS volume server member. By default, we assume the
-# local host.
+#
+# IP address of a node in the GlusterFS server cluster hosting the
+# volumes to be served via Swift API.
 mount_ip = localhost
 
 # By default it is assumed the Gluster volumes can be accessed using other
