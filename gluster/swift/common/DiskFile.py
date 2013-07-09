@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import stat
 import errno
 import random
 from hashlib import md5
@@ -22,7 +23,7 @@ from swift.common.utils import renamer
 from swift.common.exceptions import DiskFileNotExist, DiskFileError
 from gluster.swift.common.exceptions import AlreadyExistsAsDir
 from gluster.swift.common.fs_utils import mkdirs, do_open, do_close, \
-    do_unlink, do_chown, os_path, do_fsync, do_fchown
+    do_unlink, do_chown, os_path, do_fsync, do_fchown, do_stat
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object
 from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
@@ -123,10 +124,18 @@ class Gluster_DiskFile(DiskFile):
         # Don't store a value for data_file until we know it exists.
         self.data_file = None
         data_file = os.path.join(self.datadir, self._obj)
-        if not os_path.exists(data_file):
-            return
 
-        self.data_file = os.path.join(data_file)
+        try:
+            stats = do_stat(data_file)
+        except OSError as ose:
+            if ose.errno == errno.ENOENT or ose.errno == errno.ENOTDIR:
+                return
+            else:
+                raise
+
+        self.data_file = data_file
+        self._is_dir = stat.S_ISDIR(stats.st_mode)
+
         self.metadata = read_metadata(data_file)
         if not self.metadata:
             create_object_metadata(data_file)
@@ -138,16 +147,13 @@ class Gluster_DiskFile(DiskFile):
 
         self.filter_metadata()
 
-        if os_path.isdir(data_file):
-            self._is_dir = True
-        else:
-            if keep_data_fp:
-                # The caller has an assumption that the "fp" field of this
-                # object is an file object if keep_data_fp is set. However,
-                # this implementation of the DiskFile object does not need to
-                # open the file for internal operations. So if the caller
-                # requests it, we'll just open the file for them.
-                self.fp = do_open(data_file, 'rb')
+        if not self._is_dir and keep_data_fp:
+            # The caller has an assumption that the "fp" field of this
+            # object is an file object if keep_data_fp is set. However,
+            # this implementation of the DiskFile object does not need to
+            # open the file for internal operations. So if the caller
+            # requests it, we'll just open the file for them.
+            self.fp = do_open(data_file, 'rb')
 
     def close(self, verify_file=True):
         """
@@ -173,11 +179,17 @@ class Gluster_DiskFile(DiskFile):
         return not self.data_file
 
     def _create_dir_object(self, dir_path):
-        if not os_path.exists(dir_path):
+        stats = None
+        try:
+            stats = do_stat(dir_path)
+        except OSError:
+            pass
+
+        if not stats:
             mkdirs(dir_path)
             do_chown(dir_path, self.uid, self.gid)
             create_object_metadata(dir_path)
-        elif not os_path.isdir(dir_path):
+        elif not stat.S_ISDIR(stats.st_mode):
             raise DiskFileError("Cannot overwrite "
                                 "file %s with a directory" % dir_path)
 

@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
+import stat
 import errno
 import xattr
 import random
+import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
@@ -325,7 +326,7 @@ def _get_account_details_from_fs(acc_path):
     container_count = 0
 
     acc_stats = do_stat(acc_path)
-    is_dir = (acc_stats.st_mode & 0040000) != 0
+    is_dir = stat.S_ISDIR(acc_stats.st_mode)
     if is_dir:
         for name in do_listdir(acc_path):
             if name.lower() == TEMP_DIR \
