@@ -116,32 +116,13 @@ class TestFsUtils(unittest.TestCase):
             os.close(fd)
             os.remove(tmpfile)
 
-    def test_do_mkdir(self):
-        try:
-            path = os.path.join('/tmp', str(random.random()))
-            fs.do_mkdir(path)
-            assert os.path.exists(path)
-            assert fs.do_mkdir(path)
-        finally:
-            os.rmdir(path)
-
-    def test_do_mkdir_err(self):
-        try:
-            path = os.path.join('/tmp', str(random.random()), str(random.random()))
-            fs.do_mkdir(path)
-        except OSError:
-            pass
-        else:
-            self.fail("OSError expected")
-
-
-    def test_do_makedirs(self):
+    def test_mkdirs(self):
         try:
             subdir = os.path.join('/tmp', str(random.random()))
             path = os.path.join(subdir, str(random.random()))
-            fs.do_makedirs(path)
+            fs.mkdirs(path)
             assert os.path.exists(path)
-            assert fs.do_makedirs(path)
+            assert fs.mkdirs(path)
         finally:
             shutil.rmtree(subdir)
 

@@ -35,27 +35,6 @@ def do_write(fd, msg):
     return cnt
 
 
-def do_mkdir(path):
-    try:
-        os.mkdir(path)
-    except OSError as err:
-        if err.errno != errno.EEXIST:
-            logging.exception("Mkdir failed on %s err: %s", path, err.strerror)
-            raise
-    return True
-
-
-def do_makedirs(path):
-    try:
-        os.makedirs(path)
-    except OSError as err:
-        if err.errno != errno.EEXIST:
-            logging.exception("Makedirs failed on %s err: %s",
-                              path, err.strerror)
-            raise
-    return True
-
-
 def do_listdir(path):
     try:
         buf = os.listdir(path)
@@ -155,7 +134,14 @@ def mkdirs(path):
     :param path: path to create
     """
     if not os.path.isdir(path):
-        do_makedirs(path)
+        try:
+            os.makedirs(path)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                logging.exception("Makedirs failed on %s err: %s",
+                                  path, err.strerror)
+                raise
+    return True
 
 
 def dir_empty(path):
