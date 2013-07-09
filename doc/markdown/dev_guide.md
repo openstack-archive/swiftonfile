@@ -24,7 +24,7 @@ cd gluster-swift
 
 ### Git Review
 The tool `git review` is a simple tool to automate interaction with Gerrit.
-We recommend using this tool to upload, modify, and query changes in Gerrit.
+It is recommended to use this tool to upload, modify, and query changes in Gerrit.
 The tool can be installed by running the following command:
 
 ~~~
@@ -35,16 +35,16 @@ Note that while many distros offer a version of `git review`, they don't
 necessarily keep it up to date. Pip gives one the latest which
 often avoids problems with various Gerrit servers.
 
-We now need to setup `git review` to communicate with review.gluster.org.
-First, let's determine our `git review` setup by typing:
+You now need to setup `git review` to communicate with review.gluster.org.
+First, determine your `git review` setup by typing:
 
 ~~~
 git review -s
 ~~~
 
 If there is no output, then everything is setup correctly.  If the output
-contains the string *We don't know where your gerrit is*, then we need
-a setup a remote repo with the name `gerrit`.  We can inspect the current
+contains the string *We don't know where your gerrit is*, then you need to
+setup a remote repo with the name `gerrit`.  You can inspect the current
 remote repo's by typing the following command.
 
 ~~~
@@ -148,14 +148,14 @@ For more information on commit messages, please visit the
 [Git Commit Messages][] page in OpenStack.org.
 
 ### Uploading to Gerrit
-Once you have the changes ready for review, you can submit it to Gerrit
-simply by typing:
+Once you have the changes ready for review, you can submit it to Gerrit 
+by typing:
 
 ~~~
 git review
 ~~~
 
-After the change is reviewed, most likely you may have to make some
+After the change is reviewed, you might have to make some
 additional modifications to your change.  To continue the work for
 a specific change, you can query Gerrit for the change number by
 typing:
