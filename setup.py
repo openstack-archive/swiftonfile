@@ -50,8 +50,5 @@ setup(
             'container=gluster.swift.container.server:app_factory',
             'account=gluster.swift.account.server:app_factory',
             ],
-        'paste.filter_factory': [
-            'gluster=gluster.swift.common.middleware.gluster:filter_factory',
-            ],
         },
     )
