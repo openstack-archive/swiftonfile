@@ -272,8 +272,8 @@ class TestDiskCommon(unittest.TestCase):
                             self.fake_accounts[0], self.fake_logger)
         assert dc.metadata == {}
         assert dc.db_file == dd._db_file
-        assert dc.pending_timeout == 0
-        assert dc.stale_reads_ok == False
+        assert dc.pending_timeout == 10
+        assert dc.stale_reads_ok is False
         assert dc.root == self.td
         assert dc.logger == self.fake_logger
         assert dc.account == self.fake_accounts[0]
@@ -290,8 +290,8 @@ class TestDiskCommon(unittest.TestCase):
         dc._dir_exists_read_metadata()
         assert dc.metadata == fake_md, repr(dc.metadata)
         assert dc.db_file == dd._db_file
-        assert dc.pending_timeout == 0
-        assert dc.stale_reads_ok == False
+        assert dc.pending_timeout == 10
+        assert dc.stale_reads_ok is False
         assert dc.root == self.td
         assert dc.logger == self.fake_logger
         assert dc.account == self.fake_accounts[0]
@@ -303,8 +303,8 @@ class TestDiskCommon(unittest.TestCase):
         dc._dir_exists_read_metadata()
         assert dc.metadata == {}
         assert dc.db_file == dd._db_file
-        assert dc.pending_timeout == 0
-        assert dc.stale_reads_ok == False
+        assert dc.pending_timeout == 10
+        assert dc.stale_reads_ok is False
         assert dc.root == self.td
         assert dc.logger == self.fake_logger
         assert dc.account == "dne0"

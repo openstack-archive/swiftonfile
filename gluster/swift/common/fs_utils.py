@@ -19,7 +19,6 @@ import errno
 import stat
 import random
 import os.path as os_path    # noqa
-from eventlet import tpool
 from eventlet import sleep
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
     NotDirectoryError, GlusterFileSystemOSError, GlusterFileSystemIOError
@@ -243,7 +242,7 @@ def do_rename(old_path, new_path):
 
 def do_fsync(fd):
     try:
-        tpool.execute(os.fsync, fd)
+        os.fsync(fd)
     except OSError as err:
         raise GlusterFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))

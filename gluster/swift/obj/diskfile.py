@@ -22,11 +22,12 @@ import logging
 from hashlib import md5
 from eventlet import sleep
 from contextlib import contextmanager
-from swift.common.utils import TRUE_VALUES, fallocate
-from swift.common.exceptions import DiskFileNotExist, DiskFileError
+from swift.common.utils import TRUE_VALUES, drop_buffer_cache, ThreadPool
+from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
+    DiskFileNoSpace, DiskFileDeviceUnavailable
 
-from gluster.swift.common.exceptions import GlusterFileSystemOSError, \
-    DiskFileNoSpace
+from gluster.swift.common.exceptions import GlusterFileSystemOSError
+from gluster.swift.common.Glusterfs import mount
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, os_path, do_fsync, do_fchown, do_stat
 from gluster.swift.common.utils import read_metadata, write_metadata, \
@@ -37,13 +38,15 @@ from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 
-from swift.obj.server import DiskFile
+from swift.obj.diskfile import DiskFile as SwiftDiskFile
+from swift.obj.diskfile import DiskWriter as SwiftDiskWriter
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
 O_CLOEXEC = 02000000
 
 DEFAULT_DISK_CHUNK_SIZE = 65536
+DEFAULT_BYTES_PER_SYNC = (512 * 1024 * 1024)
 # keep these lower-case
 DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
@@ -235,16 +238,10 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
             in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         _relaxed_writes = False
-    try:
-        _preallocate = _fs_conf.get('DEFAULT', 'preallocate', "no") \
-            in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        _preallocate = False
 else:
     _mkdir_locking = False
     _use_put_mount = False
     _relaxed_writes = False
-    _preallocate = False
 
 if _mkdir_locking:
     make_directory = _make_directory_locked
@@ -275,7 +272,153 @@ def _adjust_metadata(metadata):
     return metadata
 
 
-class Gluster_DiskFile(DiskFile):
+class DiskWriter(SwiftDiskWriter):
+    """
+    Encapsulation of the write context for servicing PUT REST API
+    requests. Serves as the context manager object for DiskFile's writer()
+    method.
+
+    We just override the put() method for Gluster.
+    """
+    def put(self, metadata, extension='.data'):
+        """
+        Finalize writing the file on disk, and renames it from the temp file
+        to the real location.  This should be called after the data has been
+        written to the temp file.
+
+        :param metadata: dictionary of metadata to be written
+        :param extension: extension to be used when making the file
+        """
+        # Our caller will use '.data' here; we just ignore it since we map the
+        # URL directly to the file system.
+
+        assert self.tmppath is not None
+        metadata = _adjust_metadata(metadata)
+        df = self.disk_file
+
+        if dir_is_object(metadata):
+            if not df.data_file:
+                # Does not exist, create it
+                data_file = os.path.join(df._obj_path, df._obj)
+                _, df.metadata = self.threadpool.force_run_in_thread(
+                    df._create_dir_object, data_file, metadata)
+                df.data_file = os.path.join(df._container_path, data_file)
+            elif not df.is_dir:
+                # Exists, but as a file
+                raise DiskFileError('DiskFile.put(): directory creation failed'
+                                    ' since the target, %s, already exists as'
+                                    ' a file' % df.data_file)
+            return
+
+        if df._is_dir:
+            # A pre-existing directory already exists on the file
+            # system, perhaps gratuitously created when another
+            # object was created, or created externally to Swift
+            # REST API servicing (UFO use case).
+            raise DiskFileError('DiskFile.put(): file creation failed since'
+                                ' the target, %s, already exists as a'
+                                ' directory' % df.data_file)
+
+        def finalize_put():
+            # Write out metadata before fsync() to ensure it is also forced to
+            # disk.
+            write_metadata(self.fd, metadata)
+
+            if not _relaxed_writes:
+                # We call fsync() before calling drop_cache() to lower the
+                # amount of redundant work the drop cache code will perform on
+                # the pages (now that after fsync the pages will be all
+                # clean).
+                do_fsync(self.fd)
+                # From the Department of the Redundancy Department, make sure
+                # we call drop_cache() after fsync() to avoid redundant work
+                # (pages all clean).
+                drop_buffer_cache(self.fd, 0, self.upload_size)
+
+            # At this point we know that the object's full directory path
+            # exists, so we can just rename it directly without using Swift's
+            # swift.common.utils.renamer(), which makes the directory path and
+            # adds extra stat() calls.
+            data_file = os.path.join(df.put_datadir, df._obj)
+            while True:
+                try:
+                    os.rename(self.tmppath, data_file)
+                except OSError as err:
+                    if err.errno in (errno.ENOENT, errno.EIO):
+                        # FIXME: Why either of these two error conditions is
+                        # happening is unknown at this point. This might be a
+                        # FUSE issue of some sort or a possible race
+                        # condition. So let's sleep on it, and double check
+                        # the environment after a good nap.
+                        _random_sleep()
+                        # Tease out why this error occurred. The man page for
+                        # rename reads:
+                        #   "The link named by tmppath does not exist; or, a
+                        #    directory component in data_file does not exist;
+                        #    or, tmppath or data_file is an empty string."
+                        assert len(self.tmppath) > 0 and len(data_file) > 0
+                        tpstats = do_stat(self.tmppath)
+                        tfstats = do_fstat(self.fd)
+                        assert tfstats
+                        if not tpstats or tfstats.st_ino != tpstats.st_ino:
+                            # Temporary file name conflict
+                            raise DiskFileError(
+                                'DiskFile.put(): temporary file, %s, was'
+                                ' already renamed (targeted for %s)' % (
+                                    self.tmppath, data_file))
+                        else:
+                            # Data file target name now has a bad path!
+                            dfstats = do_stat(self.put_datadir)
+                            if not dfstats:
+                                raise DiskFileError(
+                                    'DiskFile.put(): path to object, %s, no'
+                                    ' longer exists (targeted for %s)' % (
+                                        df.put_datadir,
+                                        data_file))
+                            else:
+                                is_dir = stat.S_ISDIR(dfstats.st_mode)
+                                if not is_dir:
+                                    raise DiskFileError(
+                                        'DiskFile.put(): path to object, %s,'
+                                        ' no longer a directory (targeted for'
+                                        ' %s)' % (df.put_datadir,
+                                                  data_file))
+                                else:
+                                    # Let's retry since everything looks okay
+                                    logging.warn(
+                                        "DiskFile.put(): os.rename('%s','%s')"
+                                        " initially failed (%s) but a"
+                                        " stat('%s') following that succeeded:"
+                                        " %r" % (
+                                            self.tmppath, data_file,
+                                            str(err), df.put_datadir,
+                                            dfstats))
+                                    continue
+                    else:
+                        raise GlusterFileSystemOSError(
+                            err.errno, "%s, os.rename('%s', '%s')" % (
+                                err.strerror, self.tmppath, data_file))
+                else:
+                    # Success!
+                    break
+            # Close here so the calling context does not have to perform this
+            # in a thread.
+            do_close(self.fd)
+
+        self.threadpool.force_run_in_thread(finalize_put)
+
+        # Avoid the unlink() system call as part of the mkstemp context
+        # cleanup
+        self.tmppath = None
+
+        df.metadata = metadata
+        df._filter_metadata()
+
+        # Mark that it actually exists now
+        df.data_file = os.path.join(df.datadir, df._obj)
+
+
+class DiskFile(SwiftDiskFile):
     """
     Manage object files on disk.
 
@@ -294,6 +437,12 @@ class Gluster_DiskFile(DiskFile):
     :param logger: logger object for writing out log file messages
     :param keep_data_fp: if True, don't close the fp, otherwise close it
     :param disk_chunk_Size: size of chunks on file reads
+    :param bytes_per_sync: number of bytes between fdatasync calls
+    :param iter_hook: called when __iter__ returns a chunk
+    :param threadpool: thread pool in which to do blocking operations
+    :param obj_dir: ignored
+    :param mount_check: check the target device is a mount point and not on the
+                        root volume
     :param uid: user ID disk object should assume (file or directory)
     :param gid: group ID disk object should assume (file or directory)
     """
@@ -301,9 +450,16 @@ class Gluster_DiskFile(DiskFile):
     def __init__(self, path, device, partition, account, container, obj,
                  logger, keep_data_fp=False,
                  disk_chunk_size=DEFAULT_DISK_CHUNK_SIZE,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID, iter_hook=None):
+                 bytes_per_sync=DEFAULT_BYTES_PER_SYNC, iter_hook=None,
+                 threadpool=None, obj_dir='objects', mount_check=False,
+                 disallowed_metadata_keys=None, uid=DEFAULT_UID,
+                 gid=DEFAULT_GID):
+        if mount_check and not mount(path, device):
+            raise DiskFileDeviceUnavailable()
         self.disk_chunk_size = disk_chunk_size
+        self.bytes_per_sync = bytes_per_sync
         self.iter_hook = iter_hook
+        self.threadpool = threadpool or ThreadPool(nthreads=0)
         obj = obj.strip(os.path.sep)
 
         if os.path.sep in obj:
@@ -326,7 +482,6 @@ class Gluster_DiskFile(DiskFile):
         else:
             self.put_datadir = self.datadir
         self._is_dir = False
-        self.tmppath = None
         self.logger = logger
         self.metadata = {}
         self.meta_file = None
@@ -365,7 +520,7 @@ class Gluster_DiskFile(DiskFile):
             create_object_metadata(data_file)
             self.metadata = read_metadata(data_file)
 
-        self.filter_metadata()
+        self._filter_metadata()
 
         if not self._is_dir and keep_data_fp:
             # The caller has an assumption that the "fp" field of this
@@ -390,22 +545,20 @@ class Gluster_DiskFile(DiskFile):
             do_close(self.fp)
             self.fp = None
 
-    def is_deleted(self):
-        """
-        Check if the file is deleted.
-
-        :returns: True if the file doesn't exist or has been flagged as
-                  deleted.
-        """
-        return not self.data_file
+    def _filter_metadata(self):
+        if X_TYPE in self.metadata:
+            self.metadata.pop(X_TYPE)
+        if X_OBJECT_TYPE in self.metadata:
+            self.metadata.pop(X_OBJECT_TYPE)
 
     def _create_dir_object(self, dir_path, metadata=None):
         """
         Create a directory object at the specified path. No check is made to
-        see if the directory object already exists, that is left to the
-        caller (this avoids a potentially duplicate stat() system call).
+        see if the directory object already exists, that is left to the caller
+        (this avoids a potentially duplicate stat() system call).
 
-        The "dir_path" must be relative to its container, self._container_path.
+        The "dir_path" must be relative to its container,
+        self._container_path.
 
         The "metadata" object is an optional set of metadata to apply to the
         newly created directory object. If not present, no initial metadata is
@@ -455,233 +608,8 @@ class Gluster_DiskFile(DiskFile):
             child = stack.pop() if stack else None
         return True, newmd
 
-    def put_metadata(self, metadata, tombstone=False):
-        """
-        Short hand for putting metadata to .meta and .ts files.
-
-        :param metadata: dictionary of metadata to be written
-        :param tombstone: whether or not we are writing a tombstone
-        """
-        if tombstone:
-            # We don't write tombstone files. So do nothing.
-            return
-        assert self.data_file is not None, \
-            "put_metadata: no file to put metadata into"
-        metadata = _adjust_metadata(metadata)
-        write_metadata(self.data_file, metadata)
-        self.metadata = metadata
-        self.filter_metadata()
-
-    def put(self, fd, metadata, extension='.data'):
-        """
-        Finalize writing the file on disk, and renames it from the temp file
-        to the real location.  This should be called after the data has been
-        written to the temp file.
-
-        :param fd: file descriptor of the temp file
-        :param metadata: dictionary of metadata to be written
-        :param extension: extension to be used when making the file
-        """
-        # Our caller will use '.data' here; we just ignore it since we map the
-        # URL directly to the file system.
-
-        metadata = _adjust_metadata(metadata)
-
-        if dir_is_object(metadata):
-            if not self.data_file:
-                # Does not exist, create it
-                data_file = os.path.join(self._obj_path, self._obj)
-                _, self.metadata = self._create_dir_object(data_file, metadata)
-                self.data_file = os.path.join(self._container_path, data_file)
-            elif not self.is_dir:
-                # Exists, but as a file
-                raise DiskFileError('DiskFile.put(): directory creation failed'
-                                    ' since the target, %s, already exists as'
-                                    ' a file' % self.data_file)
-            return
-
-        if self._is_dir:
-            # A pre-existing directory already exists on the file
-            # system, perhaps gratuitously created when another
-            # object was created, or created externally to Swift
-            # REST API servicing (UFO use case).
-            raise DiskFileError('DiskFile.put(): file creation failed since'
-                                ' the target, %s, already exists as a'
-                                ' directory' % self.data_file)
-
-        # Write out metadata before fsync() to ensure it is also forced to
-        # disk.
-        write_metadata(fd, metadata)
-
-        if not _relaxed_writes:
-            do_fsync(fd)
-            if X_CONTENT_LENGTH in metadata:
-                # Don't bother doing this before fsync in case the OS gets any
-                # ideas to issue partial writes.
-                fsize = int(metadata[X_CONTENT_LENGTH])
-                self.drop_cache(fd, 0, fsize)
-
-        # At this point we know that the object's full directory path exists,
-        # so we can just rename it directly without using Swift's
-        # swift.common.utils.renamer(), which makes the directory path and
-        # adds extra stat() calls.
-        data_file = os.path.join(self.put_datadir, self._obj)
-        while True:
-            try:
-                os.rename(self.tmppath, data_file)
-            except OSError as err:
-                if err.errno in (errno.ENOENT, errno.EIO):
-                    # FIXME: Why either of these two error conditions is
-                    # happening is unknown at this point. This might be a FUSE
-                    # issue of some sort or a possible race condition. So
-                    # let's sleep on it, and double check the environment
-                    # after a good nap.
-                    _random_sleep()
-                    # Tease out why this error occurred. The man page for
-                    # rename reads:
-                    #   "The link named by tmppath does not exist; or, a
-                    #    directory component in data_file does not exist;
-                    #    or, tmppath or data_file is an empty string."
-                    assert len(self.tmppath) > 0 and len(data_file) > 0
-                    tpstats = do_stat(self.tmppath)
-                    tfstats = do_fstat(fd)
-                    assert tfstats
-                    if not tpstats or tfstats.st_ino != tpstats.st_ino:
-                        # Temporary file name conflict
-                        raise DiskFileError('DiskFile.put(): temporary file,'
-                                            ' %s, was already renamed'
-                                            ' (targeted for %s)' % (
-                                                self.tmppath, data_file))
-                    else:
-                        # Data file target name now has a bad path!
-                        dfstats = do_stat(self.put_datadir)
-                        if not dfstats:
-                            raise DiskFileError('DiskFile.put(): path to'
-                                                ' object, %s, no longer exists'
-                                                ' (targeted for %s)' % (
-                                                    self.put_datadir,
-                                                    data_file))
-                        else:
-                            is_dir = stat.S_ISDIR(dfstats.st_mode)
-                            if not is_dir:
-                                raise DiskFileError('DiskFile.put(): path to'
-                                                    ' object, %s, no longer a'
-                                                    ' directory (targeted for'
-                                                    ' %s)' % (self.put_datadir,
-                                                              data_file))
-                            else:
-                                # Let's retry since everything looks okay
-                                logging.warn("DiskFile.put(): os.rename('%s',"
-                                             "'%s') initially failed (%s) but"
-                                             " a stat('%s') following that"
-                                             " succeeded: %r" % (
-                                                 self.tmppath, data_file,
-                                                 str(err), self.put_datadir,
-                                                 dfstats))
-                                continue
-                else:
-                    raise GlusterFileSystemOSError(
-                        err.errno, "%s, os.rename('%s', '%s')" % (
-                            err.strerror, self.tmppath, data_file))
-            else:
-                # Success!
-                break
-
-        # Avoid the unlink() system call as part of the mkstemp context cleanup
-        self.tmppath = None
-
-        self.metadata = metadata
-        self.filter_metadata()
-
-        # Mark that it actually exists now
-        self.data_file = os.path.join(self.datadir, self._obj)
-
-    def unlinkold(self, timestamp):
-        """
-        Remove any older versions of the object file.  Any file that has an
-        older timestamp than timestamp will be deleted.
-
-        :param timestamp: timestamp to compare with each file
-        """
-        if not self.metadata or self.metadata[X_TIMESTAMP] >= timestamp:
-            return
-
-        assert self.data_file, \
-            "Have metadata, %r, but no data_file" % self.metadata
-
-        if self._is_dir:
-            # Marker, or object, directory.
-            #
-            # Delete from the filesystem only if it contains
-            # no objects.  If it does contain objects, then just
-            # remove the object metadata tag which will make this directory a
-            # fake-filesystem-only directory and will be deleted
-            # when the container or parent directory is deleted.
-            metadata = read_metadata(self.data_file)
-            if dir_is_object(metadata):
-                metadata[X_OBJECT_TYPE] = DIR_NON_OBJECT
-                write_metadata(self.data_file, metadata)
-            rmobjdir(self.data_file)
-
-        else:
-            # Delete file object
-            do_unlink(self.data_file)
-
-        # Garbage collection of non-object directories.
-        # Now that we deleted the file, determine
-        # if the current directory and any parent
-        # directory may be deleted.
-        dirname = os.path.dirname(self.data_file)
-        while dirname and dirname != self._container_path:
-            # Try to remove any directories that are not
-            # objects.
-            if not rmobjdir(dirname):
-                # If a directory with objects has been
-                # found, we can stop garabe collection
-                break
-            else:
-                dirname = os.path.dirname(dirname)
-
-        self.metadata = {}
-        self.data_file = None
-
-    def get_data_file_size(self):
-        """
-        Returns the os_path.getsize for the file.  Raises an exception if this
-        file does not match the Content-Length stored in the metadata, or if
-        self.data_file does not exist.
-
-        :returns: file size as an int
-        :raises DiskFileError: on file size mismatch.
-        :raises DiskFileNotExist: on file not existing (including deleted)
-        """
-        #Marker directory.
-        if self._is_dir:
-            return 0
-        try:
-            file_size = 0
-            if self.data_file:
-                file_size = os_path.getsize(self.data_file)
-                if X_CONTENT_LENGTH in self.metadata:
-                    metadata_size = int(self.metadata[X_CONTENT_LENGTH])
-                    if file_size != metadata_size:
-                        self.metadata[X_CONTENT_LENGTH] = file_size
-                        write_metadata(self.data_file, self.metadata)
-
-                return file_size
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
-        raise DiskFileNotExist('Data File does not exist.')
-
-    def filter_metadata(self):
-        if X_TYPE in self.metadata:
-            self.metadata.pop(X_TYPE)
-        if X_OBJECT_TYPE in self.metadata:
-            self.metadata.pop(X_OBJECT_TYPE)
-
     @contextmanager
-    def mkstemp(self, size=None):
+    def writer(self, size=None):
         """
         Contextmanager to make a temporary file, optionally of a specified
         initial size.
@@ -706,9 +634,7 @@ class Gluster_DiskFile(DiskFile):
             except GlusterFileSystemOSError as gerr:
                 if gerr.errno == errno.ENOSPC:
                     # Raise DiskFileNoSpace to be handled by upper layers
-                    excp = DiskFileNoSpace()
-                    excp.drive = os.path.basename(self.device_path)
-                    raise excp
+                    raise DiskFileNoSpace()
                 if gerr.errno == errno.EEXIST:
                     # Retry with a different random number.
                     continue
@@ -750,30 +676,117 @@ class Gluster_DiskFile(DiskFile):
                                 ' create a temporary file without running'
                                 ' into a name conflict after 1,000 attempts'
                                 ' for: %s' % (data_file,))
-
-        self.tmppath = tmppath
-
+        dw = None
         try:
             # Ensure it is properly owned before we make it available.
             do_fchown(fd, self.uid, self.gid)
-            if _preallocate and size:
-                # For XFS, fallocate() turns off speculative pre-allocation
-                # until a write is issued either to the last block of the file
-                # before the EOF or beyond the EOF. This means that we are
-                # less likely to fragment free space with pre-allocated
-                # extents that get truncated back to the known file size.
-                # However, this call also turns holes into allocated but
-                # unwritten extents, so that allocation occurs before the
-                # write, not during XFS writeback. This effectively defeats
-                # any allocation optimizations the filesystem can make at
-                # writeback time.
-                fallocate(fd, size)
-            yield fd
+            # NOTE: we do not perform the fallocate() call at all. We ignore
+            # it completely.
+            dw = DiskWriter(self, fd, tmppath, self.threadpool)
+            yield dw
         finally:
             try:
-                do_close(fd)
+                if dw.fd:
+                    do_close(dw.fd)
             except OSError:
                 pass
-            if self.tmppath:
-                tmppath, self.tmppath = self.tmppath, None
-                do_unlink(tmppath)
+            if dw.tmppath:
+                do_unlink(dw.tmppath)
+
+    def put_metadata(self, metadata, tombstone=False):
+        """
+        Short hand for putting metadata to .meta and .ts files.
+
+        :param metadata: dictionary of metadata to be written
+        :param tombstone: whether or not we are writing a tombstone
+        """
+        if tombstone:
+            # We don't write tombstone files. So do nothing.
+            return
+        assert self.data_file is not None, \
+            "put_metadata: no file to put metadata into"
+        metadata = _adjust_metadata(metadata)
+        self.threadpool.run_in_thread(write_metadata, self.data_file, metadata)
+        self.metadata = metadata
+        self._filter_metadata()
+
+    def unlinkold(self, timestamp):
+        """
+        Remove any older versions of the object file.  Any file that has an
+        older timestamp than timestamp will be deleted.
+
+        :param timestamp: timestamp to compare with each file
+        """
+        if not self.metadata or self.metadata[X_TIMESTAMP] >= timestamp:
+            return
+
+        assert self.data_file, \
+            "Have metadata, %r, but no data_file" % self.metadata
+
+        def _unlinkold():
+            if self._is_dir:
+                # Marker, or object, directory.
+                #
+                # Delete from the filesystem only if it contains no objects.
+                # If it does contain objects, then just remove the object
+                # metadata tag which will make this directory a
+                # fake-filesystem-only directory and will be deleted when the
+                # container or parent directory is deleted.
+                metadata = read_metadata(self.data_file)
+                if dir_is_object(metadata):
+                    metadata[X_OBJECT_TYPE] = DIR_NON_OBJECT
+                    write_metadata(self.data_file, metadata)
+                rmobjdir(self.data_file)
+            else:
+                # Delete file object
+                do_unlink(self.data_file)
+
+            # Garbage collection of non-object directories.  Now that we
+            # deleted the file, determine if the current directory and any
+            # parent directory may be deleted.
+            dirname = os.path.dirname(self.data_file)
+            while dirname and dirname != self._container_path:
+                # Try to remove any directories that are not objects.
+                if not rmobjdir(dirname):
+                    # If a directory with objects has been found, we can stop
+                    # garabe collection
+                    break
+                else:
+                    dirname = os.path.dirname(dirname)
+
+        self.threadpool.run_in_thread(_unlinkold)
+
+        self.metadata = {}
+        self.data_file = None
+
+    def get_data_file_size(self):
+        """
+        Returns the os_path.getsize for the file.  Raises an exception if this
+        file does not match the Content-Length stored in the metadata, or if
+        self.data_file does not exist.
+
+        :returns: file size as an int
+        :raises DiskFileError: on file size mismatch.
+        :raises DiskFileNotExist: on file not existing (including deleted)
+        """
+        #Marker directory.
+        if self._is_dir:
+            return 0
+        try:
+            file_size = 0
+            if self.data_file:
+                def _old_getsize():
+                    file_size = os_path.getsize(self.data_file)
+                    if X_CONTENT_LENGTH in self.metadata:
+                        metadata_size = int(self.metadata[X_CONTENT_LENGTH])
+                        if file_size != metadata_size:
+                            # FIXME - bit rot detection?
+                            self.metadata[X_CONTENT_LENGTH] = file_size
+                            write_metadata(self.data_file, self.metadata)
+                    return file_size
+                file_size = self.threadpool.run_in_thread(_old_getsize)
+                return file_size
+        except OSError as err:
+            if err.errno != errno.ENOENT:
+                raise
+        raise DiskFileNotExist('Data File does not exist.')

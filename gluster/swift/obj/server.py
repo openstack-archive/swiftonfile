@@ -13,20 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Object Server for Gluster Swift UFO """
+""" Object Server for Gluster for Swift """
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-from swift.obj import server
-import gluster.swift.common.utils          # noqa
 import gluster.swift.common.constraints    # noqa
-from swift.common.utils import public, timing_stats
-from gluster.swift.common.DiskFile import Gluster_DiskFile
-from gluster.swift.common.exceptions import DiskFileNoSpace
-from swift.common.swob import HTTPInsufficientStorage
 
-# Monkey patch the object server module to use Gluster's DiskFile definition
-server.DiskFile = Gluster_DiskFile
+from swift.obj import server
+
+from gluster.swift.obj.diskfile import DiskFile
 
 
 class ObjectController(server.ObjectController):
@@ -36,6 +31,18 @@ class ObjectController(server.ObjectController):
     stored on disk and already updated by virtue of performing the file system
     operations directly).
     """
+
+    def _diskfile(self, device, partition, account, container, obj, **kwargs):
+        """Utility method for instantiating a DiskFile."""
+        kwargs.setdefault('mount_check', self.mount_check)
+        kwargs.setdefault('bytes_per_sync', self.bytes_per_sync)
+        kwargs.setdefault('disk_chunk_size', self.disk_chunk_size)
+        kwargs.setdefault('threadpool', self.threadpools[device])
+        kwargs.setdefault('obj_dir', server.DATADIR)
+        kwargs.setdefault('disallowed_metadata_keys',
+                          server.DISALLOWED_HEADERS)
+        return DiskFile(self.devices, device, partition, account,
+                        container, obj, self.logger, **kwargs)
 
     def container_update(self, op, account, container, obj, request,
                          headers_out, objdevice):
@@ -55,15 +62,6 @@ class ObjectController(server.ObjectController):
         :param objdevice: device name that the object is in
         """
         return
-
-    @public
-    @timing_stats()
-    def PUT(self, request):
-        try:
-            return server.ObjectController.PUT(self, request)
-        except DiskFileNoSpace as err:
-            drive = err.drive
-            return HTTPInsufficientStorage(drive=drive, request=request)
 
 
 def app_factory(global_conf, **local_conf):

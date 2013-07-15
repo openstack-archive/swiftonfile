@@ -39,11 +39,11 @@ BuildRequires: python-setuptools
 Requires : memcached
 Requires : openssl
 Requires : python
-Requires : openstack-swift >= 1.8.0
-Requires : openstack-swift-account >= 1.8.0
-Requires : openstack-swift-container >= 1.8.0
-Requires : openstack-swift-object >= 1.8.0
-Requires : openstack-swift-proxy >= 1.8.0
+Requires : openstack-swift >= 1.9.1
+Requires : openstack-swift-account >= 1.9.1
+Requires : openstack-swift-container >= 1.9.1
+Requires : openstack-swift-object >= 1.9.1
+Requires : openstack-swift-proxy >= 1.9.1
 Obsoletes: glusterfs-swift-plugin
 Obsoletes: glusterfs-swift
 Obsoletes: glusterfs-ufo

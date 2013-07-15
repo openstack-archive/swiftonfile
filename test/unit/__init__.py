@@ -1,10 +1,9 @@
 """ Swift tests """
 
-import sys
 import os
 import copy
-import logging
 import errno
+import logging
 from sys import exc_info
 from contextlib import contextmanager
 from collections import defaultdict
@@ -13,13 +12,98 @@ from eventlet.green import socket
 from tempfile import mkdtemp
 from shutil import rmtree
 from test import get_config
-from ConfigParser import MissingSectionHeaderError
-from StringIO import StringIO
-from swift.common.utils import readconf, config_true_value
-from logging import Handler
+from swift.common.utils import config_true_value
 from hashlib import md5
-from eventlet import sleep, spawn, Timeout
+from eventlet import sleep, Timeout
 import logging.handlers
+from httplib import HTTPException
+
+
+class DebugLogger(object):
+    """A simple stdout logger for eventlet wsgi."""
+
+    def write(self, *args):
+        print args
+
+
+class FakeRing(object):
+
+    def __init__(self, replicas=3, max_more_nodes=0):
+        # 9 total nodes (6 more past the initial 3) is the cap, no matter if
+        # this is set higher, or R^2 for R replicas
+        self.replicas = replicas
+        self.max_more_nodes = max_more_nodes
+        self.devs = {}
+
+    def set_replicas(self, replicas):
+        self.replicas = replicas
+        self.devs = {}
+
+    @property
+    def replica_count(self):
+        return self.replicas
+
+    def get_part(self, account, container=None, obj=None):
+        return 1
+
+    def get_nodes(self, account, container=None, obj=None):
+        devs = []
+        for x in xrange(self.replicas):
+            devs.append(self.devs.get(x))
+            if devs[x] is None:
+                self.devs[x] = devs[x] = \
+                    {'ip': '10.0.0.%s' % x,
+                     'port': 1000 + x,
+                     'device': 'sd' + (chr(ord('a') + x)),
+                     'zone': x % 3,
+                     'region': x % 2,
+                     'id': x}
+        return 1, devs
+
+    def get_part_nodes(self, part):
+        return self.get_nodes('blah')[1]
+
+    def get_more_nodes(self, part):
+        # replicas^2 is the true cap
+        for x in xrange(self.replicas, min(self.replicas + self.max_more_nodes,
+                                           self.replicas * self.replicas)):
+            yield {'ip': '10.0.0.%s' % x,
+                   'port': 1000 + x,
+                   'device': 'sda',
+                   'zone': x % 3,
+                   'region': x % 2,
+                   'id': x}
+
+
+class FakeMemcache(object):
+
+    def __init__(self):
+        self.store = {}
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def keys(self):
+        return self.store.keys()
+
+    def set(self, key, value, time=0):
+        self.store[key] = value
+        return True
+
+    def incr(self, key, time=0):
+        self.store[key] = self.store.setdefault(key, 0) + 1
+        return self.store[key]
+
+    @contextmanager
+    def soft_lock(self, key, timeout=0, retries=5):
+        yield True
+
+    def delete(self, key):
+        try:
+            del self.store[key]
+        except Exception:
+            pass
+        return True
 
 
 def readuntil2crlfs(fd):
@@ -28,6 +112,8 @@ def readuntil2crlfs(fd):
     crlfs = 0
     while crlfs < 2:
         c = fd.read(1)
+        if not c:
+            raise ValueError("didn't get two CRLFs; just got %r" % rv)
         rv = rv + c
         if c == '\r' and lc != '\n':
             crlfs = 0
@@ -137,6 +223,7 @@ class FakeLogger(object):
 
     def exception(self, *args, **kwargs):
         self.log_dict['exception'].append((args, kwargs, str(exc_info()[1])))
+        print 'FakeLogger Exception: %s' % self.log_dict
 
     # mock out the StatsD logging methods:
     increment = _store_in('increment')
@@ -279,7 +366,7 @@ def fake_http_connect(*code_iter, **kwargs):
     class FakeConn(object):
 
         def __init__(self, status, etag=None, body='', timestamp='1',
-                     expect_status=None):
+                     expect_status=None, headers=None):
             self.status = status
             if expect_status is None:
                 self.expect_status = self.status
@@ -292,6 +379,7 @@ def fake_http_connect(*code_iter, **kwargs):
             self.received = 0
             self.etag = etag
             self.body = body
+            self.headers = headers or {}
             self.timestamp = timestamp
 
         def getresponse(self):
@@ -323,9 +411,12 @@ def fake_http_connect(*code_iter, **kwargs):
                        'x-timestamp': self.timestamp,
                        'last-modified': self.timestamp,
                        'x-object-meta-test': 'testing',
+                       'x-delete-at': '9876543210',
                        'etag': etag,
-                       'x-works': 'yes',
-                       'x-account-container-count': kwargs.get('count', 12345)}
+                       'x-works': 'yes'}
+            if self.status // 100 == 2:
+                headers['x-account-container-count'] = \
+                    kwargs.get('count', 12345)
             if not self.timestamp:
                 del headers['x-timestamp']
             try:
@@ -335,8 +426,7 @@ def fake_http_connect(*code_iter, **kwargs):
                 pass
             if 'slow' in kwargs:
                 headers['content-length'] = '4'
-            if 'headers' in kwargs:
-                headers.update(kwargs['headers'])
+            headers.update(self.headers)
             return headers.items()
 
         def read(self, amt=None):
@@ -360,6 +450,11 @@ def fake_http_connect(*code_iter, **kwargs):
 
     timestamps_iter = iter(kwargs.get('timestamps') or ['1'] * len(code_iter))
     etag_iter = iter(kwargs.get('etags') or [None] * len(code_iter))
+    if isinstance(kwargs.get('headers'), list):
+        headers_iter = iter(kwargs['headers'])
+    else:
+        headers_iter = iter([kwargs.get('headers', {})] * len(code_iter))
+
     x = kwargs.get('missing_container', [False] * len(code_iter))
     if not isinstance(x, (tuple, list)):
         x = [x] * len(code_iter)
@@ -384,6 +479,7 @@ def fake_http_connect(*code_iter, **kwargs):
         else:
             expect_status = status
         etag = etag_iter.next()
+        headers = headers_iter.next()
         timestamp = timestamps_iter.next()
 
         if status <= 0:
@@ -393,6 +489,6 @@ def fake_http_connect(*code_iter, **kwargs):
         else:
             body = body_iter.next()
         return FakeConn(status, etag, body=body, timestamp=timestamp,
-                        expect_status=expect_status)
+                        expect_status=expect_status, headers=headers)
 
     return connect

@@ -33,7 +33,7 @@ class ContainerController(server.ContainerController):
     directly).
     """
 
-    def _get_container_broker(self, drive, part, account, container):
+    def _get_container_broker(self, drive, part, account, container, **kwargs):
         """
         Overriden to provide the GlusterFS specific broker that talks to
         Gluster for the information related to servicing a given request
@@ -45,7 +45,8 @@ class ContainerController(server.ContainerController):
         :param container: container name
         :returns: DiskDir object, a duck-type of DatabaseBroker
         """
-        return DiskDir(self.root, drive, account, container, self.logger)
+        return DiskDir(self.root, drive, account, container, self.logger,
+                       **kwargs)
 
     def account_update(self, req, account, container, broker):
         """

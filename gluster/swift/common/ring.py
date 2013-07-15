@@ -91,6 +91,29 @@ class Ring(ring.Ring):
         """
         return self._get_part_nodes(part)
 
+    def get_part(self, account, container=None, obj=None):
+        """
+        Get the partition for an account/container/object.
+
+        :param account: account name
+        :param container: container name
+        :param obj: object name
+        :returns: the partition number
+        """
+        if account.startswith(reseller_prefix):
+            account = account.replace(reseller_prefix, '', 1)
+
+        # Save the account name in the table
+        # This makes part be the index of the location of the account
+        # in the list
+        try:
+            part = self.account_list.index(account)
+        except ValueError:
+            self.account_list.append(account)
+            part = self.account_list.index(account)
+
+        return part
+
     def get_nodes(self, account, container=None, obj=None):
         """
         Get the partition and nodes for an account/container/object.
@@ -117,18 +140,7 @@ class Ring(ring.Ring):
                 hardware description
         ======  ===============================================================
         """
-        if account.startswith(reseller_prefix):
-            account = account.replace(reseller_prefix, '', 1)
-
-        # Save the account name in the table
-        # This makes part be the index of the location of the account
-        # in the list
-        try:
-            part = self.account_list.index(account)
-        except ValueError:
-            self.account_list.append(account)
-            part = self.account_list.index(account)
-
+        part = self.get_part(account, container, obj)
         return part, self._get_part_nodes(part)
 
     def get_more_nodes(self, part):
@@ -141,4 +153,4 @@ class Ring(ring.Ring):
         See :func:`get_nodes` for a description of the node dicts.
         Should never be called in the swift UFO environment, so yield nothing
         """
-        yield self.false_node
+        return []

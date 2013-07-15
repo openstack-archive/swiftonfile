@@ -51,6 +51,10 @@ class TestRing(unittest.TestCase):
         for node in self.ring.get_more_nodes(0):
             assert node['device'] == 'volume_not_in_ring'
 
+    def test_second_device_part(self):
+        part = self.ring.get_part('iops')
+        assert part == 0
+
     def test_second_device_with_reseller_prefix(self):
         part, node = self.ring.get_nodes('AUTH_iops')
         assert node[0]['device'] == 'iops'

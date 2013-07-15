@@ -24,7 +24,8 @@ from gluster.swift.common.DiskDir import DiskAccount
 
 
 class AccountController(server.AccountController):
-    def _get_account_broker(self, drive, part, account):
+
+    def _get_account_broker(self, drive, part, account, **kwargs):
         """
         Overriden to provide the GlusterFS specific broker that talks to
         Gluster for the information related to servicing a given request
@@ -35,7 +36,7 @@ class AccountController(server.AccountController):
         :param account: account name
         :returns: DiskDir object
         """
-        return DiskAccount(self.root, drive, account, self.logger)
+        return DiskAccount(self.root, drive, account, self.logger, **kwargs)
 
 
 def app_factory(global_conf, **local_conf):

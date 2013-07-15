@@ -150,7 +150,8 @@ class DiskCommon(object):
     """
     Common fields and methods shared between DiskDir and DiskAccount classes.
     """
-    def __init__(self, root, drive, account, logger):
+    def __init__(self, root, drive, account, logger, pending_timeout=None,
+                 stale_reads_ok=False):
         # WARNING: The following four fields are referenced as fields by our
         # callers outside of this module, do not remove.
         # Create a dummy db_file in Glusterfs.RUN_DIR
@@ -161,8 +162,8 @@ class DiskCommon(object):
                 file(_db_file, 'w+')
         self.db_file = _db_file
         self.metadata = {}
-        self.pending_timeout = 0
-        self.stale_reads_ok = False
+        self.pending_timeout = pending_timeout or 10
+        self.stale_reads_ok = stale_reads_ok
         # The following fields are common
         self.root = root
         assert logger is not None
@@ -287,8 +288,8 @@ class DiskDir(DiskCommon):
     """
 
     def __init__(self, path, drive, account, container, logger,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID):
-        super(DiskDir, self).__init__(path, drive, account, logger)
+                 uid=DEFAULT_UID, gid=DEFAULT_GID, **kwargs):
+        super(DiskDir, self).__init__(path, drive, account, logger, **kwargs)
 
         self.uid = int(uid)
         self.gid = int(gid)
@@ -530,8 +531,9 @@ class DiskAccount(DiskCommon):
             .update_metadata()
     """
 
-    def __init__(self, root, drive, account, logger):
-        super(DiskAccount, self).__init__(root, drive, account, logger)
+    def __init__(self, root, drive, account, logger, **kwargs):
+        super(DiskAccount, self).__init__(root, drive, account, logger,
+                                          **kwargs)
 
         # Since accounts should always exist (given an account maps to a
         # gluster volume directly, and the mount has already been checked at
