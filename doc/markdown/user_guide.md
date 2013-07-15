@@ -19,8 +19,10 @@ Gluster for Swift uses [Jenkins][] for continuous integration and
 creation of distribution builds.  Download the latest RPM builds
 from one of the links below:  
 
-* RHEL/CentOS 6: [Download](http://build.gluster.org/job/gluster-swift-builds-cent6/lastSuccessfulBuild/artifact/build/) 
-* Fedora 18+: [Download](http://build.gluster.org/job/gluster-swift-builds-f18/lastSuccessfulBuild/artifact/build/)
+* CentOS 6: [Download](http://build.gluster.org/job/gluster-swift-builds-cent6-rel180/lastSuccessfulBuild/artifact/build/)
+* RHEL 6: [Download](http://build.gluster.org/job/gluster-swift-builds-rhel6-rel180/lastSuccessfulBuild/artifact/build/)
+* Fedora 18: [Download](http://build.gluster.org/job/gluster-swift-builds-f18-rel180/lastSuccessfulBuild/artifact/build/)
+* Fedora 19: [Download](http://build.gluster.org/job/gluster-swift-builds-f19-rel180/lastSuccessfulBuild/artifact/build/)
 
 Install the downloaded RPM using the following command:
 
