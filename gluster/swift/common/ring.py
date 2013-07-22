@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import errno
 from ConfigParser import ConfigParser
 from swift.common.ring import ring
 from swift.common.utils import search_tree
@@ -39,12 +41,20 @@ if not reseller_prefix.endswith('_'):
 
 class Ring(ring.Ring):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, serialized_path, *args, **kwargs):
         self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1',
                            'id': 0, 'meta': '', 'device': 'volume_not_in_ring',
                            'port': 6012}
         self.account_list = []
-        ring.Ring.__init__(self, *args, **kwargs)
+
+        ring_file = os.path.join(serialized_path, kwargs['ring_name']
+                                 + '.ring.gz')
+        if not os.path.exists(ring_file):
+            raise OSError(errno.ENOENT, 'No such file or directory',
+                          'ring files do not exists under %s, '
+                          'aborting proxy-server start.' % serialized_path)
+
+        ring.Ring.__init__(self, serialized_path, *args, **kwargs)
 
     def _get_part_nodes(self, part):
         seen_ids = set()

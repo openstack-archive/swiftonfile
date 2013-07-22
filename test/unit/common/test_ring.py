@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import errno
 import unittest
 import gluster.swift.common.constraints
 import swift.common.utils
@@ -66,3 +67,15 @@ class TestRing(unittest.TestCase):
     def test_invalid_partition(self):
         nodes = self.ring.get_part_nodes(0)
         self.assertEqual(nodes[0]['device'], 'volume_not_in_ring')
+
+    def test_ring_file_enoent(self):
+        swiftdir = os.path.join(os.getcwd(), "common", "data")
+        try:
+            self.ring = Ring(swiftdir, ring_name='obj')
+        except OSError as ose:
+            if ose.errno == errno.ENOENT:
+                pass
+            else:
+                self.fail('ENOENT expected, %s received.' %ose.errno)
+        else:
+            self.fail('OSError expected.')
