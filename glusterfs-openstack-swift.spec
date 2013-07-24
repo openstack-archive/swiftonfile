@@ -73,6 +73,7 @@ cp -r etc/*   %{buildroot}/%{_confdir}/
 
 mkdir -p                             %{buildroot}/%{_bindir}/
 cp bin/gluster-swift-gen-builders    %{buildroot}/%{_bindir}/
+cp bin/gluster-swift-print-metadata  %{buildroot}/%{_bindir}/
 
 # Remove tests
 %{__rm} -rf %{buildroot}/%{python_sitelib}/test
@@ -85,6 +86,7 @@ rm -rf %{buildroot}
 %{python_sitelib}/gluster
 %{python_sitelib}/gluster_swift-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
+%{_bindir}/gluster-swift-print-metadata
 %dir %{_confdir}
 %config %{_confdir}/account-server.conf-gluster
 %config %{_confdir}/container-server.conf-gluster
