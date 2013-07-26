@@ -4,11 +4,6 @@
 # volumes to be served via Swift API.
 mount_ip = localhost
 
-# By default it is assumed the Gluster volumes can be accessed using other
-# methods besides UFO (not object only), which disables a caching
-# optimizations in order to keep in sync with file system changes.
-object_only = yes
-
 # Performance optimization parameter. When turned off, the filesystem will
 # see a reduced number of stat calls, resulting in substantially faster
 # response time for GET and HEAD container requests on containers with large

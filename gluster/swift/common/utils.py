@@ -243,7 +243,10 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
     obj_path = path.replace(cont_path, '').strip(os.path.sep)
 
     for obj_name in src_list:
-        if not reg_file and Glusterfs.OBJECT_ONLY:
+        # If it is not a reg_file then it is a directory.
+        if not reg_file and not Glusterfs._implicit_dir_objects:
+            # Now check if this is a dir object or a gratuiously crated
+            # directory
             metadata = \
                 read_metadata(os.path.join(cont_path, obj_path, obj_name))
             if not dir_is_object(metadata):

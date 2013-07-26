@@ -31,21 +31,17 @@ from gluster.swift.common.exceptions import GlusterfsException, \
 #
 _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
-OBJECT_ONLY = True
 RUN_DIR = '/var/run/swift'
 SWIFT_DIR = '/etc/swift'
 _do_getsize = False
 _allow_mount_per_server = False
+_implicit_dir_objects = False
+_container_update_object_count = False
+_account_update_container_count = False
 
 if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
     try:
         MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', MOUNT_IP)
-    except (NoSectionError, NoOptionError):
-        pass
-    try:
-        OBJECT_ONLY = _fs_conf.get('DEFAULT',
-                                   'object_only',
-                                   "yes") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
     try:
@@ -65,6 +61,40 @@ if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
                                                'allow_mount_per_server',
                                                _allow_mount_per_server
                                                ) in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+
+    # -- Hidden configuration option --
+    # Report gratuitously created directories as objects
+    # Directories can be gratuitously created on the path to a given
+    # object. This option turn on or off the reporting of those directories.
+    # It defaults to False so that only those directories explicitly
+    # created by the object server PUT REST API are reported
+    try:
+        _implicit_dir_objects = \
+            _fs_conf.get('DEFAULT',
+                         'implicit_dir_objects',
+                         "no") in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+
+    # -- Hidden configuration option --
+    # Due to the impact on performance, this option is disabled by default
+    try:
+        _container_update_object_count = \
+            _fs_conf.get('DEFAULT',
+                         'container_update_object_count',
+                         "no") in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+
+    # -- Hidden configuration option --
+    # Due to the impact on performance, this option is disabled by default
+    try:
+        _account_update_container_count = \
+            _fs_conf.get('DEFAULT',
+                         'account_update_container_count',
+                         "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
 

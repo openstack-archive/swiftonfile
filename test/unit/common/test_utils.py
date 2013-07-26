@@ -585,23 +585,19 @@ class TestUtils(unittest.TestCase):
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_get_container_details_ufo(self):
+    def test_get_container_details(self):
         orig_cwd = os.getcwd()
-        __obj_only = Glusterfs.OBJECT_ONLY
         td = tempfile.mkdtemp()
         try:
             tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
             os.chdir(td)
             tf.extractall()
 
-            Glusterfs.OBJECT_ONLY = False
-
             obj_list, object_count, bytes_used = \
                 utils.get_container_details(td)
             assert bytes_used == 0, repr(bytes_used)
-            assert object_count == 8, repr(object_count)
+            assert object_count == 5, repr(object_count)
             assert set(obj_list) == set(['file1', 'file3', 'file2',
-                                         'dir3', 'dir1', 'dir2',
                                          'dir1/file1', 'dir1/file2'
                                          ]), repr(obj_list)
 
@@ -616,7 +612,6 @@ class TestUtils(unittest.TestCase):
         finally:
             os.chdir(orig_cwd)
             shutil.rmtree(td)
-            Glusterfs.OBJECT_ONLY = __obj_only
 
     def test_get_container_details_from_fs_do_getsize_true(self):
         orig_cwd = os.getcwd()
