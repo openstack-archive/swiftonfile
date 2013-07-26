@@ -373,7 +373,7 @@ class DiskDir(DiskCommon):
                     # test cases working for now.
                     if e.errno != errno.ENOENT:
                         raise
-            if Glusterfs.OBJECT_ONLY and metadata \
+            if not Glusterfs._implicit_dir_objects and metadata \
                     and metadata[X_CONTENT_TYPE] == DIR_TYPE \
                     and not dir_is_object(metadata):
                 continue
@@ -412,16 +412,8 @@ class DiskDir(DiskCommon):
                       reported_put_timestamp, reported_delete_timestamp,
                       reported_object_count, and reported_bytes_used.
         """
-        if self._dir_exists:
-            if not Glusterfs.OBJECT_ONLY:
-                # If we are not configured for object only environments,
-                # we should update the object counts in case they changed
-                # behind our back.
-                self._update_object_count()
-            else:
-                # FIXME: to facilitate testing, we need to update all
-                # the time
-                self._update_object_count()
+        if self._dir_exists and Glusterfs._container_update_object_count:
+            self._update_object_count()
 
         data = {'account': self.account, 'container': self.container,
                 'object_count': self.metadata.get(
@@ -697,12 +689,7 @@ class DiskAccount(DiskCommon):
                   delete_timestamp, container_count, object_count,
                   bytes_used, hash, id
         """
-        if not Glusterfs.OBJECT_ONLY:
-            # If we are not configured for object only environments, we should
-            # update the container counts in case they changed behind our back.
-            self._update_container_count()
-        else:
-            # FIXME: to facilitate testing, we need to update all the time
+        if Glusterfs._account_update_container_count:
             self._update_container_count()
 
         data = {'account': self.account, 'created_at': '1',

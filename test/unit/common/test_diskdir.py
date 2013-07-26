@@ -468,6 +468,9 @@ class TestContainerBroker(unittest.TestCase):
 
     def test_get_info(self):
         # Test swift.common.db.ContainerBroker.get_info
+        __save_config = \
+            gluster.swift.common.Glusterfs._container_update_object_count
+        gluster.swift.common.Glusterfs._container_update_object_count = True
         broker = self._get_broker(account='test1',
                                  container='test2')
         broker.initialize(self.initial_ts)
@@ -513,6 +516,8 @@ class TestContainerBroker(unittest.TestCase):
         info = broker.get_info()
         self.assertEquals(info['x_container_sync_point1'], -1)
         self.assertEquals(info['x_container_sync_point2'], -1)
+        gluster.swift.common.Glusterfs._container_update_object_count = \
+            __save_config
 
     def test_get_info_nonexistent_container(self):
         broker = dd.DiskDir(self.path, self.drive, account='no_account',
@@ -1046,6 +1051,9 @@ class TestAccountBroker(unittest.TestCase):
 
     def test_get_info(self):
         # Test swift.common.db.AccountBroker.get_info
+        __save_config = \
+            gluster.swift.common.Glusterfs._account_update_container_count
+        gluster.swift.common.Glusterfs._account_update_container_count = True
         broker = self._get_broker(account='test1')
         broker.initialize(self.initial_ts)
 
@@ -1074,6 +1082,8 @@ class TestAccountBroker(unittest.TestCase):
         os.rmdir(c2)
         info = broker.get_info()
         self.assertEquals(info['container_count'], 0)
+        gluster.swift.common.Glusterfs._account_update_container_count = \
+            __save_config
 
     def test_list_containers_iter(self):
         # Test swift.common.db.AccountBroker.list_containers_iter
