@@ -28,12 +28,13 @@ pipeline = object-server
 use = egg:gluster_swift#object
 user = root
 log_facility = LOG_LOCAL2
+log_level = WARN
 #
 # For performance, after ensuring things are running in a stable manner, you
 # can turn off normal request logging for the object server to reduce the
 # per-request overhead and unclutter the log files. Warnings and errors will
 # still be logged.
-log_requests = on
+log_requests = off
 #
 # Adjust this value to match the stripe width of the underlying storage array
 # (not the stripe element size). This will provide a reasonable starting point
