@@ -15,9 +15,9 @@ swift_hash_path_suffix = gluster
 # the cluster. This is also the limit on the size of each segment of
 # a "large" object when using the large object manifest support.
 # This value is set in bytes. Setting it to lower than 1MiB will cause
-# some tests to fail. It is STRONGLY recommended to leave this value at
-# the default (5 * 2**30 + 2).
-max_file_size = 18446744073709551616
+# some tests to fail. 
+# Default is 1 TiB = 2**30*1024 
+max_file_size = 1099511627776
 
 
 # max_meta_name_length is the max number of bytes in the utf8 encoding
