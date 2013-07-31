@@ -1,7 +1,5 @@
 # Developer Guide
 
-## Contributing to the project
-
 ## Development Environment Setup
 The workflow for Gluster-Swift is largely based upon the 
 [OpenStack Gerrit Workflow][].
@@ -13,8 +11,26 @@ an [SSH key][] to the website.  This will allow you to upload
 changes to Gerrit.  Follow the the information given
 at [GitHub Generating SSH Keys][] if you need help creating your key.
 
-### Download the source
-The source for Gluster for Swift is available in Github.  To download
+### Package Requirements
+
+#### Fedora 19
+On Fedora 19 systems, type:
+
+~~~
+sudo yum install gcc python-devel python-setuptools libffi-devel git rpm-build
+~~~
+
+### Git Setup
+If this is your first time using git, you will need to setup the
+following configuration:
+
+~~~
+git config --global user.name "Firstname Lastname"
+git config --global user.email "your_email@youremail.com"
+~~~
+
+### Download the Source
+The source for Gluster for Swift is available in Github. To download
 type:
 
 ~~~
@@ -23,6 +39,13 @@ cd gluster-swift
 ~~~
 
 ### Git Review
+Before installing pip, make sure you have pip installed. Install the
+python `pip` tool by executing the following command:
+
+~~~
+sudo easy_install pip
+~~~
+
 The tool `git review` is a simple tool to automate interaction with Gerrit.
 It is recommended to use this tool to upload, modify, and query changes in Gerrit.
 The tool can be installed by running the following command:
@@ -31,9 +54,9 @@ The tool can be installed by running the following command:
 sudo pip install git-review
 ~~~
 
-Note that while many distros offer a version of `git review`, they don't
-necessarily keep it up to date. Pip gives one the latest which
-often avoids problems with various Gerrit servers.
+While many Linux distributions offer a version of `git review`, 
+they do not necessarily keep it up to date. Pip provides the latest version
+of the application which avoids problems with various versions of Gerrit.
 
 You now need to setup `git review` to communicate with review.gluster.org.
 First, determine your `git review` setup by typing:
@@ -89,16 +112,16 @@ a meaningful name for the topic (e.g. feature_xyz)
 
 ### Quality Checking
 #### PEP8
-To test that the code adheres to the [PEP8][] specification, please
-type:
+To test that the code adheres to the Python [PEP8][] specification, 
+please type:
 
 ~~~
 tox -e pep8
 ~~~
 
 #### Unit Tests
-You can run the unit tests after making your changes.  To run the unit
-test suite in `tox` type the following as a non-root user:
+Once you have made your changes, you can test the quality of the code
+by executing the automated unit tests as follows:
 
 ~~~
 tox -e ENV
@@ -107,20 +130,24 @@ tox -e ENV
 where *ENV* is either `py27` for systems with Python 2.7+, or `py26` for
 systems with Python 2.6+.
 
+If new functionality has been added, it is highly recommended that
+one or more tests be added to the automated unit test suite. Unit
+tests are available under the `test/unit` directory.
+
 #### Functional Tests
-To run the functional tests the following requirements must be met.
+The automated functional tests only run on RPM based systems
+like Fedora/CentOS, etc.  To run the functional tests, the following 
+requirements must be met.
 
-1) "/etc/swift" must not exist. So that test would not interfere with
-existing setup. Functional test would create "/etc/swift" and populate
-it with necessary configuration files.
-2) User need to have administrative access.
-2) "/mnt/gluster-object" directory must be created.
-3) Volumes named "test", "test2" should be created. (Gluster volume / XFS
-volume)
-4) Volumes should be mounted under "/mnt/gluster-object/test" and
-"/mnt/gluster-object/test2" respectively.
+1. `/etc/swift` must not exist.
+1. User needs to have `sudo` access; no password necessary
+1. `/mnt/gluster-object/test` and `/mn/gluster-object/test2` directories
+must be created on either an XFS or GlusterFS volume.
+1. glusterfs-openstack-swift RPM must not be installed on the system
 
-####To run functional tests:
+Once the requirements have been met, you can now run the full functional
+tests using the following command:
+
 ~~~
 tools/functional_tests.sh
 ~~~
@@ -188,18 +215,14 @@ git review
 
 ## Creating Distribution Packages
 
-### Tools Installation
-TBD:  For now please follow the installation instructions
-on the [GlusterFS Compiling RPMS][] page.
-
 ### Building RPMs for Fedora/RHEL/CentOS Systems
 Building RPMs.  RPMs will be located in the *build* directory.
 
 `$ bash makerpm.sh`
 
-Building RPM with a specific release value, useful for automatic
-Jenkin builds, or keeping track of different versions of the
-RPM:
+Building the RPM with a specific release value is useful for 
+automatic Jenkin builds, or keeping track of different versions 
+of the RPM:
 
 `$ PKG_RELEASE=123 bash makerpm.sh`
 
