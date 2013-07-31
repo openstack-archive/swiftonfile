@@ -21,18 +21,21 @@ import errno
 import unittest
 import tempfile
 import shutil
+import mock
 from mock import patch
 from hashlib import md5
-from swift.common.utils import normalize_timestamp
-from swift.common.exceptions import DiskFileNotExist, DiskFileError
-import gluster.swift.common.DiskFile
+
 import gluster.swift.common.utils
+import gluster.swift.common.DiskFile
+from swift.common.utils import normalize_timestamp
 from gluster.swift.common.DiskFile import Gluster_DiskFile
+from swift.common.exceptions import DiskFileNotExist, DiskFileError
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
 from test_utils import _initxattr, _destroyxattr
 from test.unit import FakeLogger
 
+from gluster.swift.common.exceptions import *
 
 _metadata = {}
 
@@ -566,6 +569,45 @@ class TestDiskFile(unittest.TestCase):
             assert gdf.data_file == os.path.join(td, "vol0", "bar", "z")
             assert os.path.exists(gdf.data_file)
             assert not os.path.exists(tmppath)
+        finally:
+            shutil.rmtree(td)
+
+
+    def test_put_ENOSPC(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
+                                   "z", self.lg)
+            assert gdf._obj == "z"
+            assert gdf._obj_path == ""
+            assert gdf.name == "bar"
+            assert gdf.datadir == the_cont
+            assert gdf.data_file is None
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+            def mock_open(*args, **kwargs):
+                raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+            with mock.patch("os.open", mock_open):
+                try:
+                    with gdf.mkstemp() as fd:
+                        assert gdf.tmppath is not None
+                        tmppath = gdf.tmppath
+                        os.write(fd, body)
+                        gdf.put(fd, metadata)
+                except DiskFileNoSpace:
+                    pass
         finally:
             shutil.rmtree(td)
 
