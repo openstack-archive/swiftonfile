@@ -24,7 +24,9 @@ from eventlet import sleep
 from contextlib import contextmanager
 from swift.common.utils import TRUE_VALUES, fallocate
 from swift.common.exceptions import DiskFileNotExist, DiskFileError
-from gluster.swift.common.exceptions import GlusterFileSystemOSError
+
+from gluster.swift.common.exceptions import GlusterFileSystemOSError, \
+    DiskFileNoSpace
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, os_path, do_fsync, do_fchown, do_stat
 from gluster.swift.common.utils import read_metadata, write_metadata, \
@@ -702,6 +704,11 @@ class Gluster_DiskFile(DiskFile):
                 fd = do_open(tmppath,
                              os.O_WRONLY | os.O_CREAT | os.O_EXCL | O_CLOEXEC)
             except GlusterFileSystemOSError as gerr:
+                if gerr.errno == errno.ENOSPC:
+                    # Raise DiskFileNoSpace to be handled by upper layers
+                    excp = DiskFileNoSpace()
+                    excp.drive = os.path.basename(self.device_path)
+                    raise excp
                 if gerr.errno == errno.EEXIST:
                     # Retry with a different random number.
                     continue

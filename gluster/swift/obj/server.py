@@ -17,11 +17,13 @@
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-import gluster.swift.common.constraints    # noqa
-import gluster.swift.common.utils          # noqa
-
 from swift.obj import server
+import gluster.swift.common.utils          # noqa
+import gluster.swift.common.constraints    # noqa
+from swift.common.utils import public, timing_stats
 from gluster.swift.common.DiskFile import Gluster_DiskFile
+from gluster.swift.common.exceptions import DiskFileNoSpace
+from swift.common.swob import HTTPInsufficientStorage
 
 # Monkey patch the object server module to use Gluster's DiskFile definition
 server.DiskFile = Gluster_DiskFile
@@ -53,6 +55,15 @@ class ObjectController(server.ObjectController):
         :param objdevice: device name that the object is in
         """
         return
+
+    @public
+    @timing_stats()
+    def PUT(self, request):
+        try:
+            return server.ObjectController.PUT(self, request)
+        except DiskFileNoSpace as err:
+            drive = err.drive
+            return HTTPInsufficientStorage(drive=drive, request=request)
 
 
 def app_factory(global_conf, **local_conf):
