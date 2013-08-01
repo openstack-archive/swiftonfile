@@ -41,20 +41,24 @@ if not reseller_prefix.endswith('_'):
 
 class Ring(ring.Ring):
 
-    def __init__(self, serialized_path, *args, **kwargs):
+    def __init__(self, serialized_path, reload_time=15, ring_name=None):
         self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1',
                            'id': 0, 'meta': '', 'device': 'volume_not_in_ring',
                            'port': 6012}
         self.account_list = []
 
-        ring_file = os.path.join(serialized_path, kwargs['ring_name']
-                                 + '.ring.gz')
-        if not os.path.exists(ring_file):
-            raise OSError(errno.ENOENT, 'No such file or directory',
-                          'ring files do not exists under %s, '
-                          'aborting proxy-server start.' % serialized_path)
+        if ring_name:
+            _serialized_path = os.path.join(serialized_path,
+                                            ring_name + '.ring.gz')
+        else:
+            _serialized_path = os.path.join(serialized_path)
 
-        ring.Ring.__init__(self, serialized_path, *args, **kwargs)
+        if not os.path.exists(_serialized_path):
+            raise OSError(errno.ENOENT, 'No such file or directory',
+                          '%s ring file does not exists, aborting '
+                          'proxy-server start.' % _serialized_path)
+
+        ring.Ring.__init__(self, serialized_path, reload_time, ring_name)
 
     def _get_part_nodes(self, part):
         seen_ids = set()
