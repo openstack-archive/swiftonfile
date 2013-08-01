@@ -35,7 +35,7 @@ from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
 from gluster.swift.common.Glusterfs import mount
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
-    do_unlink, do_chown, os_path, do_fsync, do_fchown, do_stat
+    do_unlink, do_chown, os_path, do_fsync, do_fchown, do_stat, Fake_file
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
     get_object_metadata
@@ -530,13 +530,20 @@ class DiskFile(SwiftDiskFile):
 
         self._filter_metadata()
 
-        if not self._is_dir and keep_data_fp:
-            # The caller has an assumption that the "fp" field of this
-            # object is an file object if keep_data_fp is set. However,
-            # this implementation of the DiskFile object does not need to
-            # open the file for internal operations. So if the caller
-            # requests it, we'll just open the file for them.
-            self.fp = do_open(data_file, 'rb')
+        if keep_data_fp:
+            if not self._is_dir:
+                # The caller has an assumption that the "fp" field of this
+                # object is an file object if keep_data_fp is set. However,
+                # this implementation of the DiskFile object does not need to
+                # open the file for internal operations. So if the caller
+                # requests it, we'll just open the file for them.
+                self.fp = do_open(data_file, 'rb')
+            else:
+                self.fp = Fake_file(data_file)
+
+    def drop_cache(self, fd, offset, length):
+        if fd >= 0:
+            super(DiskFile, self).drop_cache(fd, offset, length)
 
     def close(self, verify_file=True):
         """
@@ -545,10 +552,6 @@ class DiskFile(SwiftDiskFile):
         :param verify_file: Defaults to True. If false, will not check
                             file to see if it needs quarantining.
         """
-        # Marker directory
-        if self._is_dir:
-            assert not self.fp
-            return
         if self.fp:
             do_close(self.fp)
             self.fp = None

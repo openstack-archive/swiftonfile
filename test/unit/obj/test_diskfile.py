@@ -238,7 +238,6 @@ class TestDiskFile(unittest.TestCase):
             assert gdf._obj == "d"
             assert gdf.data_file == the_dir
             assert gdf._is_dir
-            assert gdf.fp is None
             assert gdf.metadata == exp_md
         finally:
             shutil.rmtree(td)
@@ -272,30 +271,61 @@ class TestDiskFile(unittest.TestCase):
                        iter_hook='hook')
         assert gdf.iter_hook == 'hook'
 
-    def test_close(self):
+    def test_close_no_open_fp(self):
         assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg)
-        # Should be a no-op, as by default is_dir is False, but fp is None
-        gdf.close()
-
-        gdf._is_dir = True
-        gdf.fp = "123"
-        # Should still be a no-op as is_dir is True (marker directory)
-        self.assertRaises(AssertionError, gdf.close)
-        assert gdf.fp == "123"
-
+        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+                               "z", self.lg, keep_data_fp=True)
         gdf._is_dir = False
-        saved_dc = gluster.swift.obj.diskfile.do_close
         self.called = False
+
         def our_do_close(fp):
             self.called = True
-        gluster.swift.obj.diskfile.do_close = our_do_close
-        try:
+
+        with mock.patch("gluster.swift.obj.diskfile.do_close", our_do_close):
             gdf.close()
-            assert self.called
+            assert not self.called
             assert gdf.fp is None
+
+    def test_close_dir_object(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        the_dir = "dir"
+        self.called = False
+        try:
+            os.makedirs(os.path.join(the_cont, "dir"))
+            gdf = DiskFile(td, "vol0", "p57", "ufo47", "bar",
+                                   "dir", self.lg, keep_data_fp=True)
+
+            def our_do_close(fp):
+                self.called = True
+
+            with mock.patch("gluster.swift.obj.diskfile.do_close",
+                    our_do_close):
+                gdf.close()
+                assert self.called
         finally:
-            gluster.swift.obj.diskfile.do_close = saved_dc
+            shutil.rmtree(td)
+
+    def test_close_file_object(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        the_file = os.path.join(the_cont, "z")
+        self.called = False
+        try:
+            os.makedirs(the_cont)
+            with open(the_file, "wb") as fd:
+                fd.write("1234")
+            gdf = DiskFile(td, "vol0", "p57", "ufo47", "bar",
+                                   "z", self.lg, keep_data_fp=True)
+            def our_do_close(fp):
+                self.called = True
+
+            with mock.patch("gluster.swift.obj.diskfile.do_close",
+                    our_do_close):
+                gdf.close()
+                assert self.called
+        finally:
+            shutil.rmtree(td)
 
     def test_is_deleted(self):
         assert not os.path.exists("/tmp/foo")

@@ -24,6 +24,23 @@ from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
     NotDirectoryError, GlusterFileSystemOSError, GlusterFileSystemIOError
 
 
+class Fake_file(object):
+    def __init__(self, path):
+        self.path = path
+
+    def tell(self):
+        return 0
+
+    def read(self, count):
+        return 0
+
+    def fileno(self):
+        return -1
+
+    def close(self):
+        pass
+
+
 def do_walk(*args, **kwargs):
     return os.walk(*args, **kwargs)
 
@@ -205,7 +222,7 @@ def do_open(path, flags, **kwargs):
 
 
 def do_close(fd):
-    if isinstance(fd, file):
+    if isinstance(fd, file) or isinstance(fd, Fake_file):
         try:
             fd.close()
         except IOError as err:
