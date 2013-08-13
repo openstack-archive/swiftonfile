@@ -29,7 +29,7 @@ Name     : %{_name}
 Version  : %{_version}
 Release  : %{_release}
 Group    : Application/File
-Vendor   : Red Hat Inc.
+Vendor   : Red Hat, Inc.
 Source0  : %{name}-%{version}-%{release}.tar.gz
 Packager : gluster-users@gluster.org
 License  : Apache
