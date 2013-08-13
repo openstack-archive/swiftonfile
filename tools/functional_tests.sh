@@ -22,6 +22,8 @@ cleanup()
         sudo swift-init main stop
         sudo yum -y remove glusterfs-openstack-swift
         sudo rm -rf /etc/swift > /dev/null 2>&1
+        sudo rm -rf /mnt/gluster-object/test{,2}/* > /dev/null 2>&1
+        sudo setfattr -x user.swift.metadata /mnt/gluster-object/test{,2} > /dev/null 2>&1
 }
 
 quit()
