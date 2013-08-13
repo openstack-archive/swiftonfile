@@ -141,7 +141,7 @@ requirements must be met.
 
 1. `/etc/swift` must not exist.
 1. User needs to have `sudo` access; no password necessary
-1. `/mnt/gluster-object/test` and `/mn/gluster-object/test2` directories
+1. `/mnt/gluster-object/test` and `/mnt/gluster-object/test2` directories
 must be created on either an XFS or GlusterFS volume.
 1. glusterfs-openstack-swift RPM must not be installed on the system
 
