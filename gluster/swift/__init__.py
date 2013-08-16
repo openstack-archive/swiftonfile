@@ -1,3 +1,18 @@
+# Copyright (c) 2012-2013 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """ Gluster for Swift """
 
 
@@ -27,6 +42,6 @@ class PkgInfo(object):
 ###
 ### Change the Package version here
 ###
-_pkginfo = PkgInfo('1.9.1', 'glusterfs-openstack-swift', False)
+_pkginfo = PkgInfo('1.8.0', 'glusterfs-openstack-swift', False)
 __version__ = _pkginfo.pretty_version
 __canonical_version__ = _pkginfo.canonical_version
