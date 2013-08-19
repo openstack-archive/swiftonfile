@@ -29,24 +29,25 @@ class TestPkgInfo(unittest.TestCase):
     """
 
     def test_constructor(self):
-        pi = gs.PkgInfo('a', 'b', 'c')
+        pi = gs.PkgInfo('a', 'b', 'c', 'd')
         assert pi.canonical_version == 'a'
-        assert pi.name == 'b'
-        assert pi.final == 'c'
+        assert pi.name == 'c'
+        self.assertEqual(pi.release, 'b')
+        assert pi.final == 'd'
 
     def test_pretty_version(self):
-        pi = gs.PkgInfo('a', 'b', False)
+        pi = gs.PkgInfo('a', 'b', 'c', False)
         assert pi.pretty_version == 'a-dev'
-        pi = gs.PkgInfo('a', 'b', True)
+        pi = gs.PkgInfo('a', 'b', 'c', True)
         assert pi.pretty_version == 'a'
 
     def test_save_config(self):
-        pi = gs.PkgInfo('a', 'b', 'c')
+        pi = gs.PkgInfo('a', 'b', 'c', 'd')
         td = tempfile.mkdtemp()
         try:
             sc = os.path.join(td, 'saved_config.txt')
             pi.save_config(sc)
-            exp = 'PKG_NAME=b\nPKG_VERSION=a\n'
+            exp = 'NAME=c\nVERSION=a\nRELEASE=b\n'
             contents = file(sc, 'r').read()
             assert contents == exp
         finally:

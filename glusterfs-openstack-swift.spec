@@ -20,20 +20,22 @@
 # to rpmbuild.  For example:
 # 	--define "_version 1.0" --define "_release 1" --define "_name g4s"
 #
-%{!?_version:%define _version XXX}
-%{!?_release:%define _release XXX}
-%{!?_name:%define _name XXX}
+%{!?_version:%define _version __PKG_VERSION__}
+%{!?_name:%define _name __PKG_NAME__}
+%{!?_release:%define _release __PKG_RELEASE__}
 
 Summary  : GlusterFS Integration with OpenStack Object Storage (Swift).
 Name     : %{_name}
 Version  : %{_version}
-Release  : %{_release}
+Release  : %{_release}%{?dist}
 Group    : Application/File
 Vendor   : Red Hat, Inc.
-Source0  : %{name}-%{version}-%{release}.tar.gz
+Source0  : %{_name}-%{_version}-%{_release}.tar.gz
 Packager : gluster-users@gluster.org
 License  : Apache
 BuildArch: noarch
+BuildRequires: python
+BuildRequires: python-setuptools
 Requires : memcached
 Requires : openssl
 Requires : python
@@ -94,3 +96,7 @@ rm -rf %{buildroot}
 %config %{_confdir}/swift.conf-gluster
 %config %{_confdir}/proxy-server.conf-gluster
 %config %{_confdir}/fs.conf-gluster
+
+%changelog
+* Wed Aug 21 2013 Luis Pabon <lpabon@redhat.com> - 1.8.0-7
+- Update RPM spec file to support SRPMS

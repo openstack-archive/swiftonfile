@@ -2,8 +2,9 @@
 
 
 class PkgInfo(object):
-    def __init__(self, canonical_version, name, final):
+    def __init__(self, canonical_version, release, name, final):
         self.canonical_version = canonical_version
+        self.release = release
         self.name = name
         self.final = final
 
@@ -13,8 +14,9 @@ class PkgInfo(object):
         a bash script.
         """
         with open(filename, 'w') as fd:
-            fd.write("PKG_NAME=%s\n" % self.name)
-            fd.write("PKG_VERSION=%s\n" % self.canonical_version)
+            fd.write("NAME=%s\n" % self.name)
+            fd.write("VERSION=%s\n" % self.canonical_version)
+            fd.write("RELEASE=%s\n" % self.release)
 
     @property
     def pretty_version(self):
@@ -27,6 +29,6 @@ class PkgInfo(object):
 ###
 ### Change the Package version here
 ###
-_pkginfo = PkgInfo('1.8.0', 'glusterfs-openstack-swift', False)
+_pkginfo = PkgInfo('1.8.0', '7', 'glusterfs-openstack-swift', False)
 __version__ = _pkginfo.pretty_version
 __canonical_version__ = _pkginfo.canonical_version

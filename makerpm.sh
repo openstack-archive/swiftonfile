@@ -28,7 +28,22 @@ create_dir()
 gittotar()
 {
 	# Only archives committed changes
-	git archive --format=tar --prefix=${SRCTAR_DIR}/ HEAD | gzip -c > ${SRCTAR}
+	gitarchive_dir="${RPMBUILDDIR}/gitarchive"
+	specfile="${gitarchive_dir}/${SRCTAR_DIR}/${PKG_NAME}.spec"
+	create_dir "${gitarchive_dir}"
+
+	# Export the current commited git changes to a directory
+	git archive --format=tar --prefix=${SRCTAR_DIR}/ HEAD | (cd ${gitarchive_dir} && tar xf -)
+
+	# Create a new spec file with the current package version information
+	sed -e "s#__PKG_RELEASE__#${PKG_RELEASE}#" \
+		-e "s#__PKG_NAME__#${PKG_NAME}#" \
+		-e "s#__PKG_VERSION__#${PKG_VERSION}#" \
+		${specfile} > ${specfile}.new
+	mv ${specfile}.new ${specfile}
+
+	# Now create a tar file
+	( cd ${gitarchive_dir} && tar cf - ${SRCTAR_DIR} | gzip -c > ${SRCTAR} )
 	if [ $? -ne 0 -o \! -s ${SRCTAR} ] ; then
 		fail "Unable to create git archive" $?
 	fi
@@ -52,9 +67,6 @@ create_rpm()
 	# _release Allows Jenkins to setup the version using the
 	#          build number
 	rpmbuild --define "_topdir ${RPMBUILDDIR}" \
-		--define "_release ${PKG_RELEASE}" \
-		--define "_version ${PKG_VERSION}" \
-		--define "_name ${PKG_NAME}" \
 		-ta ${SRCTAR}
 	if [ $? -ne 0 ] ; then
 		fail "Unable to create rpm" $?
@@ -62,6 +74,7 @@ create_rpm()
 
 	# Move the rpms to the root directory
 	mv ${RPMBUILDDIR_RPMS}/noarch/*rpm ${BUILDDIR}
+	mv ${RPMBUILDDIR_SRPMS}/*rpm ${BUILDDIR}
 	if [ $? -ne 0 ] ; then
 		fail "Unable to move rpm to ${BUILDDIR}" $?
 	fi
@@ -78,14 +91,20 @@ if [ ! -f "${PKGCONFIG}" ] ; then
 	fail "Unable to create package information file ${PKGCONFIG}" 1
 fi
 
-# Get PKG_NAME and PKG_VERSION
+# Get package version information
 . ${PKGCONFIG}
-if [ -z "${PKG_NAME}" ] ; then
+if [ -z "${NAME}" ] ; then
 	fail "Unable to read the package name from the file created by pkgconfig.py" 1
 fi
-if [ -z "${PKG_VERSION}" ] ; then
+if [ -z "${VERSION}" ] ; then
 	fail "Unable to read the package version from the file created by pkgconfig.py" 1
 fi
+if [ -z "${RELEASE}" ] ; then
+	fail "Unable to read the package version from the file created by pkgconfig.py" 1
+fi
+
+PKG_NAME=$NAME
+PKG_VERSION=$VERSION
 
 #
 # This can be set by JENKINS builds
@@ -94,13 +113,15 @@ fi
 # a default value
 #
 if [ -z "$PKG_RELEASE" ] ; then
-	PKG_RELEASE=0
+	PKG_RELEASE="${RELEASE}"
+else
+	PKG_RELEASE="${RELEASE}.${PKG_RELEASE}"
 fi
-
 
 BUILDDIR=$PWD/build
 RPMBUILDDIR=${BUILDDIR}/rpmbuild
 RPMBUILDDIR_RPMS=${RPMBUILDDIR}/RPMS
+RPMBUILDDIR_SRPMS=${RPMBUILDDIR}/SRPMS
 SRCNAME=${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}
 SRCTAR_DIR=${PKG_NAME}-${PKG_VERSION}
 SRCTAR=${RPMBUILDDIR}/${SRCNAME}.tar.gz
