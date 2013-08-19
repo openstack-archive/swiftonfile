@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Globals
+FUNCTAG=functest.$$
 
 cleanup()
 {
@@ -22,6 +24,7 @@ cleanup()
         sudo swift-init main stop
         sudo yum -y remove glusterfs-openstack-swift
         sudo rm -rf /etc/swift > /dev/null 2>&1
+	rm -f build/glusterfs-openstack-swift-*${FUNCTAG}*rpm > /dev/null 2>&1
         sudo rm -rf /mnt/gluster-object/test{,2}/* > /dev/null 2>&1
         sudo setfattr -x user.swift.metadata /mnt/gluster-object/test{,2} > /dev/null 2>&1
 }
@@ -57,8 +60,8 @@ done
 export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf
 
 # Create and install the rpm
-PKG_RELEASE=functest bash makerpm.sh
-sudo yum -y install build/glusterfs-openstack-swift-1.8.0-functest.noarch.rpm || fail "Unable to install rpm"
+PKG_RELEASE=${FUNCTAG} bash makerpm.sh
+sudo yum -y install build/glusterfs-openstack-swift-*${FUNCTAG}*.noarch.rpm || fail "Unable to install rpm"
 
 # Install the configuration files
 mkdir /etc/swift > /dev/null 2>&1
