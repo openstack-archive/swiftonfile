@@ -28,14 +28,10 @@ if [ "$1x" = "x" ]; then
     exit 1
 fi
 
+cd /etc/swift
+
 for builder_file in $builder_files
 do
-    mkdir /etc/swift/backup_rings
-    chmod +w /etc/swift/backup_rings
-    cp /etc/swift/*.ring.gz /etc/swift/backup_rings
-
-    cd /etc/swift
-
     create $builder_file
 
     zone=1
@@ -48,3 +44,5 @@ do
     rebalance $builder_file
     build $builder_file
 done
+
+echo "Ring files are prepared in /etc/swift"
