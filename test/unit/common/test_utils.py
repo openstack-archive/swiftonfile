@@ -585,10 +585,12 @@ class TestUtils(unittest.TestCase):
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_get_container_details(self):
+    def test_get_container_details_and_size(self):
         orig_cwd = os.getcwd()
+        __do_getsize = Glusterfs._do_getsize
         td = tempfile.mkdtemp()
         try:
+            Glusterfs._do_getsize = False
             tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
             os.chdir(td)
             tf.extractall()
@@ -610,6 +612,7 @@ class TestUtils(unittest.TestCase):
                              full_dir3: os.path.getmtime(full_dir3),
                              }
         finally:
+            Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 

@@ -25,11 +25,12 @@ import mock
 from mock import patch
 from hashlib import md5
 
+from swift.common.utils import normalize_timestamp
+from swift.common.exceptions import DiskFileNotExist, DiskFileError
+
+from gluster.swift.common.DiskFile import Gluster_DiskFile, GlusterFileSystemOSError
 import gluster.swift.common.utils
 import gluster.swift.common.DiskFile
-from swift.common.utils import normalize_timestamp
-from gluster.swift.common.DiskFile import Gluster_DiskFile
-from swift.common.exceptions import DiskFileNotExist, DiskFileError
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
 from test_utils import _initxattr, _destroyxattr
@@ -596,6 +597,7 @@ class TestDiskFile(unittest.TestCase):
                 'ETag': etag,
                 'Content-Length': '5',
                 }
+
             def mock_open(*args, **kwargs):
                 raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
 
@@ -608,6 +610,193 @@ class TestDiskFile(unittest.TestCase):
                         gdf.put(fd, metadata)
                 except DiskFileNoSpace:
                     pass
+        finally:
+            shutil.rmtree(td)
+
+    def test_put_rename_ENOENT(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
+            assert gdf._obj == "z"
+            assert gdf._obj_path == ""
+            assert gdf.name == "bar"
+            assert gdf.datadir == the_cont
+            assert gdf.data_file is None
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+
+            def mock_sleep(*args, **kwargs):
+                # Return without sleep, no need to dely unit tests
+                return
+
+            def mock_rename(*args, **kwargs):
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+            with mock.patch("gluster.swift.common.DiskFile.sleep", mock_sleep):
+                with mock.patch("os.rename", mock_rename):
+                    try:
+                        with gdf.mkstemp() as fd:
+                            assert gdf.tmppath is not None
+                            tmppath = gdf.tmppath
+                            os.write(fd, body)
+                            gdf.put(fd, metadata)
+                    except GlusterFileSystemOSError:
+                        pass
+                    else:
+                        self.fail("Expected exception DiskFileError")
+        finally:
+            shutil.rmtree(td)
+
+
+    def test_put_rename_ENOENT_filename_conflict(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
+            self.assertEqual(gdf._obj, "z")
+            self.assertEqual(gdf._obj_path, "")
+            self.assertEqual(gdf.name, "bar")
+            self.assertEqual(gdf.datadir, the_cont)
+            self.assertEqual(gdf.data_file, None)
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+            class MockOSStat:
+                pass
+
+            def mock_sleep(*args, **kwargs):
+                # Return without sleep, no need to dely unit tests
+                return
+
+            def mock_rename(*args, **kwargs):
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+            def mock_do_stat(*args, **kwars):
+                stat = MockOSStat()
+                stat.st_ino = 1
+                return stat
+
+            def mock_do_fstat(*args, **kwars):
+                stat = MockOSStat()
+                stat.st_ino = 2
+                return stat
+
+            with mock.patch("gluster.swift.common.DiskFile.sleep", mock_sleep):
+                with mock.patch("os.rename", mock_rename):
+                    with mock.patch("gluster.swift.common.DiskFile.do_stat", mock_do_stat):
+                        with mock.patch("gluster.swift.common.DiskFile.do_fstat", mock_do_fstat):
+                            with gdf.mkstemp() as fd:
+                                self.assertNotEqual(gdf.tmppath, None)
+                                os.write(fd, body)
+                                self.assertRaises(DiskFileError, gdf.put, fd, metadata)
+        finally:
+            shutil.rmtree(td)
+
+    def test_put_rename_ENOENT_bad_path_datafile_target(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
+            self.assertEqual(gdf._obj, "z")
+            self.assertEqual(gdf._obj_path, "")
+            self.assertEqual(gdf.name, "bar")
+            self.assertEqual(gdf.datadir, the_cont)
+            self.assertEqual(gdf.data_file, None)
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+
+            def mock_sleep(*args, **kwargs):
+                # Return without sleep, no need to dely unit tests
+                return
+
+            def mock_rename(*args, **kwargs):
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+            with mock.patch("gluster.swift.common.DiskFile.sleep", mock_sleep):
+                with mock.patch("os.rename", mock_rename):
+                    with gdf.mkstemp() as fd:
+                        self.assertNotEqual(gdf.tmppath, None)
+                        os.write(fd, body)
+
+                        # Purpusely make the datadir non-existent
+                        nonexistdir = tempfile.mkdtemp()
+                        shutil.rmtree(nonexistdir)
+                        gdf.put_datadir = nonexistdir
+
+                        self.assertRaises(DiskFileError, gdf.put, fd, metadata)
+        finally:
+            shutil.rmtree(td)
+
+    def test_put_rename_ENOENT_target_no_longer_a_dir(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
+            self.assertEqual(gdf._obj, "z")
+            self.assertEqual(gdf._obj_path, "")
+            self.assertEqual(gdf.name, "bar")
+            self.assertEqual(gdf.datadir, the_cont)
+            self.assertEqual(gdf.data_file, None)
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+
+            def mock_sleep(*args, **kwargs):
+                # Return without sleep, no need to dely unit tests
+                return
+
+            def mock_rename(*args, **kwargs):
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+            def mock_stat_S_ISDIR(*args, **kwargs):
+                return False
+
+            with mock.patch("gluster.swift.common.DiskFile.sleep", mock_sleep):
+                with mock.patch("os.rename", mock_rename):
+                    with mock.patch("gluster.swift.common.DiskFile.stat.S_ISDIR", mock_stat_S_ISDIR):
+                        with gdf.mkstemp() as fd:
+                            self.assertNotEqual(gdf.tmppath, None)
+                            os.write(fd, body)
+                            self.assertRaises(DiskFileError, gdf.put, fd, metadata)
         finally:
             shutil.rmtree(td)
 
