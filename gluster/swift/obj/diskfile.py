@@ -17,10 +17,16 @@ import os
 import stat
 import fcntl
 import errno
-import random
+try:
+    from random import SystemRandom
+    random = SystemRandom()
+except ImportError:
+    import random
 import logging
+from socket import gethostname
 from hashlib import md5
 from eventlet import sleep
+from greenlet import getcurrent
 from contextlib import contextmanager
 from swift.common.utils import TRUE_VALUES, drop_buffer_cache, ThreadPool
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
@@ -52,6 +58,9 @@ DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
 MAX_RENAME_ATTEMPTS = 10
 MAX_OPEN_ATTEMPTS = 10
+
+_cur_pid = str(os.getpid())
+_cur_host = str(gethostname())
 
 
 def _random_sleep():
@@ -623,9 +632,11 @@ class DiskFile(SwiftDiskFile):
         # Assume the full directory path exists to the file already, and
         # construct the proper name for the temporary file.
         attempts = 1
+        cur_thread = str(getcurrent())
         while True:
-            tmpfile = '.' + self._obj + '.' + md5(self._obj +
-                      str(random.random())).hexdigest()
+            postfix = md5(self._obj + _cur_host + _cur_pid + cur_thread
+                          + str(random.random())).hexdigest()
+            tmpfile = '.' + self._obj + '.' + postfix
             tmppath = os.path.join(self.put_datadir, tmpfile)
             try:
                 fd = do_open(tmppath,
