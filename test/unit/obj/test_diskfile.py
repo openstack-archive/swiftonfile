@@ -25,14 +25,17 @@ import mock
 from mock import patch
 from hashlib import md5
 
-import gluster.swift.common.utils
-import gluster.swift.obj.diskfile
 from swift.common.utils import normalize_timestamp
-from gluster.swift.obj.diskfile import DiskFile
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace
+
+from gluster.swift.common.exceptions import GlusterFileSystemOSError
+import gluster.swift.common.utils
+import gluster.swift.obj.diskfile
+from gluster.swift.obj.diskfile import DiskFile
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
+
 from test.unit.common.test_utils import _initxattr, _destroyxattr
 from test.unit import FakeLogger
 
@@ -565,7 +568,6 @@ class TestDiskFile(unittest.TestCase):
         finally:
             shutil.rmtree(td)
 
-
     def test_put_ENOSPC(self):
         td = tempfile.mkdtemp()
         the_cont = os.path.join(td, "vol0", "bar")
@@ -589,6 +591,7 @@ class TestDiskFile(unittest.TestCase):
                 'ETag': etag,
                 'Content-Length': '5',
                 }
+
             def mock_open(*args, **kwargs):
                 raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
 
@@ -602,6 +605,51 @@ class TestDiskFile(unittest.TestCase):
                     pass
                 else:
                     self.fail("Expected exception DiskFileNoSpace")
+        finally:
+            shutil.rmtree(td)
+
+    def test_put_rename_ENOENT(self):
+        td = tempfile.mkdtemp()
+        the_cont = os.path.join(td, "vol0", "bar")
+        try:
+            os.makedirs(the_cont)
+            gdf = DiskFile(td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
+            assert gdf._obj == "z"
+            assert gdf._obj_path == ""
+            assert gdf.name == "bar"
+            assert gdf.datadir == the_cont
+            assert gdf.data_file is None
+
+            body = '1234\n'
+            etag = md5()
+            etag.update(body)
+            etag = etag.hexdigest()
+            metadata = {
+                'X-Timestamp': '1234',
+                'Content-Type': 'file',
+                'ETag': etag,
+                'Content-Length': '5',
+                }
+
+            def mock_sleep(*args, **kwargs):
+                # Return without sleep, no need to dely unit tests
+                return
+
+            def mock_rename(*args, **kwargs):
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+            with mock.patch("gluster.swift.obj.diskfile.sleep", mock_sleep):
+                with mock.patch("os.rename", mock_rename):
+                    try:
+                        with gdf.writer() as dw:
+                            assert dw.tmppath is not None
+                            tmppath = dw.tmppath
+                            dw.write(body)
+                            dw.put(metadata)
+                    except GlusterFileSystemOSError:
+                        pass
+                    else:
+                        self.fail("Expected exception DiskFileError")
         finally:
             shutil.rmtree(td)
 
