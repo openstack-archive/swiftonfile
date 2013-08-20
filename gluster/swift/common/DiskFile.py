@@ -47,6 +47,9 @@ DEFAULT_DISK_CHUNK_SIZE = 65536
 # keep these lower-case
 DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
+MAX_RENAME_ATTEMPTS = 10
+MAX_OPEN_ATTEMPTS = 10
+
 
 def _random_sleep():
     sleep(random.uniform(0.5, 0.15))
@@ -231,11 +234,6 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     except (NoSectionError, NoOptionError):
         _use_put_mount = False
     try:
-        _relaxed_writes = _fs_conf.get('DEFAULT', 'relaxed_writes', "no") \
-            in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        _relaxed_writes = False
-    try:
         _preallocate = _fs_conf.get('DEFAULT', 'preallocate', "no") \
             in TRUE_VALUES
     except (NoSectionError, NoOptionError):
@@ -243,7 +241,6 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
 else:
     _mkdir_locking = False
     _use_put_mount = False
-    _relaxed_writes = False
     _preallocate = False
 
 if _mkdir_locking:
@@ -513,24 +510,25 @@ class Gluster_DiskFile(DiskFile):
         # disk.
         write_metadata(fd, metadata)
 
-        if not _relaxed_writes:
-            do_fsync(fd)
-            if X_CONTENT_LENGTH in metadata:
-                # Don't bother doing this before fsync in case the OS gets any
-                # ideas to issue partial writes.
-                fsize = int(metadata[X_CONTENT_LENGTH])
-                self.drop_cache(fd, 0, fsize)
+        do_fsync(fd)
+        if X_CONTENT_LENGTH in metadata:
+            # Don't bother doing this before fsync in case the OS gets any
+            # ideas to issue partial writes.
+            fsize = int(metadata[X_CONTENT_LENGTH])
+            self.drop_cache(fd, 0, fsize)
 
         # At this point we know that the object's full directory path exists,
         # so we can just rename it directly without using Swift's
         # swift.common.utils.renamer(), which makes the directory path and
         # adds extra stat() calls.
         data_file = os.path.join(self.put_datadir, self._obj)
+        attempts = 1
         while True:
             try:
                 os.rename(self.tmppath, data_file)
             except OSError as err:
-                if err.errno in (errno.ENOENT, errno.EIO):
+                if err.errno in (errno.ENOENT, errno.EIO) \
+                        and attempts < MAX_RENAME_ATTEMPTS:
                     # FIXME: Why either of these two error conditions is
                     # happening is unknown at this point. This might be a FUSE
                     # issue of some sort or a possible race condition. So
@@ -578,6 +576,7 @@ class Gluster_DiskFile(DiskFile):
                                                  self.tmppath, data_file,
                                                  str(err), self.put_datadir,
                                                  dfstats))
+                                attempts += 1
                                 continue
                 else:
                     raise GlusterFileSystemOSError(
@@ -696,7 +695,8 @@ class Gluster_DiskFile(DiskFile):
 
         # Assume the full directory path exists to the file already, and
         # construct the proper name for the temporary file.
-        for i in range(0, 1000):
+        attempts = 1
+        while True:
             tmpfile = '.' + self._obj + '.' + md5(self._obj +
                       str(random.random())).hexdigest()
             tmppath = os.path.join(self.put_datadir, tmpfile)
@@ -709,20 +709,29 @@ class Gluster_DiskFile(DiskFile):
                     excp = DiskFileNoSpace()
                     excp.drive = os.path.basename(self.device_path)
                     raise excp
+                if gerr.errno not in (errno.ENOENT, errno.EEXIST, errno.EIO):
+                    # FIXME: Other cases we should handle?
+                    raise
+                if attempts >= MAX_OPEN_ATTEMPTS:
+                    # We failed after N attempts to create the temporary
+                    # file.
+                    raise DiskFileError('DiskFile.mkstemp(): failed to'
+                                        ' successfully create a temporary file'
+                                        ' without running into a name conflict'
+                                        ' after %d of %d attempts for: %s' % (
+                                            attempts, MAX_OPEN_ATTEMPTS,
+                                            data_file))
                 if gerr.errno == errno.EEXIST:
                     # Retry with a different random number.
-                    continue
-                if gerr.errno == errno.EIO:
+                    attempts += 1
+                elif gerr.errno == errno.EIO:
                     # FIXME: Possible FUSE issue or race condition, let's
                     # sleep on it and retry the operation.
                     _random_sleep()
                     logging.warn("DiskFile.mkstemp(): %s ... retrying in"
                                  " 0.1 secs", gerr)
-                    continue
-                if gerr.errno != errno.ENOENT:
-                    # FIXME: Other cases we should handle?
-                    raise
-                if not self._obj_path:
+                    attempts += 1
+                elif not self._obj_path:
                     # No directory hierarchy and the create failed telling us
                     # the container or volume directory does not exist. This
                     # could be a FUSE issue or some race condition, so let's
@@ -730,27 +739,22 @@ class Gluster_DiskFile(DiskFile):
                     _random_sleep()
                     logging.warn("DiskFile.mkstemp(): %s ... retrying in"
                                  " 0.1 secs", gerr)
-                    continue
-                if i != 0:
+                    attempts += 1
+                elif attempts > 1:
                     # Got ENOENT after previously making the path. This could
                     # also be a FUSE issue or some race condition, nap and
                     # retry.
                     _random_sleep()
                     logging.warn("DiskFile.mkstemp(): %s ... retrying in"
                                  " 0.1 secs" % gerr)
-                    continue
-                # It looks like the path to the object does not already exist
-                self._create_dir_object(self._obj_path)
-                continue
+                    attempts += 1
+                else:
+                    # It looks like the path to the object does not already
+                    # exist; don't count this as an attempt, though, since
+                    # we perform the open() system call optimistically.
+                    self._create_dir_object(self._obj_path)
             else:
                 break
-        else:
-            # We failed after 1,000 attempts to create the temporary file.
-            raise DiskFileError('DiskFile.mkstemp(): failed to successfully'
-                                ' create a temporary file without running'
-                                ' into a name conflict after 1,000 attempts'
-                                ' for: %s' % (data_file,))
-
         self.tmppath = tmppath
 
         try:
