@@ -39,6 +39,9 @@ _xattr_op_cnt = defaultdict(int)
 _xattr_set_err = {}
 _xattr_get_err = {}
 _xattr_rem_err = {}
+_xattr_set = None
+_xattr_get = None
+_xattr_remove = None
 
 
 def _xkey(path, key):
@@ -145,7 +148,7 @@ class TestUtils(unittest.TestCase):
 
     def test_write_metadata(self):
         path = "/tmp/foo/w"
-        orig_d = { 'bar' : 'foo' }
+        orig_d = {'bar': 'foo'}
         utils.write_metadata(path, orig_d)
         xkey = _xkey(path, utils.METADATA_KEY)
         assert len(_xattrs.keys()) == 1
@@ -155,7 +158,7 @@ class TestUtils(unittest.TestCase):
 
     def test_write_metadata_err(self):
         path = "/tmp/foo/w"
-        orig_d = { 'bar' : 'foo' }
+        orig_d = {'bar': 'foo'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattr_set_err[xkey] = errno.EOPNOTSUPP
         try:
@@ -170,11 +173,11 @@ class TestUtils(unittest.TestCase):
     def test_write_metadata_multiple(self):
         # At 64 KB an xattr key/value pair, this should generate three keys.
         path = "/tmp/foo/w"
-        orig_d = { 'bar' : 'x' * 150000 }
+        orig_d = {'bar': 'x' * 150000}
         utils.write_metadata(path, orig_d)
         assert len(_xattrs.keys()) == 3, "Expected 3 keys, found %d" % len(_xattrs.keys())
         payload = ''
-        for i in range(0,3):
+        for i in range(0, 3):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             assert xkey in _xattrs
             assert len(_xattrs[xkey]) <= utils.MAX_XATTR_SIZE
@@ -184,9 +187,9 @@ class TestUtils(unittest.TestCase):
 
     def test_clean_metadata(self):
         path = "/tmp/foo/c"
-        expected_d = { 'a': 'y' * 150000 }
+        expected_d = {'a': 'y' * 150000}
         expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
-        for i in range(0,3):
+        for i in range(0, 3):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
             expected_p = expected_p[utils.MAX_XATTR_SIZE:]
@@ -197,7 +200,7 @@ class TestUtils(unittest.TestCase):
     def test_clean_metadata_err(self):
         path = "/tmp/foo/c"
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps({ 'a': 'y' }, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = pickle.dumps({'a': 'y'}, utils.PICKLE_PROTOCOL)
         _xattr_rem_err[xkey] = errno.EOPNOTSUPP
         try:
             utils.clean_metadata(path)
@@ -209,7 +212,7 @@ class TestUtils(unittest.TestCase):
 
     def test_read_metadata(self):
         path = "/tmp/foo/r"
-        expected_d = { 'a': 'y' }
+        expected_d = {'a': 'y'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
         res_d = utils.read_metadata(path)
@@ -224,12 +227,12 @@ class TestUtils(unittest.TestCase):
 
     def test_read_metadata_err(self):
         path = "/tmp/foo/r"
-        expected_d = { 'a': 'y' }
+        expected_d = {'a': 'y'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
         _xattr_get_err[xkey] = errno.EOPNOTSUPP
         try:
-            res_d = utils.read_metadata(path)
+            utils.read_metadata(path)
         except IOError as e:
             assert e.errno == errno.EOPNOTSUPP
             assert (_xattr_op_cnt['get'] == 1), "%r" % _xattr_op_cnt
@@ -238,9 +241,9 @@ class TestUtils(unittest.TestCase):
 
     def test_read_metadata_multiple(self):
         path = "/tmp/foo/r"
-        expected_d = { 'a': 'y' * 150000 }
+        expected_d = {'a': 'y' * 150000}
         expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
-        for i in range(0,3):
+        for i in range(0, 3):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
             expected_p = expected_p[utils.MAX_XATTR_SIZE:]
@@ -251,9 +254,9 @@ class TestUtils(unittest.TestCase):
 
     def test_read_metadata_multiple_one_missing(self):
         path = "/tmp/foo/r"
-        expected_d = { 'a': 'y' * 150000 }
+        expected_d = {'a': 'y' * 150000}
         expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
-        for i in range(0,2):
+        for i in range(0, 2):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
             expected_p = expected_p[utils.MAX_XATTR_SIZE:]
@@ -266,8 +269,8 @@ class TestUtils(unittest.TestCase):
     def test_restore_metadata_none(self):
         # No initial metadata
         path = "/tmp/foo/i"
-        res_d = utils.restore_metadata(path, { 'b': 'y' })
-        expected_d = { 'b': 'y' }
+        res_d = utils.restore_metadata(path, {'b': 'y'})
+        expected_d = {'b': 'y'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
         assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
@@ -275,11 +278,11 @@ class TestUtils(unittest.TestCase):
     def test_restore_metadata(self):
         # Initial metadata
         path = "/tmp/foo/i"
-        initial_d = { 'a': 'z' }
+        initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
-        res_d = utils.restore_metadata(path, { 'b': 'y' })
-        expected_d = { 'a': 'z', 'b': 'y' }
+        res_d = utils.restore_metadata(path, {'b': 'y'})
+        expected_d = {'a': 'z', 'b': 'y'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
         assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
@@ -287,11 +290,11 @@ class TestUtils(unittest.TestCase):
     def test_restore_metadata_nochange(self):
         # Initial metadata but no changes
         path = "/tmp/foo/i"
-        initial_d = { 'a': 'z' }
+        initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
         res_d = utils.restore_metadata(path, {})
-        expected_d = { 'a': 'z' }
+        expected_d = {'a': 'z'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
         assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 0, "%r" % _xattr_op_cnt
@@ -302,19 +305,19 @@ class TestUtils(unittest.TestCase):
         assert res == {}
 
     def test_add_timestamp_none(self):
-        orig = { 'a': 1, 'b': 2, 'c': 3 }
-        exp = { 'a': (1, 0), 'b': (2, 0), 'c': (3, 0) }
+        orig = {'a': 1, 'b': 2, 'c': 3}
+        exp = {'a': (1, 0), 'b': (2, 0), 'c': (3, 0)}
         res = utils._add_timestamp(orig)
         assert res == exp
 
     def test_add_timestamp_mixed(self):
-        orig = { 'a': 1, 'b': (2, 1), 'c': 3 }
-        exp = { 'a': (1, 0), 'b': (2, 1), 'c': (3, 0) }
+        orig = {'a': 1, 'b': (2, 1), 'c': 3}
+        exp = {'a': (1, 0), 'b': (2, 1), 'c': (3, 0)}
         res = utils._add_timestamp(orig)
         assert res == exp
 
     def test_add_timestamp_all(self):
-        orig = { 'a': (1, 0), 'b': (2, 1), 'c': (3, 0) }
+        orig = {'a': (1, 0), 'b': (2, 1), 'c': (3, 0)}
         res = utils._add_timestamp(orig)
         assert res == orig
 
@@ -344,7 +347,7 @@ class TestUtils(unittest.TestCase):
     def test_get_object_metadata_err(self):
         tf = tempfile.NamedTemporaryFile()
         try:
-            md = utils.get_object_metadata(
+            utils.get_object_metadata(
                 os.path.join(tf.name, "doesNotEx1st"))
         except GlusterFileSystemOSError as e:
             assert e.errno != errno.ENOENT
@@ -356,7 +359,8 @@ class TestUtils(unittest.TestCase):
 
     def test_get_object_metadata_file(self):
         tf = tempfile.NamedTemporaryFile()
-        tf.file.write('123'); tf.file.flush()
+        tf.file.write('123')
+        tf.file.flush()
         md = utils.get_object_metadata(tf.name)
         for key in self.obj_keys:
             assert key in md, "Expected key %s in %r" % (key, md)
@@ -384,7 +388,8 @@ class TestUtils(unittest.TestCase):
 
     def test_create_object_metadata_file(self):
         tf = tempfile.NamedTemporaryFile()
-        tf.file.write('4567'); tf.file.flush()
+        tf.file.write('4567')
+        tf.file.flush()
         r_md = utils.create_object_metadata(tf.name)
 
         xkey = _xkey(tf.name, utils.METADATA_KEY)
@@ -430,7 +435,7 @@ class TestUtils(unittest.TestCase):
 
     def test_get_container_metadata(self):
         def _mock_get_container_details(path):
-            o_list = [ 'a', 'b', 'c' ]
+            o_list = ['a', 'b', 'c']
             o_count = 3
             b_used = 47
             return o_list, o_count, b_used
@@ -444,7 +449,7 @@ class TestUtils(unittest.TestCase):
                 utils.X_PUT_TIMESTAMP: (normalize_timestamp(os.path.getmtime(td)), 0),
                 utils.X_OBJECTS_COUNT: (3, 0),
                 utils.X_BYTES_USED: (47, 0),
-                }
+            }
             md = utils.get_container_metadata(td)
             assert md == exp_md
         finally:
@@ -453,7 +458,7 @@ class TestUtils(unittest.TestCase):
 
     def test_get_account_metadata(self):
         def _mock_get_account_details(path):
-            c_list = [ '123', 'abc' ]
+            c_list = ['123', 'abc']
             c_count = 2
             return c_list, c_count
         orig_gad = utils.get_account_details
@@ -467,7 +472,7 @@ class TestUtils(unittest.TestCase):
                 utils.X_OBJECTS_COUNT: (0, 0),
                 utils.X_BYTES_USED: (0, 0),
                 utils.X_CONTAINER_COUNT: (2, 0),
-                }
+            }
             md = utils.get_account_metadata(td)
             assert md == exp_md
         finally:
@@ -558,11 +563,14 @@ class TestUtils(unittest.TestCase):
 
     def test_get_container_details(self):
         orig_cwd = os.getcwd()
+        __do_getsize = Glusterfs._do_getsize
         td = tempfile.mkdtemp()
         try:
             tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
             os.chdir(td)
             tf.extractall()
+
+            Glusterfs._do_getsize = False
 
             obj_list, object_count, bytes_used = \
                 utils.get_container_details(td)
@@ -572,45 +580,6 @@ class TestUtils(unittest.TestCase):
             assert set(obj_list) == set(['file1', 'file3', 'file2',
                                          'dir1/file1', 'dir1/file2'
                                          ]), repr(obj_list)
-
-            full_dir1 = os.path.join(td, 'dir1')
-            full_dir2 = os.path.join(td, 'dir2')
-            full_dir3 = os.path.join(td, 'dir3')
-            exp_dir_dict = { td:        os.path.getmtime(td),
-                             full_dir1: os.path.getmtime(full_dir1),
-                             full_dir2: os.path.getmtime(full_dir2),
-                             full_dir3: os.path.getmtime(full_dir3),
-                             }
-        finally:
-            os.chdir(orig_cwd)
-            shutil.rmtree(td)
-
-    def test_get_container_details(self):
-        orig_cwd = os.getcwd()
-        __do_getsize = Glusterfs._do_getsize
-        td = tempfile.mkdtemp()
-        try:
-            Glusterfs._do_getsize = False
-            tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
-            os.chdir(td)
-            tf.extractall()
-
-            obj_list, object_count, bytes_used = \
-                utils.get_container_details(td)
-            assert bytes_used == 0, repr(bytes_used)
-            assert object_count == 5, repr(object_count)
-            assert set(obj_list) == set(['file1', 'file3', 'file2',
-                                         'dir1/file1', 'dir1/file2'
-                                         ]), repr(obj_list)
-
-            full_dir1 = os.path.join(td, 'dir1')
-            full_dir2 = os.path.join(td, 'dir2')
-            full_dir3 = os.path.join(td, 'dir3')
-            exp_dir_dict = { td:        os.path.getmtime(td),
-                             full_dir1: os.path.getmtime(full_dir1),
-                             full_dir2: os.path.getmtime(full_dir2),
-                             full_dir3: os.path.getmtime(full_dir3),
-                             }
         finally:
             Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
@@ -634,15 +603,6 @@ class TestUtils(unittest.TestCase):
             assert set(obj_list) == set(['file1', 'file3', 'file2',
                                          'dir1/file1', 'dir1/file2'
                                          ]), repr(obj_list)
-
-            full_dir1 = os.path.join(td, 'dir1')
-            full_dir2 = os.path.join(td, 'dir2')
-            full_dir3 = os.path.join(td, 'dir3')
-            exp_dir_dict = { td:        os.path.getmtime(td),
-                             full_dir1: os.path.getmtime(full_dir1),
-                             full_dir2: os.path.getmtime(full_dir2),
-                             full_dir3: os.path.getmtime(full_dir3),
-                             }
         finally:
             Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
@@ -718,95 +678,99 @@ class TestUtils(unittest.TestCase):
 
     def test_validate_container_empty(self):
         ret = utils.validate_container({})
-        assert ret == False
+        assert not ret
 
     def test_validate_container_missing_keys(self):
-        ret = utils.validate_container({ 'foo': 'bar' })
-        assert ret == False
+        ret = utils.validate_container({'foo': 'bar'})
+        assert not ret
 
     def test_validate_container_bad_type(self):
-        md = { utils.X_TYPE: ('bad', 0),
-               utils.X_TIMESTAMP: ('na', 0),
-               utils.X_PUT_TIMESTAMP: ('na', 0),
-               utils.X_OBJECTS_COUNT: ('na', 0),
-               utils.X_BYTES_USED: ('na', 0) }
+        md = {utils.X_TYPE: ('bad', 0),
+              utils.X_TIMESTAMP: ('na', 0),
+              utils.X_PUT_TIMESTAMP: ('na', 0),
+              utils.X_OBJECTS_COUNT: ('na', 0),
+              utils.X_BYTES_USED: ('na', 0)}
         ret = utils.validate_container(md)
-        assert ret == False
+        assert not ret
 
     def test_validate_container_good_type(self):
-        md = { utils.X_TYPE: (utils.CONTAINER, 0),
-               utils.X_TIMESTAMP: ('na', 0),
-               utils.X_PUT_TIMESTAMP: ('na', 0),
-               utils.X_OBJECTS_COUNT: ('na', 0),
-               utils.X_BYTES_USED: ('na', 0) }
+        md = {utils.X_TYPE: (utils.CONTAINER, 0),
+              utils.X_TIMESTAMP: ('na', 0),
+              utils.X_PUT_TIMESTAMP: ('na', 0),
+              utils.X_OBJECTS_COUNT: ('na', 0),
+              utils.X_BYTES_USED: ('na', 0)}
         ret = utils.validate_container(md)
         assert ret
 
     def test_validate_account_empty(self):
         ret = utils.validate_account({})
-        assert ret == False
+        assert not ret
 
     def test_validate_account_missing_keys(self):
-        ret = utils.validate_account({ 'foo': 'bar' })
-        assert ret == False
+        ret = utils.validate_account({'foo': 'bar'})
+        assert not ret
 
     def test_validate_account_bad_type(self):
-        md = { utils.X_TYPE: ('bad', 0),
-               utils.X_TIMESTAMP: ('na', 0),
-               utils.X_PUT_TIMESTAMP: ('na', 0),
-               utils.X_OBJECTS_COUNT: ('na', 0),
-               utils.X_BYTES_USED: ('na', 0),
-               utils.X_CONTAINER_COUNT: ('na', 0) }
+        md = {utils.X_TYPE: ('bad', 0),
+              utils.X_TIMESTAMP: ('na', 0),
+              utils.X_PUT_TIMESTAMP: ('na', 0),
+              utils.X_OBJECTS_COUNT: ('na', 0),
+              utils.X_BYTES_USED: ('na', 0),
+              utils.X_CONTAINER_COUNT: ('na', 0)}
         ret = utils.validate_account(md)
-        assert ret == False
+        assert not ret
 
     def test_validate_account_good_type(self):
-        md = { utils.X_TYPE: (utils.ACCOUNT, 0),
-               utils.X_TIMESTAMP: ('na', 0),
-               utils.X_PUT_TIMESTAMP: ('na', 0),
-               utils.X_OBJECTS_COUNT: ('na', 0),
-               utils.X_BYTES_USED: ('na', 0),
-               utils.X_CONTAINER_COUNT: ('na', 0) }
+        md = {utils.X_TYPE: (utils.ACCOUNT, 0),
+              utils.X_TIMESTAMP: ('na', 0),
+              utils.X_PUT_TIMESTAMP: ('na', 0),
+              utils.X_OBJECTS_COUNT: ('na', 0),
+              utils.X_BYTES_USED: ('na', 0),
+              utils.X_CONTAINER_COUNT: ('na', 0)}
         ret = utils.validate_account(md)
         assert ret
 
     def test_validate_object_empty(self):
         ret = utils.validate_object({})
-        assert ret == False
+        assert not ret
 
     def test_validate_object_missing_keys(self):
-        ret = utils.validate_object({ 'foo': 'bar' })
-        assert ret == False
+        ret = utils.validate_object({'foo': 'bar'})
+        assert not ret
 
     def test_validate_object_bad_type(self):
-        md = { utils.X_TIMESTAMP: 'na',
-               utils.X_CONTENT_TYPE: 'na',
-               utils.X_ETAG: 'bad',
-               utils.X_CONTENT_LENGTH: 'na',
-               utils.X_TYPE: 'bad',
-               utils.X_OBJECT_TYPE: 'na' }
+        md = {utils.X_TIMESTAMP: 'na',
+              utils.X_CONTENT_TYPE: 'na',
+              utils.X_ETAG: 'bad',
+              utils.X_CONTENT_LENGTH: 'na',
+              utils.X_TYPE: 'bad',
+              utils.X_OBJECT_TYPE: 'na'}
         ret = utils.validate_object(md)
-        assert ret == False
+        assert not ret
 
     def test_validate_object_good_type(self):
-        md = { utils.X_TIMESTAMP: 'na',
-               utils.X_CONTENT_TYPE: 'na',
-               utils.X_ETAG: 'bad',
-               utils.X_CONTENT_LENGTH: 'na',
-               utils.X_TYPE: utils.OBJECT,
-               utils.X_OBJECT_TYPE: 'na' }
+        md = {utils.X_TIMESTAMP: 'na',
+              utils.X_CONTENT_TYPE: 'na',
+              utils.X_ETAG: 'bad',
+              utils.X_CONTENT_LENGTH: 'na',
+              utils.X_TYPE: utils.OBJECT,
+              utils.X_OBJECT_TYPE: 'na'}
         ret = utils.validate_object(md)
         assert ret
 
+
 class TestUtilsDirObjects(unittest.TestCase):
+
     def setUp(self):
         _initxattr()
-        self.dirs = ['dir1',
-                'dir1/dir2',
-                'dir1/dir2/dir3' ]
-        self.files = ['file1',
-                'file2',
-                'dir1/dir2/file3']
+        self.dirs = [
+            'dir1',
+            'dir1/dir2',
+            'dir1/dir2/dir3']
+        self.files = [
+            'file1',
+            'file2',
+            'dir1/dir2/file3']
         self.tempdir = tempfile.mkdtemp()
         self.rootdir = os.path.join(self.tempdir, 'a')
         for d in self.dirs:
@@ -822,13 +786,13 @@ class TestUtilsDirObjects(unittest.TestCase):
         metadata = utils.read_metadata(os.path.join(self.rootdir, obj))
         metadata[utils.X_OBJECT_TYPE] = utils.DIR_OBJECT
         utils.write_metadata(os.path.join(self.rootdir, self.dirs[0]),
-                metadata)
+                             metadata)
 
     def _clear_dir_object(self, obj):
         metadata = utils.read_metadata(os.path.join(self.rootdir, obj))
         metadata[utils.X_OBJECT_TYPE] = utils.DIR_NON_OBJECT
         utils.write_metadata(os.path.join(self.rootdir, obj),
-                metadata)
+                             metadata)
 
     def test_rmobjdir_removing_files(self):
         self.assertFalse(utils.rmobjdir(self.rootdir))
