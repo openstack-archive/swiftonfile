@@ -135,6 +135,14 @@ one or more tests be added to the automated unit test suite. Unit
 tests are available under the `test/unit` directory.
 
 #### Functional Tests
+
+##### OpenStack Swift Havana Setup
+Currently, Havana OpenStack Swift is still under development.  While
+currently there is no official release for Havana Swift, there is a
+yum repo with multiple Havana Swift RPM development releases available.
+Please refer to the following [README][] file for more information.
+
+##### Executing the tests
 The automated functional tests only run on RPM based systems
 like Fedora/CentOS, etc.  To run the functional tests, the following 
 requirements must be met.
@@ -235,3 +243,4 @@ of the RPM:
 [PEP8]: http://www.python.org/dev/peps/pep-0008
 [Git Commit Messages]: https://wiki.openstack.org/wiki/GitCommitMessages
 [GlusterFS Compiling RPMS]: https://forge.gluster.org/glusterfs-core/pages/CompilingRPMS
+[README]: http://repos.fedorapeople.org/repos/openstack/openstack-trunk/README
