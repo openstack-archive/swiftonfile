@@ -16,7 +16,6 @@
 # limitations under the License.
 
 
-import os
 from optparse import OptionParser
 
 if __name__ == '__main__':
@@ -25,13 +24,12 @@ if __name__ == '__main__':
         from gluster.swift.common.Glusterfs import get_mnt_point, unmount
     except ImportError:
         import sys
-        sys.exit("Openstack Swift does not appear to be installed properly");
+        sys.exit("Openstack Swift does not appear to be installed properly")
 
     op = OptionParser(usage="%prog [options...]")
     op.add_option('--volname', dest='vol', type=str)
     op.add_option('--last', dest='last', type=str)
     (opts, args) = op.parse_args()
-
 
     mnt_point = get_mnt_point(opts.vol)
     if mnt_point:
