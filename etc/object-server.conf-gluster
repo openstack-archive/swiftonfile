@@ -43,5 +43,4 @@ disk_chunk_size = 65536
 #
 # Adjust this value match whatever is set for the disk_chunk_size initially.
 # This will provide a reasonable starting point for tuning this value.
-network_chunk_size = 65556
-
+network_chunk_size = 65536
