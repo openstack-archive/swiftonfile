@@ -6,7 +6,6 @@ gluster-native/nfs/samba mount(s) to be accessed as objects via
 the Swift API.
 
 # Table of Contents
-1. [Overview and Concepts](doc/markdown/concepts.md)
-1. [User Guide](doc/markdown/user_guide.md)
+1. [Quick Start Guide](doc/markdown/quick_start_guide.md)
 1. [Developer Guide](doc/markdown/dev_guide.md)
 
