@@ -16,15 +16,13 @@
 # limitations under the License.
 
 # Globals
-FUNCTAG=functest.$$
 
 cleanup()
 {
         sudo service memcached stop
         sudo swift-init main stop
-        sudo yum -y remove glusterfs-openstack-swift
+		sudo pip uninstall -y gluster-swift
         sudo rm -rf /etc/swift > /dev/null 2>&1
-	rm -f build/glusterfs-openstack-swift-*${FUNCTAG}*rpm > /dev/null 2>&1
         sudo rm -rf /mnt/gluster-object/test{,2}/* > /dev/null 2>&1
         sudo setfattr -x user.swift.metadata /mnt/gluster-object/test{,2} > /dev/null 2>&1
 }
@@ -59,12 +57,15 @@ done
 
 export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf
 
-# Create and install the rpm
-PKG_RELEASE=${FUNCTAG} bash makerpm.sh
-sudo yum -y install build/glusterfs-openstack-swift-*${FUNCTAG}*.noarch.rpm || fail "Unable to install rpm"
+# Download and cache swift
+pip install --no-install --download-cache=$HOME/.pipcache swift==1.9.1
+# Install swift
+sudo pip install --download-cache=$HOME/.pipcache swift==1.9.1
+# Install gluster-swift
+sudo pip install -e $PWD
 
 # Install the configuration files
-mkdir /etc/swift > /dev/null 2>&1
+sudo mkdir /etc/swift > /dev/null 2>&1
 sudo cp -r test/functional/conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
 ( cd /etc/swift ; sudo gluster-swift-gen-builders test test2 ) || fail "Unable to create ring files"
 
