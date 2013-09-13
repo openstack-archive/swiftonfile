@@ -271,4 +271,5 @@ For more information, please visit the following links:
 [EPEL]: http://fedoraproject.org/wiki/EPEL
 [GlusterFS Quick Start Guide]: http://www.gluster.org/community/documentation/index.php/QuickStart
 [OpenStack Swift API]: http://docs.openstack.org/api/openstack-object-storage/1.0/content/
+[Jenkins]: http://jenkins-ci.org
 
