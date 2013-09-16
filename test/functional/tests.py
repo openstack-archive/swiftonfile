@@ -1567,6 +1567,33 @@ class TestFile(Base):
             info = file.info()
             self.assertEquals(etag, info['etag'])
 
+    def testObjectManifest(self):
+        if (web_front_end == 'apache2'):
+            raise SkipTest()
+        data = File.random_data(10000)
+        parts = random.randrange(2,10)
+        charsEachPart = len(data)/parts
+        for i in range(parts+1):
+            if i==0 :
+                file = self.env.container.file('objectmanifest')
+                hdrs={}
+                hdrs['Content-Length']='0'
+                hdrs['X-Object-Manifest']=str(self.env.container.name)+'/objectmanifest'
+                self.assert_(file.write('',hdrs=hdrs))
+                self.assert_(file.name in self.env.container.files())
+                self.assert_(file.read() == '')
+            elif i==parts :
+                file = self.env.container.file('objectmanifest'+'-'+str(i))
+                segment=data[ (i-1)*charsEachPart :]
+                self.assertTrue(file.write(segment))
+            else :
+                file = self.env.container.file('objectmanifest'+'-'+str(i))
+                segment=data[ (i-1)*charsEachPart : i*charsEachPart]
+                self.assertTrue(file.write(segment))
+        #matching the manifest file content with orignal data, as etag won't match
+        file = self.env.container.file('objectmanifest')
+        data_read = file.read()
+        self.assertEquals(data,data_read)
 
 class TestFileUTF8(Base2, TestFile):
     set_up = False
