@@ -121,9 +121,9 @@ mount -a
 You now need to create a GlusterFS volume
 
 ~~~
-mkdir /export/brick/test
-gluster volume create test `hostname`:/export/brick/test
-gluster volume start test
+mkdir /export/brick/myvolume
+gluster volume create myvolume `hostname`:/export/brick/myvolume
+gluster volume start myvolume
 ~~~
 
 <a name="swift_setup" />
@@ -191,11 +191,21 @@ for tmpl in *.conf-gluster ; do cp ${tmpl} ${tmpl%.*}.conf; done
 #### Generate Ring Files
 You now need to generate the ring files, which inform Gluster
 for Swift which GlusterFS volumes are accessible over the object
-storage interface:
+storage interface. The format is
+
+~~~
+gluster-swift-gen-builders [VOLUME] [VOLUME...]
+~~~
+
+Where *VOLUME* is the name of the GlusterFS volume which you would
+like to access over Gluster for Swift.
+
+Expose the GlusterFS volume called `myvolume` you created above
+by executing the following command:
 
 ~~~
 cd /etc/swift
-/usr/bin/gluster-swift-gen-builders test
+/usr/bin/gluster-swift-gen-builders myvolume
 ~~~
 
 ### Start gluster-swift
@@ -226,7 +236,7 @@ service openstack-swift-proxy start
 Create a container using the following command:
 
 ~~~
-curl -v -X PUT http://localhost:8080/v1/AUTH_test/mycontainer
+curl -v -X PUT http://localhost:8080/v1/AUTH_myvolume/mycontainer
 ~~~
 
 It should return `HTTP/1.1 201 Created` on a successful creation. You can
@@ -234,7 +244,7 @@ also confirm that the container has been created by inspecting the GlusterFS
 volume:
 
 ~~~
-ls /mnt/gluster-object/test
+ls /mnt/gluster-object/myvolume
 ~~~
 
 #### Create an object
@@ -242,14 +252,14 @@ You can now place an object in the container you have just created:
 
 ~~~
 echo "Hello World" > mytestfile
-curl -v -X PUT -T mytestfile http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
+curl -v -X PUT -T mytestfile http://localhost:8080/v1/AUTH_myvolume/mycontainer/mytestfile
 ~~~
 
 To confirm that the object has been written correctly, you can compare the
 test file with the object you created:
 
 ~~~
-cat /mnt/gluster-object/test/mycontainer/mytestfile
+cat /mnt/gluster-object/myvolume/mycontainer/mytestfile
 ~~~
 
 #### Request the object
@@ -257,7 +267,7 @@ Now you can retreive the object and inspect its contents using the
 following commands:
 
 ~~~
-curl -v -X GET -o newfile http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
+curl -v -X GET -o newfile http://localhost:8080/v1/AUTH_myvolume/mycontainer/mytestfile
 cat newfile
 ~~~
 
