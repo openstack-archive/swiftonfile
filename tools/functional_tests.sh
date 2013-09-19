@@ -15,13 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Globals
+# This program expects to be run by tox in a virtual python environment
+# so that it does not pollute the host development system
+
+sudo_env()
+{
+    sudo bash -c "PATH=$PATH $*"
+}
 
 cleanup()
 {
         sudo service memcached stop
-        sudo swift-init main stop
-		sudo pip uninstall -y gluster-swift
+        sudo_env swift-init main stop
         sudo rm -rf /etc/swift > /dev/null 2>&1
         sudo rm -rf /mnt/gluster-object/test{,2}/* > /dev/null 2>&1
         sudo setfattr -x user.swift.metadata /mnt/gluster-object/test{,2} > /dev/null 2>&1
@@ -57,21 +62,14 @@ done
 
 export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf
 
-# Download and cache swift
-pip install --no-install --download-cache=$HOME/.pipcache swift==1.9.1
-# Install swift
-sudo pip install --download-cache=$HOME/.pipcache swift==1.9.1
-# Install gluster-swift
-sudo pip install -e $PWD
-
 # Install the configuration files
 sudo mkdir /etc/swift > /dev/null 2>&1
 sudo cp -r test/functional/conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
-( cd /etc/swift ; sudo gluster-swift-gen-builders test test2 ) || fail "Unable to create ring files"
+sudo_env gluster-swift-gen-builders test test2 || fail "Unable to create ring files"
 
 # Start the services
 sudo service memcached start || fail "Unable to start memcached"
-sudo swift-init main start || fail "Unable to start swift"
+sudo_env swift-init main start || fail "Unable to start swift"
 
 mkdir functional_tests > /dev/null 2>&1
 nosetests -v --exe \

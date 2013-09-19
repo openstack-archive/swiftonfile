@@ -12,12 +12,20 @@ changes to Gerrit.  Follow the the information given
 at [GitHub Generating SSH Keys][] if you need help creating your key.
 
 ### Package Requirements
+Type the following to install the required packages:
 
-#### Fedora 19
-On Fedora 19 systems, type:
+* Ubuntu
 
 ~~~
-sudo yum install gcc python-devel python-setuptools libffi-devel git rpm-build
+sudo apt-get -y install gcc python-dev python-setuptools libffi-dev \
+    git xfsprogs memcached
+~~~
+
+* Fedora 19
+
+~~~
+sudo yum install gcc python-devel python-setuptools libffi-devel \
+    git rpm-build xfsprogs memcached
 ~~~
 
 ### Git Setup
@@ -51,7 +59,7 @@ It is recommended to use this tool to upload, modify, and query changes in Gerri
 The tool can be installed by running the following command:
 
 ~~~
-sudo pip install git-review
+sudo pip install --upgrade git-review
 ~~~
 
 While many Linux distributions offer a version of `git review`, 
@@ -93,7 +101,7 @@ Like OpenStack Swift, Gluster for Swift uses `tox` python virtual
 environment for its unit tests.  To install `tox` type:
 
 ~~~
-pip install tox nose
+sudo pip install --upgrade tox nose
 ~~~
 
 ## Workflow
@@ -136,28 +144,19 @@ tests are available under the `test/unit` directory.
 
 #### Functional Tests
 
-##### OpenStack Swift Havana Setup
-Currently, Havana OpenStack Swift is still under development.  While
-currently there is no official release for Havana Swift, there is a
-yum repo with multiple Havana Swift RPM development releases available.
-Please refer to the following [README][] file for more information.
-
 ##### Executing the tests
-The automated functional tests only run on RPM based systems
-like Fedora/CentOS, etc.  To run the functional tests, the following 
-requirements must be met.
+To run the functional tests, the following requirements must be met.
 
 1. `/etc/swift` must not exist.
-1. User needs to have `sudo` access; no password necessary
+1. User needs to have `sudo` access
 1. `/mnt/gluster-object/test` and `/mnt/gluster-object/test2` directories
 must be created on either an XFS or GlusterFS volume.
-1. glusterfs-openstack-swift RPM must not be installed on the system
 
 Once the requirements have been met, you can now run the full functional
 tests using the following command:
 
 ~~~
-tools/functional_tests.sh
+tox -e functest
 ~~~
 
 ### Commiting changes

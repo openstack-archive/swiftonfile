@@ -5,3 +5,4 @@ test/unit/nosetests.xml
 test/unit/coverage.xml
 test/unit/cover
 build
+*.pyc
