@@ -106,14 +106,13 @@ class TestDiskFile(unittest.TestCase):
         shutil.rmtree(self.td)
 
     def test_constructor_no_slash(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg)
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
         assert gdf._obj == "z"
         assert gdf._obj_path == ""
         assert gdf.name == "bar"
-        assert gdf.datadir == "/tmp/foo/vol0/bar"
-        assert gdf.device_path == "/tmp/foo/vol0"
-        assert gdf._container_path == "/tmp/foo/vol0/bar"
+        assert gdf.datadir == os.path.join(self.td, "vol0", "bar")
+        assert gdf.device_path == os.path.join(self.td, "vol0")
+        assert gdf._container_path == os.path.join(self.td, "vol0", "bar")
         assert gdf.disk_chunk_size == 65536
         assert gdf.iter_hook == None
         assert gdf.logger == self.lg
@@ -131,14 +130,13 @@ class TestDiskFile(unittest.TestCase):
         assert not gdf._is_dir
 
     def test_constructor_leadtrail_slash(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "/b/a/z/",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "/b/a/z/",
                        self.lg)
         assert gdf._obj == "z"
-        assert gdf._obj_path == "b/a"
-        assert gdf.name == "bar/b/a"
-        assert gdf.datadir == "/tmp/foo/vol0/bar/b/a"
-        assert gdf.device_path == "/tmp/foo/vol0"
+        assert gdf._obj_path == os.path.join("b", "a")
+        assert gdf.name == os.path.join("bar", "b", "a")
+        assert gdf.datadir == os.path.join(self.td, "vol0", "bar", "b", "a")
+        assert gdf.device_path == os.path.join(self.td, "vol0")
 
     def test_constructor_no_metadata(self):
         the_path = os.path.join(self.td, "vol0", "bar")
@@ -242,20 +240,17 @@ class TestDiskFile(unittest.TestCase):
         assert gdf.fp is not None
 
     def test_constructor_chunk_size(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg,
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "z", self.lg,
                        disk_chunk_size=8192)
         assert gdf.disk_chunk_size == 8192
 
     def test_constructor_iter_hook(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg,
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "z", self.lg,
                        iter_hook='hook')
         assert gdf.iter_hook == 'hook'
 
     def test_close_no_open_fp(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar",
                                "z", self.lg, keep_data_fp=True)
         gdf._is_dir = False
         self.called = False
@@ -302,10 +297,9 @@ class TestDiskFile(unittest.TestCase):
             assert self.called
 
     def test_is_deleted(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg)
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
         assert gdf.is_deleted()
-        gdf.data_file = "/tmp/foo/bar"
+        gdf.data_file = os.path.join(self.td, "bar")
         assert not gdf.is_deleted()
 
     def test_create_dir_object_no_md(self):
@@ -389,8 +383,7 @@ class TestDiskFile(unittest.TestCase):
         assert _metadata[the_dir] == md
 
     def test_put_w_tombstone(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar", "z", self.lg)
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar", "z", self.lg)
         assert gdf.metadata == {}
 
         gdf.put_metadata({'x': '1'}, tombstone=True)
@@ -634,8 +627,7 @@ class TestDiskFile(unittest.TestCase):
         assert not os.path.exists(tmppath)
 
     def test_unlinkold_no_metadata(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar",
                                "z", self.lg)
         assert gdf.metadata == {}
         _saved_rmobjdir = gluster.swift.obj.diskfile.rmobjdir
@@ -648,8 +640,7 @@ class TestDiskFile(unittest.TestCase):
             gluster.swift.obj.diskfile.rmobjdir = _saved_rmobjdir
 
     def test_unlinkold_same_timestamp(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar",
                                "z", self.lg)
         assert gdf.metadata == {}
         gdf.metadata['X-Timestamp'] = 1
@@ -778,8 +769,7 @@ class TestDiskFile(unittest.TestCase):
         assert 4 == gdf.metadata['Content-Length']
 
     def test_get_data_file_size_dne(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar",
                                "/b/a/z/", self.lg)
         try:
             gdf.get_data_file_size()
@@ -847,8 +837,7 @@ class TestDiskFile(unittest.TestCase):
         assert 0 == gdf.get_data_file_size()
 
     def test_filter_metadata(self):
-        assert not os.path.exists("/tmp/foo")
-        gdf = DiskFile("/tmp/foo", "vol0", "p57", "ufo47", "bar",
+        gdf = DiskFile(self.td, "vol0", "p57", "ufo47", "bar",
                                "z", self.lg)
         assert gdf.metadata == {}
         gdf._filter_metadata()
