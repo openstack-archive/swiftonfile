@@ -26,7 +26,6 @@ import tarfile
 import shutil
 from collections import defaultdict
 from mock import patch
-from swift.common.utils import normalize_timestamp
 from gluster.swift.common import utils, Glusterfs
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
 
@@ -368,7 +367,7 @@ class TestUtils(unittest.TestCase):
         assert md[utils.X_OBJECT_TYPE] == utils.FILE
         assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
         assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
-        assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
+        assert md[utils.X_TIMESTAMP] == utils.normalize_timestamp(os.path.getctime(tf.name))
         assert md[utils.X_ETAG] == utils._get_etag(tf.name)
 
     def test_get_object_metadata_dir(self):
@@ -381,7 +380,7 @@ class TestUtils(unittest.TestCase):
             assert md[utils.X_OBJECT_TYPE] == utils.DIR_NON_OBJECT
             assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
             assert md[utils.X_CONTENT_LENGTH] == 0
-            assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
+            assert md[utils.X_TIMESTAMP] == utils.normalize_timestamp(os.path.getctime(td))
             assert md[utils.X_ETAG] == hashlib.md5().hexdigest()
         finally:
             os.rmdir(td)
@@ -406,7 +405,7 @@ class TestUtils(unittest.TestCase):
         assert md[utils.X_OBJECT_TYPE] == utils.FILE
         assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
         assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
-        assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
+        assert md[utils.X_TIMESTAMP] == utils.normalize_timestamp(os.path.getctime(tf.name))
         assert md[utils.X_ETAG] == utils._get_etag(tf.name)
 
     def test_create_object_metadata_dir(self):
@@ -428,7 +427,7 @@ class TestUtils(unittest.TestCase):
             assert md[utils.X_OBJECT_TYPE] == utils.DIR_NON_OBJECT
             assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
             assert md[utils.X_CONTENT_LENGTH] == 0
-            assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
+            assert md[utils.X_TIMESTAMP] == utils.normalize_timestamp(os.path.getctime(td))
             assert md[utils.X_ETAG] == hashlib.md5().hexdigest()
         finally:
             os.rmdir(td)
@@ -445,8 +444,8 @@ class TestUtils(unittest.TestCase):
         try:
             exp_md = {
                 utils.X_TYPE: (utils.CONTAINER, 0),
-                utils.X_TIMESTAMP: (normalize_timestamp(os.path.getctime(td)), 0),
-                utils.X_PUT_TIMESTAMP: (normalize_timestamp(os.path.getmtime(td)), 0),
+                utils.X_TIMESTAMP: (utils.normalize_timestamp(os.path.getctime(td)), 0),
+                utils.X_PUT_TIMESTAMP: (utils.normalize_timestamp(os.path.getmtime(td)), 0),
                 utils.X_OBJECTS_COUNT: (3, 0),
                 utils.X_BYTES_USED: (47, 0),
             }
@@ -467,8 +466,8 @@ class TestUtils(unittest.TestCase):
         try:
             exp_md = {
                 utils.X_TYPE: (utils.ACCOUNT, 0),
-                utils.X_TIMESTAMP: (normalize_timestamp(os.path.getctime(td)), 0),
-                utils.X_PUT_TIMESTAMP: (normalize_timestamp(os.path.getmtime(td)), 0),
+                utils.X_TIMESTAMP: (utils.normalize_timestamp(os.path.getctime(td)), 0),
+                utils.X_PUT_TIMESTAMP: (utils.normalize_timestamp(os.path.getmtime(td)), 0),
                 utils.X_OBJECTS_COUNT: (0, 0),
                 utils.X_BYTES_USED: (0, 0),
                 utils.X_CONTAINER_COUNT: (2, 0),
@@ -498,8 +497,8 @@ class TestUtils(unittest.TestCase):
             for key in self.cont_keys:
                 assert key in md, "Expected key %s in %r" % (key, md)
             assert md[utils.X_TYPE] == (utils.CONTAINER, 0)
-            assert md[utils.X_TIMESTAMP] == (normalize_timestamp(os.path.getctime(td)), 0)
-            assert md[utils.X_PUT_TIMESTAMP] == (normalize_timestamp(os.path.getmtime(td)), 0)
+            assert md[utils.X_TIMESTAMP] == (utils.normalize_timestamp(os.path.getctime(td)), 0)
+            assert md[utils.X_PUT_TIMESTAMP] == (utils.normalize_timestamp(os.path.getmtime(td)), 0)
             assert md[utils.X_OBJECTS_COUNT] == (0, 0)
             assert md[utils.X_BYTES_USED] == (0, 0)
         finally:
@@ -524,8 +523,8 @@ class TestUtils(unittest.TestCase):
             for key in self.acct_keys:
                 assert key in md, "Expected key %s in %r" % (key, md)
             assert md[utils.X_TYPE] == (utils.ACCOUNT, 0)
-            assert md[utils.X_TIMESTAMP] == (normalize_timestamp(os.path.getctime(td)), 0)
-            assert md[utils.X_PUT_TIMESTAMP] == (normalize_timestamp(os.path.getmtime(td)), 0)
+            assert md[utils.X_TIMESTAMP] == (utils.normalize_timestamp(os.path.getctime(td)), 0)
+            assert md[utils.X_PUT_TIMESTAMP] == (utils.normalize_timestamp(os.path.getmtime(td)), 0)
             assert md[utils.X_OBJECTS_COUNT] == (0, 0)
             assert md[utils.X_BYTES_USED] == (0, 0)
             assert md[utils.X_CONTAINER_COUNT] == (0, 0)
@@ -606,40 +605,6 @@ class TestUtils(unittest.TestCase):
         finally:
             Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
-            shutil.rmtree(td)
-
-    def test_write_pickle(self):
-        td = tempfile.mkdtemp()
-        try:
-            fpp = os.path.join(td, 'pp')
-            # FIXME: Remove this patch when coverage.py can handle eventlet
-            with patch("os.fsync", _mock_os_fsync):
-                utils.write_pickle('pickled peppers', fpp)
-            with open(fpp, "rb") as f:
-                contents = f.read()
-            s = pickle.loads(contents)
-            assert s == 'pickled peppers', repr(s)
-        finally:
-            shutil.rmtree(td)
-
-    def test_write_pickle_ignore_tmp(self):
-        tf = tempfile.NamedTemporaryFile()
-        td = tempfile.mkdtemp()
-        try:
-            fpp = os.path.join(td, 'pp')
-            # Also test an explicity pickle protocol
-            # FIXME: Remove this patch when coverage.py can handle eventlet
-            with patch("os.fsync", _mock_os_fsync):
-                utils.write_pickle('pickled peppers', fpp, tmp=tf.name,
-                                   pickle_protocol=2)
-            with open(fpp, "rb") as f:
-                contents = f.read()
-            s = pickle.loads(contents)
-            assert s == 'pickled peppers', repr(s)
-            with open(tf.name, "rb") as f:
-                contents = f.read()
-            assert contents == ''
-        finally:
             shutil.rmtree(td)
 
     def test_check_user_xattr_bad_path(self):

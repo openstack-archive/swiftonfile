@@ -1,8 +1,9 @@
-.tox
+/.tox
 gluster_swift.egg-info
-test/unit/.coverage
-test/unit/nosetests.xml
-test/unit/coverage.xml
-test/unit/cover
-build
+/test/unit/.coverage
+/test/unit/nosetests.xml
+/test/unit/coverage.xml
+/test/unit/cover
+/build
+/swift
 *.pyc

@@ -34,19 +34,6 @@ def mock_os_fdatasync(fd):
     return True
 
 
-class TestFakefile(unittest.TestCase):
-    """ Tests for common.fs_utils.Fake_file """
-
-    def test_Fake_file(self):
-        path = "/tmp/bar"
-        ff = fs.Fake_file(path)
-        self.assertEqual(path, ff.path)
-        self.assertEqual(0, ff.tell())
-        self.assertEqual(None, ff.read(50))
-        self.assertEqual(-1, ff.fileno())
-        self.assertEqual(None, ff.close())
-
-
 class TestFsUtils(unittest.TestCase):
     """ Tests for common.fs_utils """
 
@@ -199,16 +186,6 @@ class TestFsUtils(unittest.TestCase):
     def test_do_open(self):
         _fd, tmpfile = mkstemp()
         try:
-            f = fs.do_open(tmpfile, 'r')
-            try:
-                f.write('test')
-            except IOError as err:
-                pass
-            else:
-                self.fail("IOError expected")
-            finally:
-                f.close()
-
             fd = fs.do_open(tmpfile, os.O_RDONLY)
             try:
                 os.write(fd, 'test')
@@ -221,14 +198,6 @@ class TestFsUtils(unittest.TestCase):
         finally:
             os.close(_fd)
             os.remove(tmpfile)
-
-    def test_do_open_err(self):
-        try:
-            fs.do_open(os.path.join('/tmp', str(random.random())), 'r')
-        except GlusterFileSystemIOError:
-            pass
-        else:
-            self.fail("GlusterFileSystemIOError expected")
 
     def test_do_open_err_int_mode(self):
         try:
@@ -463,8 +432,6 @@ class TestFsUtils(unittest.TestCase):
                 pass
             else:
                 self.fail("OSError expected")
-            fp = open(tmpfile)
-            fs.do_close(fp)
         finally:
             os.remove(tmpfile)
 
@@ -479,22 +446,6 @@ class TestFsUtils(unittest.TestCase):
                 pass
             else:
                 self.fail("GlusterFileSystemOSError expected")
-        finally:
-            os.remove(tmpfile)
-
-    def test_do_close_err_fp(self):
-        fd, tmpfile = mkstemp()
-        os.close(fd)
-        fp = open(tmpfile, 'w')
-        try:
-            fd = fp.fileno()
-            os.close(fd)
-            try:
-                fs.do_close(fp)
-            except GlusterFileSystemIOError:
-                pass
-            else:
-                self.fail("GlusterFileSystemIOError expected")
         finally:
             os.remove(tmpfile)
 

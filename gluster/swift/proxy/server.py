@@ -16,7 +16,7 @@
 
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
-import gluster.swift.common.constraints    # noqa
+import gluster.swift.common.constraints  # noqa
 
 from swift.proxy.server import Application, mimetypes  # noqa
 from swift.proxy.controllers import AccountController  # noqa

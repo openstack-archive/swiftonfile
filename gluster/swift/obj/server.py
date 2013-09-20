@@ -21,7 +21,7 @@ import gluster.swift.common.constraints    # noqa
 
 from swift.obj import server
 
-from gluster.swift.obj.diskfile import DiskFile
+from gluster.swift.obj.diskfile import OnDiskManager
 
 
 class ObjectController(server.ObjectController):
@@ -31,33 +31,52 @@ class ObjectController(server.ObjectController):
     stored on disk and already updated by virtue of performing the file system
     operations directly).
     """
+    def setup(self, conf):
+        """
+        Implementation specific setup. This method is called at the very end
+        by the constructor to allow a specific implementation to modify
+        existing attributes or add its own attributes.
 
-    def _diskfile(self, device, partition, account, container, obj, **kwargs):
-        """Utility method for instantiating a DiskFile."""
-        kwargs.setdefault('mount_check', self.mount_check)
-        kwargs.setdefault('bytes_per_sync', self.bytes_per_sync)
-        kwargs.setdefault('disk_chunk_size', self.disk_chunk_size)
-        kwargs.setdefault('threadpool', self.threadpools[device])
-        kwargs.setdefault('obj_dir', server.DATADIR)
-        return DiskFile(self.devices, device, partition, account,
-                        container, obj, self.logger, **kwargs)
+        :param conf: WSGI configuration parameter
+        """
+        # FIXME: Gluster currently does not support x-delete-at, as there is
+        # no mechanism in GlusterFS itself to expire an object, or an external
+        # process that will cull expired objects.
+        try:
+            self.allowed_headers.remove('x-delete-at')
+        except KeyError:
+            pass
+        # Common on-disk hierarchy shared across account, container and object
+        # servers.
+        self._ondisk_mgr = OnDiskManager(conf, self.logger)
 
-    def container_update(self, op, account, container, obj, request,
-                         headers_out, objdevice):
+    def get_diskfile(self, device, partition, account, container, obj,
+                     **kwargs):
+        """
+        Utility method for instantiating a DiskFile object supporting a given
+        REST API.
+
+        An implementation of the object server that wants to use a different
+        DiskFile class would simply over-ride this method to provide that
+        behavior.
+        """
+        return self._ondisk_mgr.get_diskfile(device, account, container, obj,
+                                             **kwargs)
+
+    def container_update(self, *args, **kwargs):
         """
         Update the container when objects are updated.
 
         For Gluster, this is just a no-op, since a container is just the
         directory holding all the objects (sub-directory hierarchy of files).
+        """
+        return
 
-        :param op: operation performed (ex: 'PUT', or 'DELETE')
-        :param account: account name for the object
-        :param container: container name for the object
-        :param obj: object name
-        :param request: the original request object driving the update
-        :param headers_out: dictionary of headers to send in the container
-                            request(s)
-        :param objdevice: device name that the object is in
+    def delete_at_update(self, *args, **kwargs):
+        """
+        Update the expiring objects container when objects are updated.
+
+        FIXME: Gluster currently does not support delete_at headers.
         """
         return
 

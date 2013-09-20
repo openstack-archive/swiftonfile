@@ -18,40 +18,37 @@ import os
 import errno
 import stat
 import random
-import os.path as os_path    # noqa
+import ctypes
+import os.path as _os_path
 from eventlet import sleep
+from swift.common.utils import load_libc_function
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
-    NotDirectoryError, GlusterFileSystemOSError, GlusterFileSystemIOError
+    NotDirectoryError, GlusterFileSystemOSError
 
 
-class Fake_file(object):
-    def __init__(self, path):
-        self.path = path
-
-    def tell(self):
-        return 0
-
-    def read(self, count):
-        return None
-
-    def fileno(self):
-        return -1
-
-    def close(self):
-        pass
+os_path = _os_path
 
 
 def do_walk(*args, **kwargs):
     return os.walk(*args, **kwargs)
 
 
-def do_write(fd, msg):
+def do_write(fd, buf):
     try:
-        cnt = os.write(fd, msg)
+        cnt = os.write(fd, buf)
     except OSError as err:
         raise GlusterFileSystemOSError(
             err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
     return cnt
+
+
+def do_read(fd, n):
+    try:
+        buf = os.read(fd, n)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
+    return buf
 
 
 def do_ismount(path):
@@ -203,37 +200,21 @@ def do_fstat(fd):
 
 
 def do_open(path, flags, **kwargs):
-    if isinstance(flags, int):
-        try:
-            fd = os.open(path, flags, **kwargs)
-        except OSError as err:
-            raise GlusterFileSystemOSError(
-                err.errno, '%s, os.open("%s", %x, %r)' % (
-                    err.strerror, path, flags, kwargs))
-        return fd
-    else:
-        try:
-            fp = open(path, flags, **kwargs)
-        except IOError as err:
-            raise GlusterFileSystemIOError(
-                err.errno, '%s, open("%s", %s, %r)' % (
-                    err.strerror, path, flags, kwargs))
-        return fp
+    try:
+        fd = os.open(path, flags, **kwargs)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.open("%s", %x, %r)' % (
+                err.strerror, path, flags, kwargs))
+    return fd
 
 
 def do_close(fd):
-    if isinstance(fd, file) or isinstance(fd, Fake_file):
-        try:
-            fd.close()
-        except IOError as err:
-            raise GlusterFileSystemIOError(
-                err.errno, '%s, os.close(%s)' % (err.strerror, fd))
-    else:
-        try:
-            os.close(fd)
-        except OSError as err:
-            raise GlusterFileSystemOSError(
-                err.errno, '%s, os.close(%s)' % (err.strerror, fd))
+    try:
+        os.close(fd)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.close(%s)' % (err.strerror, fd))
 
 
 def do_unlink(path, log=True):
@@ -268,9 +249,31 @@ def do_fsync(fd):
 def do_fdatasync(fd):
     try:
         os.fdatasync(fd)
+    except AttributeError:
+        do_fsync(fd)
     except OSError as err:
         raise GlusterFileSystemOSError(
-            err.errno, '%s, os.fdatasync("%s")' % (err.strerror, fd))
+            err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
+
+
+_posix_fadvise = None
+
+
+def do_fadvise64(fd, offset, length):
+    global _posix_fadvise
+    if _posix_fadvise is None:
+        _posix_fadvise = load_libc_function('posix_fadvise64')
+    # 4 means "POSIX_FADV_DONTNEED"
+    _posix_fadvise(fd, ctypes.c_uint64(offset),
+                   ctypes.c_uint64(length), 4)
+
+
+def do_lseek(fd, pos, how):
+    try:
+        os.lseek(fd, pos, how)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
 
 
 def mkdirs(path):
