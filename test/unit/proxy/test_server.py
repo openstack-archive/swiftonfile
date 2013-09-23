@@ -3348,7 +3348,6 @@ class TestObjectController(unittest.TestCase):
         self.assertEquals(body, 'oh hai123456789abcdef')
 
     def test_version_manifest(self):
-        raise SkipTest("Not until we support versioned objects")
         versions_to_create = 3
         # Create a container for our versioned object testing
         (prolis, acc1lis, acc2lis, con1lis, con2lis, obj1lis,
@@ -3562,30 +3561,19 @@ class TestObjectController(unittest.TestCase):
         exp = 'HTTP/1.1 204 No Content'
         self.assertEquals(headers[:len(exp)], exp)
 
-        # DELETE v1/a/c/obj shouldn't delete v1/a/c/obj/sub versions
+        # DELETE v1/a/c/dir shouldn't delete v1/a/c/dir/sub versions
         sock = connect_tcp(('localhost', prolis.getsockname()[1]))
         fd = sock.makefile()
-        fd.write('PUT /v1/a/versions/name HTTP/1.1\r\nHost: '
+        fd.write('PUT /v1/a/versions/dir HTTP/1.1\r\nHost: '
                  'localhost\r\nConnection: close\r\nX-Storage-Token: '
-                 't\r\nContent-Length: 5\r\nContent-Type: text/jibberish0\r\n'
-                 'Foo: barbaz\r\n\r\n00000\r\n')
+                 't\r\nContent-Length: 0\r\nContent-Type: application/directory\r\n\r\n')
         fd.flush()
         headers = readuntil2crlfs(fd)
         exp = 'HTTP/1.1 201'
         self.assertEquals(headers[:len(exp)], exp)
         sock = connect_tcp(('localhost', prolis.getsockname()[1]))
         fd = sock.makefile()
-        fd.write('PUT /v1/a/versions/name HTTP/1.1\r\nHost: '
-                 'localhost\r\nConnection: close\r\nX-Storage-Token: '
-                 't\r\nContent-Length: 5\r\nContent-Type: text/jibberish0\r\n'
-                 'Foo: barbaz\r\n\r\n00001\r\n')
-        fd.flush()
-        headers = readuntil2crlfs(fd)
-        exp = 'HTTP/1.1 201'
-        self.assertEquals(headers[:len(exp)], exp)
-        sock = connect_tcp(('localhost', prolis.getsockname()[1]))
-        fd = sock.makefile()
-        fd.write('PUT /v1/a/versions/name/sub HTTP/1.1\r\nHost: '
+        fd.write('PUT /v1/a/versions/dir/sub HTTP/1.1\r\nHost: '
                  'localhost\r\nConnection: close\r\nX-Storage-Token: '
                  't\r\nContent-Length: 4\r\nContent-Type: text/jibberish0\r\n'
                  'Foo: barbaz\r\n\r\nsub1\r\n')
@@ -3595,7 +3583,7 @@ class TestObjectController(unittest.TestCase):
         self.assertEquals(headers[:len(exp)], exp)
         sock = connect_tcp(('localhost', prolis.getsockname()[1]))
         fd = sock.makefile()
-        fd.write('PUT /v1/a/versions/name/sub HTTP/1.1\r\nHost: '
+        fd.write('PUT /v1/a/versions/dir/sub HTTP/1.1\r\nHost: '
                  'localhost\r\nConnection: close\r\nX-Storage-Token: '
                  't\r\nContent-Length: 4\r\nContent-Type: text/jibberish0\r\n'
                  'Foo: barbaz\r\n\r\nsub2\r\n')
@@ -3605,7 +3593,7 @@ class TestObjectController(unittest.TestCase):
         self.assertEquals(headers[:len(exp)], exp)
         sock = connect_tcp(('localhost', prolis.getsockname()[1]))
         fd = sock.makefile()
-        fd.write('DELETE /v1/a/versions/name HTTP/1.1\r\nHost: localhost\r\n'
+        fd.write('DELETE /v1/a/versions/dir HTTP/1.1\r\nHost: localhost\r\n'
                  'Connection: close\r\nX-Storage-Token: t\r\n\r\n')
         fd.flush()
         headers = readuntil2crlfs(fd)
@@ -3613,7 +3601,7 @@ class TestObjectController(unittest.TestCase):
         self.assertEquals(headers[:len(exp)], exp)
         sock = connect_tcp(('localhost', prolis.getsockname()[1]))
         fd = sock.makefile()
-        fd.write('GET /v1/a/vers?prefix=008name/sub/ HTTP/1.1\r\nHost: '
+        fd.write('GET /v1/a/vers?prefix=007dir/sub/ HTTP/1.1\r\nHost: '
                  'localhost\r\nConnection: close\r\nX-Auth-Token: t\r\n\r\n')
         fd.flush()
         headers = readuntil2crlfs(fd)
