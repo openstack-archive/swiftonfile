@@ -85,7 +85,7 @@ Add the following line to `/etc/fstab` to mount the storage automatically on sys
 startup:
 
 ~~~
-/dev/<disk partition>   /export/brick   xfs   noatime,nodiratime 0 0
+/dev/<disk partition>   /export/brick   xfs   inode64,noatime,nodiratime 0 0
 ~~~
 
 Now type the following to mount the storage:
@@ -108,7 +108,7 @@ Add the following line to `/etc/fstab` to mount the storage automatically on sys
 startup:
 
 ~~~
-/srv/swift-disk /export/brick   xfs   loop,noatime,nodiratime 0 0
+/srv/swift-disk /export/brick   xfs   loop,inode64,noatime,nodiratime 0 0
 ~~~
 
 Now type the following to mount the storage:
