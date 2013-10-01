@@ -1682,6 +1682,53 @@ class TestFileComparison(Base):
             self.assert_status(412)
 
 
+class TestObjectVersioningEnv:
+    @classmethod
+    def setUp(cls):
+        cls.conn = Connection(config)
+        cls.conn.authenticate()
+        cls.account = Account(cls.conn, config.get('account',
+                                                   config['username']))
+        cls.account.delete_containers()
+        cls.containers = {}
+        #create two containers one for object other for versions of objects
+        for i in range(2):
+            hdrs={}
+            if i==0:
+                hdrs={'X-Versions-Location':'versions'}
+                cont = cls.containers['object'] = cls.account.container('object')
+            else:
+                cont = cls.containers['versions'] = cls.account.container('versions')
+            if not cont.create(hdrs=hdrs):
+                raise ResponseError(cls.conn.response)
+                cls.containers.append(cont)
+
+
+class TestObjectVersioning(Base):
+    env = TestObjectVersioningEnv
+    set_up = False
+
+    def testObjectVersioning(self):
+        versions = random.randrange(2,10)
+        dataArr=[]
+        #create versions
+        for i in range(versions):
+            data = File.random_data(10000*(i+1))
+            file = self.env.containers['object'].file('object')
+            self.assertTrue(file.write(data))
+            dataArr.append(data)
+        cont = self.env.containers['versions']
+        info = cont.info()
+        self.assertEquals(info['object_count'], versions-1)
+        #match the current version of object with data in arr and delete it
+        for i in range(versions):
+            data = dataArr[-(i+1)]
+            file = self.env.containers['object'].file('object')
+            self.assertEquals(data,file.read())
+            self.assert_(file.delete())
+            self.assert_status(204)
+
+
 class TestFileComparisonUTF8(Base2, TestFileComparison):
     set_up = False
 
