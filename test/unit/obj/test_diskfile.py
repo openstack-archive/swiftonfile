@@ -35,6 +35,7 @@ import gluster.swift.obj.diskfile
 from gluster.swift.obj.diskfile import DiskFile
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
+from gluster.swift.common.fs_utils import Fake_file
 
 from test.unit.common.test_utils import _initxattr, _destroyxattr
 from test.unit import FakeLogger
@@ -270,7 +271,7 @@ class TestDiskFile(unittest.TestCase):
             assert not self.called
             assert gdf.fp is None
 
-    def test_close_dir_object(self):
+    def test_all_dir_object(self):
         the_cont = os.path.join(self.td, "vol0", "bar")
         the_dir = "dir"
         self.called = False
@@ -278,13 +279,25 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir",
                                  keep_data_fp=True)
 
-        def our_do_close(fp):
-            self.called = True
+        ret = isinstance(gdf.fp, Fake_file)
+        self.assertTrue(ret)
 
-        with mock.patch("gluster.swift.obj.diskfile.do_close",
-                        our_do_close):
-            gdf.close()
-            assert self.called
+        # Get a File descriptor
+        fd = gdf.fp
+
+        # This expected to call Fake_file interfaces
+        ret = fd.tell()
+        self.assertEqual(ret , 0)
+
+        ret = fd.read(1)
+        self.assertEqual(ret , 0)
+
+        ret = fd.fileno()
+        self.assertEqual(ret, -1)
+
+        ret = fd.close()
+        self.assertFalse(self.called)
+
 
     def test_close_file_object(self):
         the_cont = os.path.join(self.td, "vol0", "bar")
