@@ -43,7 +43,7 @@ setup(
         'Programming Language :: Python :: 2'
         'Programming Language :: Python :: 2.6'
         'Programming Language :: Python :: 2.7'
-        ],
+    ],
     install_requires=[],
     scripts=[
         'bin/gluster-swift-gen-builders',
@@ -55,6 +55,6 @@ setup(
             'object=gluster.swift.obj.server:app_factory',
             'container=gluster.swift.container.server:app_factory',
             'account=gluster.swift.account.server:app_factory',
-            ],
-        },
-    )
+        ],
+    },
+)

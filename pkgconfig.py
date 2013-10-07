@@ -3,6 +3,6 @@
 
 from gluster.swift import _pkginfo as pkginfo
 
-PKGCONFIG='pkgconfig.in'
+PKGCONFIG = 'pkgconfig.in'
 
 pkginfo.save_config(PKGCONFIG)
