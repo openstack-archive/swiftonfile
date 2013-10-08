@@ -16,6 +16,8 @@
 import unittest
 import os, fcntl, errno, shutil
 import time
+import StringIO
+import mock
 from tempfile import mkdtemp
 import gluster.swift.common.Glusterfs as gfs
 
@@ -122,6 +124,112 @@ class TestGlusterfs(unittest.TestCase):
             gfs._get_export_list = mock_get_export_list
             assert not gfs.mount(root, drive)
         finally:
+            shutil.rmtree(tmpdir)
+
+    def test_get_drive_mount_point_name_unique_id_None(self):
+        """
+        Using the public method mount to test _get_drive_mount_point_name
+        """
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'test'
+
+            _init_mock_variables(tmpdir)
+            gfs._allow_mount_per_server = True
+            self.assertTrue(gfs.mount(root, drive))
+        finally:
+            gfs._allow_mount_per_server = False
+            _reset_mock_variables()
+            shutil.rmtree(tmpdir)
+
+    def test_get_drive_mount_point_name_unique_id_exists(self):
+        """
+        Using the public method mount to test _get_drive_mount_point_name
+        and the _unique_id is already defined
+        """
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'test'
+
+            _init_mock_variables(tmpdir)
+            gfs._allow_mount_per_server = True
+            gfs._unique_id = 0
+            self.assertTrue(gfs.mount(root, drive))
+        finally:
+            gfs._allow_mount_per_server = False
+            gfs._unique_id = None
+            _reset_mock_variables()
+            shutil.rmtree(tmpdir)
+
+    def test_invalid_drive_name(self):
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'te st'
+
+            _init_mock_variables(tmpdir)
+            self.assertFalse(gfs.mount(root, drive))
+        finally:
+            _reset_mock_variables()
+            shutil.rmtree(tmpdir)
+
+    def test_already_mounted(self):
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'test'
+
+            _init_mock_variables(tmpdir)
+            def mock_do_ismount(path):
+                return True
+
+            with mock.patch("gluster.swift.common.Glusterfs.do_ismount",
+                mock_do_ismount):
+                self.assertTrue(gfs.mount(root, drive))
+        finally:
+            _reset_mock_variables()
+            shutil.rmtree(tmpdir)
+
+    def test_get_export_list(self):
+        try:
+            tmpdir = mkdtemp()
+            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            drive  = 'test'
+
+            # undo mocking of _get_export_list
+            tmp_get_export_list = gfs._get_export_list
+            _init_mock_variables(tmpdir)
+            gfs._get_export_list = tmp_get_export_list
+
+            def mock_os_popen(cmd):
+                mock_string = """
+                Volume Name: test
+                Type: Distribute
+                Volume ID: 361cfe52-75c0-4a76-88af-0092a92270b5
+                Status: Started
+                Number of Bricks: 1
+                Transport-type: tcp
+                Bricks:
+                Brick1: myhost:/export/brick/test
+
+                Volume Name: test2
+                Type: Distribute
+                Volume ID: a6df4e2b-6040-4e19-96f1-b8d8c0a29528
+                Status: Started
+                Number of Bricks: 1
+                Transport-type: tcp
+                Bricks:
+                Brick1: myhost:/export/brick/test2
+                """
+                return StringIO.StringIO(mock_string)
+
+            # mock os_popen
+            with mock.patch('os.popen', mock_os_popen):
+                self.assertTrue(gfs.mount(root, drive))
+        finally:
+            _reset_mock_variables()
             shutil.rmtree(tmpdir)
 
     def tearDown(self):

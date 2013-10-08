@@ -21,10 +21,9 @@ import logging
 import urllib
 
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
-from swift.common.utils import TRUE_VALUES, search_tree
+from swift.common.utils import TRUE_VALUES
 from gluster.swift.common.fs_utils import do_ismount
-from gluster.swift.common.exceptions import GlusterfsException, \
-    FailureToMountError
+from gluster.swift.common.exceptions import FailureToMountError
 
 #
 # Read the fs.conf file once at startup (module load)
@@ -286,28 +285,3 @@ def _get_export_list():
                 export_list.append(item.split(':')[1].strip(' '))
 
     return export_list
-
-
-def get_mnt_point(vol_name, conf_dir=SWIFT_DIR, conf_file="object-server*"):
-    """
-    Read the object-server's configuration file and return
-    the device value.
-
-    :param vol_name: target GlusterFS volume name
-    :param conf_dir: Swift configuration directory root
-    :param conf_file: configuration file name for which to search
-    :returns full path to given target volume name
-    :raises GlusterfsException if unable to fetch mount point root from
-            configuration files
-    """
-    mnt_dir = ''
-    conf_files = search_tree(conf_dir, conf_file, '.conf')
-    if not conf_files:
-        raise GlusterfsException("Config file, %s, in directory, %s, "
-                                 "not found" % (conf_file, conf_dir))
-    _conf = ConfigParser()
-    if _conf.read(conf_files[0]):
-        mnt_dir = _conf.get('DEFAULT', 'devices', '')
-        return os.path.join(mnt_dir, vol_name)
-    else:
-        raise GlusterfsException("Config file, %s, is empty" % conf_files[0])
