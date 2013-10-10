@@ -1,0 +1,62 @@
+swauth (1.0.8)
+
+   Added request.environ[reseller_request] = True if request is coming from an
+   user in .reseller_admin group
+
+   Fixed to work with newer Swift versions whose memcache clients require a
+   time keyword argument when the older versions required a timeout keyword
+   argument.
+
+swauth (1.0.7)
+
+    New X-Auth-Token-Lifetime header a user can set to how long they'd like
+    their token to be good for.
+
+    New max_token_life config value for capping the above.
+
+    New X-Auth-Token-Expires header returned with the get token request.
+
+    Switchover to swift.common.swob instead of WebOb; requires Swift >= 1.7.6
+    now.
+
+swauth (1.0.6)
+
+    Apparently I haven't been keeping up with this CHANGELOG. I'll try to be
+    better onward.
+
+    This release added passing OPTIONS requests through untouched, needed for
+    CORS support in Swift.
+
+    Also, Swauth is a bit more restrictive in deciding when it's the definitive
+    auth for a request.
+
+swauth (1.0.3-dev)
+
+    This release is still under development. A full change log will be made at
+    release. Until then, you can see what has changed with:
+
+    git log 1.0.2..HEAD
+
+swauth (1.0.2)
+
+    Fixed bug rejecting requests when using multiple instances of Swauth or
+    Swauth with other auth services.
+
+    Fixed bug interpreting URL-encoded user names and keys.
+
+    Added support for the Swift container sync feature.
+
+    Allowed /not/ setting super_admin_key to disable Swauth administration
+    features.
+
+    Added swauth_remote mode so the Swauth middleware for one Swift cluster
+    could be pointing to the Swauth service on another Swift cluster, sharing
+    account/user data sets.
+
+    Added ability to purge stored tokens.
+
+    Added API documentation for internal Swauth API.
+
+swauth (1.0.1)
+
+    Initial release after separation from Swift.
