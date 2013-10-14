@@ -73,17 +73,17 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
-        ],
+    ],
     install_requires=[],  # removed for better compat
     scripts=[
         'bin/swauth-add-account', 'bin/swauth-add-user',
         'bin/swauth-cleanup-tokens', 'bin/swauth-delete-account',
         'bin/swauth-delete-user', 'bin/swauth-list', 'bin/swauth-prep',
         'bin/swauth-set-account-service',
-        ],
+    ],
     entry_points={
         'paste.filter_factory': [
             'swauth=swauth.middleware:filter_factory',
-            ],
-        },
-    )
+        ],
+    },
+)

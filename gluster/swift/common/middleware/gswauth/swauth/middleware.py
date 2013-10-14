@@ -22,7 +22,7 @@ from time import gmtime, strftime, time
 from traceback import format_exc
 from urllib import quote, unquote
 from uuid import uuid4
-from hashlib import md5, sha1
+from hashlib import sha1
 import hmac
 import base64
 
@@ -30,7 +30,7 @@ from eventlet.timeout import Timeout
 from eventlet import TimeoutError
 from swift.common.swob import HTTPAccepted, HTTPBadRequest, HTTPConflict, \
     HTTPCreated, HTTPForbidden, HTTPMethodNotAllowed, HTTPMovedPermanently, \
-    HTTPNoContent, HTTPNotFound, HTTPServiceUnavailable, HTTPUnauthorized, \
+    HTTPNoContent, HTTPNotFound, HTTPUnauthorized, \
     Request, Response
 
 from swift.common.bufferedhttp import http_connect_raw as http_connect
@@ -82,8 +82,9 @@ class Swauth(object):
                 raise ValueError(msg)
             self.swauth_remote_parsed = urlparse(self.swauth_remote)
             if self.swauth_remote_parsed.scheme not in ('http', 'https'):
-                msg = _('Cannot handle protocol scheme %s for url %s!') % \
-                   (self.swauth_remote_parsed.scheme, repr(self.swauth_remote))
+                msg = _('Cannot handle protocol scheme %s for url %s!') % (
+                    self.swauth_remote_parsed.scheme,
+                    repr(self.swauth_remote))
                 try:
                     self.logger.critical(msg)
                 except Exception:
@@ -91,7 +92,8 @@ class Swauth(object):
                 raise ValueError(msg)
         self.swauth_remote_timeout = int(conf.get('swauth_remote_timeout', 10))
         self.auth_account = '%s.auth' % self.reseller_prefix
-        self.default_swift_cluster = conf.get('default_swift_cluster',
+        self.default_swift_cluster = conf.get(
+            'default_swift_cluster',
             'local#http://127.0.0.1:8080/v1')
         # This setting is a little messy because of the options it has to
         # provide. The basic format is cluster_name#url, such as the default
@@ -130,7 +132,8 @@ class Swauth(object):
         self.timeout = int(conf.get('node_timeout', 10))
         self.itoken = None
         self.itoken_expires = None
-        self.allowed_sync_hosts = [h.strip()
+        self.allowed_sync_hosts = [
+            h.strip()
             for h in conf.get('allowed_sync_hosts', '127.0.0.1').split(',')
             if h.strip()]
         # Get an instance of our auth_type encoder for saving and checking the
@@ -138,8 +141,9 @@ class Swauth(object):
         self.auth_type = conf.get('auth_type', 'Plaintext').title()
         self.auth_encoder = getattr(swauth.authtypes, self.auth_type, None)
         if self.auth_encoder is None:
-            raise Exception('Invalid auth_type in config file: %s'
-                             % self.auth_type)
+            raise Exception(
+                'Invalid auth_type in config file: %s'
+                % self.auth_type)
         self.auth_encoder.salt = conf.get('auth_type_salt', 'swauthsalt')
         self.allow_overrides = \
             conf.get('allow_overrides', 't').lower() in TRUE_VALUES
@@ -200,8 +204,8 @@ class Swauth(object):
         s3 = env.get('HTTP_AUTHORIZATION')
         token = env.get('HTTP_X_AUTH_TOKEN', env.get('HTTP_X_STORAGE_TOKEN'))
         if token and len(token) > swauth.authtypes.MAX_TOKEN_LENGTH:
-            return HTTPBadRequest(body='Token exceeds maximum length.')(env,
-                                                                start_response)
+            return HTTPBadRequest(body='Token exceeds maximum length.')(
+                env, start_response)
         if s3 or (token and token.startswith(self.reseller_prefix)):
             # Note: Empty reseller_prefix will match all tokens.
             groups = self.get_groups(env, token)
@@ -285,7 +289,7 @@ class Swauth(object):
             try:
                 account = env['HTTP_AUTHORIZATION'].split(' ')[1]
                 account, user, sign = account.split(':')
-            except Exception, err:
+            except Exception:
                 self.logger.debug(
                     'Swauth cannot parse Authorization header value %r' %
                     env['HTTP_AUTHORIZATION'])
@@ -327,7 +331,8 @@ class Swauth(object):
         if not groups:
             if self.swauth_remote:
                 with Timeout(self.swauth_remote_timeout):
-                    conn = http_connect(self.swauth_remote_parsed.hostname,
+                    conn = http_connect(
+                        self.swauth_remote_parsed.hostname,
                         self.swauth_remote_parsed.port, 'GET',
                         '%s/v2/.token/%s' % (self.swauth_remote_parsed.path,
                                              quote(token)),
@@ -476,8 +481,8 @@ class Swauth(object):
         req.start_time = time()
         handler = None
         try:
-            version, account, user, _junk = split_path(req.path_info,
-                minsegs=0, maxsegs=4, rest_with_last=True)
+            version, account, user, _junk = split_path(
+                req.path_info, minsegs=0, maxsegs=4, rest_with_last=True)
         except ValueError:
             return HTTPNotFound(request=req)
         if version in ('v1', 'v1.0', 'auth'):
@@ -638,8 +643,8 @@ class Swauth(object):
         listing = []
         marker = ''
         while True:
-            path = '/v1/%s?format=json&marker=%s' % (quote('%s/%s' %
-                (self.auth_account, account)), quote(marker))
+            path = '/v1/%s?format=json&marker=%s' % (quote('%s/%s' % (
+                self.auth_account, account)), quote(marker))
             resp = self.make_pre_authed_request(
                 req.environ, 'GET', path).get_response(self.app)
             if resp.status_int == 404:
@@ -655,8 +660,9 @@ class Swauth(object):
                 if obj['name'][0] != '.':
                     listing.append({'name': obj['name']})
             marker = sublisting[-1]['name'].encode('utf-8')
-        return Response(body=json.dumps({'account_id': account_id,
-                                    'services': services, 'users': listing}))
+        return Response(body=json.dumps(
+            {'account_id': account_id,
+             'services': services, 'users': listing}))
 
     def handle_set_services(self, req):
         """
@@ -755,14 +761,16 @@ class Swauth(object):
             resp = self.make_pre_authed_request(
                 req.environ, 'PUT', path).get_response(self.app)
             if resp.status_int // 100 != 2:
-                raise Exception('Could not create account within main auth '
+                raise Exception(
+                    'Could not create account within main auth '
                     'account: %s %s' % (path, resp.status))
         elif resp.status_int // 100 == 2:
             if 'x-container-meta-account-id' in resp.headers:
                 # Account was already created
                 return HTTPAccepted(request=req)
         else:
-            raise Exception('Could not verify account within main auth '
+            raise Exception(
+                'Could not verify account within main auth '
                 'account: %s %s' % (path, resp.status))
         account_suffix = req.headers.get('x-account-suffix')
         if not account_suffix:
@@ -772,17 +780,20 @@ class Swauth(object):
                                   self.reseller_prefix, account_suffix))
         try:
             conn = self.get_conn()
-            conn.request('PUT', path,
-                        headers={'X-Auth-Token': self.get_itoken(req.environ),
-                                 'Content-Length': '0'})
+            conn.request(
+                'PUT', path,
+                headers={'X-Auth-Token': self.get_itoken(req.environ),
+                         'Content-Length': '0'})
             resp = conn.getresponse()
             resp.read()
             if resp.status // 100 != 2:
-                raise Exception('Could not create account on the Swift '
+                raise Exception(
+                    'Could not create account on the Swift '
                     'cluster: %s %s %s' % (path, resp.status, resp.reason))
         except (Exception, TimeoutError):
-            self.logger.error(_('ERROR: Exception while trying to communicate '
-                'with %(scheme)s://%(host)s:%(port)s/%(path)s'),
+            self.logger.error(
+                _('ERROR: Exception while trying to communicate '
+                    'with %(scheme)s://%(host)s:%(port)s/%(path)s'),
                 {'scheme': self.dsc_parsed2.scheme,
                  'host': self.dsc_parsed2.hostname,
                  'port': self.dsc_parsed2.port, 'path': path})
@@ -798,7 +809,8 @@ class Swauth(object):
         # Record the cluster url(s) for the account
         path = quote('/v1/%s/%s/.services' % (self.auth_account, account))
         services = {'storage': {}}
-        services['storage'][self.dsc_name] = '%s/%s%s' % (self.dsc_url,
+        services['storage'][self.dsc_name] = '%s/%s%s' % (
+            self.dsc_url,
             self.reseller_prefix, account_suffix)
         services['storage']['default'] = self.dsc_name
         resp = self.make_pre_authed_request(
@@ -834,8 +846,9 @@ class Swauth(object):
         # Make sure the account has no users and get the account_id
         marker = ''
         while True:
-            path = '/v1/%s?format=json&marker=%s' % (quote('%s/%s' %
-                (self.auth_account, account)), quote(marker))
+            path = '/v1/%s?format=json&marker=%s' % (
+                quote('%s/%s' % (
+                    self.auth_account, account)), quote(marker))
             resp = self.make_pre_authed_request(
                 req.environ, 'GET', path).get_response(self.app)
             if resp.status_int == 404:
@@ -866,19 +879,22 @@ class Swauth(object):
                 if name != 'default':
                     parsed = urlparse(url)
                     conn = self.get_conn(parsed)
-                    conn.request('DELETE', parsed.path,
+                    conn.request(
+                        'DELETE', parsed.path,
                         headers={'X-Auth-Token': self.get_itoken(req.environ)})
                     resp = conn.getresponse()
                     resp.read()
                     if resp.status == 409:
                         if deleted_any:
-                            raise Exception('Managed to delete one or more '
+                            raise Exception(
+                                'Managed to delete one or more '
                                 'service end points, but failed with: '
                                 '%s %s %s' % (url, resp.status, resp.reason))
                         else:
                             return HTTPConflict(request=req)
                     if resp.status // 100 != 2 and resp.status != 404:
-                        raise Exception('Could not delete account on the '
+                        raise Exception(
+                            'Could not delete account on the '
                             'Swift cluster: %s %s %s' %
                             (url, resp.status, resp.reason))
                     deleted_any = True
@@ -962,8 +978,10 @@ class Swauth(object):
             groups = set()
             marker = ''
             while True:
-                path = '/v1/%s?format=json&marker=%s' % (quote('%s/%s' %
-                    (self.auth_account, account)), quote(marker))
+                path = '/v1/%s?format=json&marker=%s' % (
+                    quote(
+                        '%s/%s' %
+                        (self.auth_account, account)), quote(marker))
                 resp = self.make_pre_authed_request(
                     req.environ, 'GET', path).get_response(self.app)
                 if resp.status_int == 404:
@@ -983,11 +1001,11 @@ class Swauth(object):
                         if resp.status_int // 100 != 2:
                             raise Exception('Could not retrieve user object: '
                                             '%s %s' % (path, resp.status))
-                        groups.update(g['name']
-                            for g in json.loads(resp.body)['groups'])
+                        groups.update(
+                            g['name'] for g in json.loads(resp.body)['groups'])
                 marker = sublisting[-1]['name'].encode('utf-8')
-            body = json.dumps({'groups':
-                                [{'name': g} for g in sorted(groups)]})
+            body = json.dumps(
+                {'groups': [{'name': g} for g in sorted(groups)]})
         else:
             path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
             resp = self.make_pre_authed_request(
@@ -1002,8 +1020,8 @@ class Swauth(object):
             if ('.admin' in display_groups and
                 not self.is_reseller_admin(req)) or \
                ('.reseller_admin' in display_groups and
-                not self.is_super_admin(req)):
-                return HTTPForbidden(request=req)
+                    not self.is_super_admin(req)):
+                    return HTTPForbidden(request=req)
         return Response(body=body)
 
     def handle_put_user(self, req):
@@ -1047,7 +1065,7 @@ class Swauth(object):
             raise Exception('Could not retrieve account id value: %s %s' %
                             (path, resp.status))
         headers = {'X-Object-Meta-Account-Id':
-                        resp.headers['x-container-meta-account-id']}
+                   resp.headers['x-container-meta-account-id']}
         # Create the object in the main auth account (this object represents
         # the user)
         path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
@@ -1098,7 +1116,8 @@ class Swauth(object):
                             (path, resp.status))
         candidate_token = resp.headers.get('x-object-meta-auth-token')
         if candidate_token:
-            path = quote('/v1/%s/.token_%s/%s' %
+            path = quote(
+                '/v1/%s/.token_%s/%s' %
                 (self.auth_account, candidate_token[-1], candidate_token))
             resp = self.make_pre_authed_request(
                 req.environ, 'DELETE', path).get_response(self.app)
@@ -1204,10 +1223,13 @@ class Swauth(object):
                 key == self.super_admin_key:
             token = self.get_itoken(req.environ)
             url = '%s/%s.auth' % (self.dsc_url, self.reseller_prefix)
-            return Response(request=req,
-              body=json.dumps({'storage': {'default': 'local', 'local': url}}),
-              headers={'x-auth-token': token, 'x-storage-token': token,
-                       'x-storage-url': url})
+            return Response(
+                request=req,
+                body=json.dumps(
+                    {'storage': {'default': 'local',
+                     'local': url}}),
+                headers={'x-auth-token': token, 'x-storage-token': token,
+                         'x-storage-url': url})
         # Authenticate user
         path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
         resp = self.make_pre_authed_request(
@@ -1225,7 +1247,8 @@ class Swauth(object):
         expires = None
         candidate_token = resp.headers.get('x-object-meta-auth-token')
         if candidate_token:
-            path = quote('/v1/%s/.token_%s/%s' %
+            path = quote(
+                '/v1/%s/.token_%s/%s' %
                 (self.auth_account, candidate_token[-1], candidate_token))
             delete_token = False
             try:
@@ -1276,10 +1299,11 @@ class Swauth(object):
             expires = int(time() + token_life)
             resp = self.make_pre_authed_request(
                 req.environ, 'PUT', path,
-                json.dumps({'account': account, 'user': user,
-                'account_id': account_id,
-                'groups': user_detail['groups'],
-                'expires': expires})).get_response(self.app)
+                json.dumps(
+                    {'account': account, 'user': user,
+                     'account_id': account_id,
+                     'groups': user_detail['groups'],
+                     'expires': expires})).get_response(self.app)
             if resp.status_int // 100 != 2:
                 raise Exception('Could not create new token: %s %s' %
                                 (path, resp.status))
@@ -1301,7 +1325,8 @@ class Swauth(object):
                             (path, resp.status))
         detail = json.loads(resp.body)
         url = detail['storage'][detail['storage']['default']]
-        return Response(request=req, body=resp.body,
+        return Response(
+            request=req, body=resp.body,
             headers={'x-auth-token': token, 'x-storage-token': token,
                      'x-auth-token-expires': str(int(expires - time())),
                      'x-storage-url': url})
@@ -1444,7 +1469,7 @@ class Swauth(object):
         :returns: True if the key is valid for the user, False if not.
         """
         return user_detail and self.auth_encoder().match(
-          key, user_detail.get('auth'))
+            key, user_detail.get('auth'))
 
     def is_super_admin(self, req):
         """
@@ -1455,8 +1480,8 @@ class Swauth(object):
         :param returns: True if .super_admin.
         """
         return req.headers.get('x-auth-admin-user') == '.super_admin' and \
-               self.super_admin_key and \
-               req.headers.get('x-auth-admin-key') == self.super_admin_key
+            self.super_admin_key and \
+            req.headers.get('x-auth-admin-key') == self.super_admin_key
 
     def is_reseller_admin(self, req, admin_detail=None):
         """
@@ -1497,7 +1522,7 @@ class Swauth(object):
                                           req.headers.get('x-auth-admin-key')):
                 return False
             return admin_detail and admin_detail['account'] == account and \
-                   '.admin' in (g['name'] for g in admin_detail['groups'])
+                '.admin' in (g['name'] for g in admin_detail['groups'])
         return False
 
     def posthooklogger(self, env, req):
@@ -1523,11 +1548,13 @@ class Swauth(object):
         if getattr(req, 'client_disconnect', False) or \
                 getattr(response, 'client_disconnect', False):
             status_int = 499
-        self.logger.info(' '.join(quote(str(x)) for x in (client or '-',
+        self.logger.info(
+            ' '.join(quote(str(x)) for x in (client or '-',
             req.remote_addr or '-', strftime('%d/%b/%Y/%H/%M/%S', gmtime()),
             req.method, the_request, req.environ['SERVER_PROTOCOL'],
             status_int, req.referer or '-', req.user_agent or '-',
-            req.headers.get('x-auth-token',
+            req.headers.get(
+                'x-auth-token',
                 req.headers.get('x-auth-admin-user', '-')),
             getattr(req, 'bytes_transferred', 0) or '-',
             getattr(response, 'bytes_transferred', 0) or '-',

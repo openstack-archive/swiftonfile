@@ -14,7 +14,6 @@
 # Pablo Llopis 2011
 
 import unittest
-from contextlib import contextmanager
 from swauth import authtypes
 
 
