@@ -18,6 +18,7 @@ try:
 except ImportError:
     import json
 import unittest
+from nose import SkipTest
 from contextlib import contextmanager
 from time import time
 
@@ -1196,7 +1197,7 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
-        self.assertEquals(self.test_auth.app.calls, 18)
+        self.assertEquals(self.test_auth.app.calls, 17)
 
     def test_prep_bad_method(self):
         resp = Request.blank('/auth/v2/.prep',
@@ -1890,10 +1891,6 @@ class TestAuth(unittest.TestCase):
         self.assertEquals(self.test_auth.app.calls, 2)
 
     def test_put_account_success(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -1916,14 +1913,9 @@ class TestAuth(unittest.TestCase):
         ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 201)
         self.assertEquals(self.test_auth.app.calls, 5)
-        self.assertEquals(conn.calls, 1)
 
     def test_put_account_success_preexist_but_not_completed(
             self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for pre-existence
             # We're going to show it as existing this time, but with no
@@ -1947,7 +1939,6 @@ class TestAuth(unittest.TestCase):
         ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 201)
         self.assertEquals(self.test_auth.app.calls, 4)
-        self.assertEquals(conn.calls, 1)
 
     def test_put_account_success_preexist_and_completed(
             self):
@@ -1968,10 +1959,6 @@ class TestAuth(unittest.TestCase):
         self.assertEquals(self.test_auth.app.calls, 1)
 
     def test_put_account_success_with_given_suffix(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -1994,11 +1981,7 @@ class TestAuth(unittest.TestCase):
                      'X-Account-Suffix': 'test-suffix'}).get_response(
                          self.test_auth)
         self.assertEquals(resp.status_int, 201)
-        self.assertEquals(
-            conn.request_path,
-            '/v1/AUTH_test-suffix')
         self.assertEquals(self.test_auth.app.calls, 5)
-        self.assertEquals(conn.calls, 1)
 
     def test_put_account_fail_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
@@ -2085,10 +2068,6 @@ class TestAuth(unittest.TestCase):
         self.assertEquals(self.test_auth.app.calls, 2)
 
     def test_put_account_fail_on_storage_account_put(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('503 Service Unavailable', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -2103,14 +2082,9 @@ class TestAuth(unittest.TestCase):
                      'X-Auth-Admin-Key': 'supertest'}).get_response(
                          self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(conn.calls, 1)
-        self.assertEquals(self.test_auth.app.calls, 2)
+        self.assertEquals(self.test_auth.app.calls, 3)
 
     def test_put_account_fail_on_account_id_mapping(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -2127,14 +2101,9 @@ class TestAuth(unittest.TestCase):
                      'X-Auth-Admin-Key': 'supertest'}).get_response(
                          self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(conn.calls, 1)
         self.assertEquals(self.test_auth.app.calls, 3)
 
     def test_put_account_fail_on_services_object(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -2153,14 +2122,9 @@ class TestAuth(unittest.TestCase):
                      'X-Auth-Admin-Key': 'supertest'}).get_response(
                          self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(conn.calls, 1)
         self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_put_account_fail_on_post_mapping(self):
-        conn = FakeConn(iter([
-            # PUT of storage account itself
-            ('201 Created', {}, '')]))
-        self.test_auth.get_conn = lambda: conn
         self.test_auth.app = FakeApp(iter([
             # Initial HEAD of account container to check for
             # pre-existence
@@ -2181,14 +2145,9 @@ class TestAuth(unittest.TestCase):
                      'X-Auth-Admin-Key': 'supertest'}).get_response(
                          self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(conn.calls, 1)
         self.assertEquals(self.test_auth.app.calls, 5)
 
     def test_delete_account_success(self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2223,7 +2182,6 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
         self.assertEquals(self.test_auth.app.calls, 6)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_success_missing_services(self):
         self.test_auth.app = FakeApp(iter([
@@ -2259,10 +2217,6 @@ class TestAuth(unittest.TestCase):
 
     def test_delete_account_success_missing_storage_account(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('404 Not Found', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2297,14 +2251,9 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
         self.assertEquals(self.test_auth.app.calls, 6)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_success_missing_account_id_mapping(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2339,14 +2288,9 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
         self.assertEquals(self.test_auth.app.calls, 6)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_success_missing_account_container_at_end(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2381,7 +2325,6 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
         self.assertEquals(self.test_auth.app.calls, 6)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_fail_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
@@ -2616,10 +2559,6 @@ class TestAuth(unittest.TestCase):
 
     def test_delete_account_fail_delete_storage_account(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('409 Conflict', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2646,18 +2585,11 @@ class TestAuth(unittest.TestCase):
                                  '.super_admin',
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
-        self.assertEquals(resp.status_int, 409)
-        self.assertEquals(self.test_auth.app.calls, 3)
-        self.assertEquals(conn.calls, 1)
+        self.assertEquals(resp.status_int, 500)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_account_fail_delete_storage_account2(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, ''),
-            # DELETE of storage account itself
-            ('409 Conflict', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2686,15 +2618,10 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(self.test_auth.app.calls, 3)
-        self.assertEquals(conn.calls, 2)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_account_fail_delete_storage_account3(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('503 Service Unavailable', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2722,17 +2649,10 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(self.test_auth.app.calls, 3)
-        self.assertEquals(conn.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_account_fail_delete_storage_account4(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, ''),
-            # DELETE of storage account itself
-            ('503 Service Unavailable', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2761,14 +2681,9 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(self.test_auth.app.calls, 3)
-        self.assertEquals(conn.calls, 2)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_account_fail_delete_services(self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2799,14 +2714,9 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
         self.assertEquals(self.test_auth.app.calls, 4)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_fail_delete_account_id_mapping(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2839,14 +2749,9 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
         self.assertEquals(self.test_auth.app.calls, 5)
-        self.assertEquals(conn.calls, 1)
 
     def test_delete_account_fail_delete_account_container(
             self):
-        conn = FakeConn(iter([
-            # DELETE of storage account itself
-            ('204 No Content', {}, '')]))
-        self.test_auth.get_conn = lambda x: conn
         self.test_auth.app = FakeApp(iter([
             # Account's container listing, checking for
             # users
@@ -2881,7 +2786,6 @@ class TestAuth(unittest.TestCase):
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
         self.assertEquals(self.test_auth.app.calls, 6)
-        self.assertEquals(conn.calls, 1)
 
     def test_get_user_success(self):
         self.test_auth.app = FakeApp(iter([
