@@ -39,8 +39,8 @@ from swift.common.utils import cache_from_env, get_logger, get_remote_client, \
     split_path, TRUE_VALUES, urlparse
 import swift.common.wsgi
 
-from swauth import swift_version
-import swauth.authtypes
+from gluster.swift.common.middleware.gswauth.swauth import swift_version
+from gluster.swift.common.middleware.gswauth.swauth import authtypes
 
 
 MEMCACHE_TIME = swift_version.newer_than('1.7.7-dev')
@@ -139,7 +139,7 @@ class Swauth(object):
         # Get an instance of our auth_type encoder for saving and checking the
         # user's key
         self.auth_type = conf.get('auth_type', 'Plaintext').title()
-        self.auth_encoder = getattr(swauth.authtypes, self.auth_type, None)
+        self.auth_encoder = getattr(authtypes, self.auth_type, None)
         if self.auth_encoder is None:
             raise Exception(
                 'Invalid auth_type in config file: %s'
@@ -203,7 +203,7 @@ class Swauth(object):
                 return self.handle(env, start_response)
         s3 = env.get('HTTP_AUTHORIZATION')
         token = env.get('HTTP_X_AUTH_TOKEN', env.get('HTTP_X_STORAGE_TOKEN'))
-        if token and len(token) > swauth.authtypes.MAX_TOKEN_LENGTH:
+        if token and len(token) > authtypes.MAX_TOKEN_LENGTH:
             return HTTPBadRequest(body='Token exceeds maximum length.')(
                 env, start_response)
         if s3 or (token and token.startswith(self.reseller_prefix)):
