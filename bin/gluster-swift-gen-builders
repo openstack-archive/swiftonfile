@@ -5,6 +5,30 @@
 declare -A port=(["account.builder"]=6012 ["container.builder"]=6011 \
     ["object.builder"]=6010)
 
+print_usage() {
+    echo "
+        NAME
+            gluster-swift-gen-builders - Registers GlusterFS volumes to be accessed by
+            object storage.
+        SYNOPSIS
+            gluster-swift-gen-builders [-v] [-h] volumes...
+        DESCRIPTION
+            Register GlusterFS volumes to be accessed over OpenStack Swift object
+            storage.
+        OPTIONS
+            -v or --verbose
+              Verbose
+            -h or --help
+              Prints help screen
+        EXAMPLES
+            gluster-swift-gen-builders myvol1 myvol2
+            -Creates new ring files with myvol1 and myvol2
+
+            gluster-swift-gen-builders myvol2
+            -Creates new ring files by removing myvol1
+            "
+}
+
 builder_files="account.builder container.builder object.builder"
 
 function create {
@@ -23,13 +47,27 @@ function build {
     swift-ring-builder $1
 }
 
-if [ "$1x" = "x" ]; then
+verbose=0
+outdev="/dev/null"
+
+if [ "$1" = "-v" ] || [ "$1" = "--verbose" ]; then
+        verbose=1
+        outdev="/dev/stdout"
+        shift
+fi
+
+if [ "x$1" = "x" ]; then
     echo "Please specify the gluster volume name to use."
+    print_usage
     exit 1
 fi
 
-# Save the current directory and then cd to /etc/swift
-temp_dir=$PWD
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+        print_usage
+        exit 0
+fi
+
+
 cd /etc/swift
 
 for builder_file in $builder_files
@@ -39,13 +77,13 @@ do
     zone=1
     for volname in $@
     do
-        add $builder_file $zone ${port[$builder_file]} $volname
+        add $builder_file $zone ${port[$builder_file]} $volname >& $outdev
         zone=$(expr $zone + 1)
     done
 
-    rebalance $builder_file
-    build $builder_file
+    rebalance $builder_file >& $outdev
+    build $builder_file >& $outdev
+
 done
 
-cd $temp_dir
-echo "Ring files are prepared in /etc/swift"
+echo "Ring files are prepared in /etc/swift. Please restart object store services"
