@@ -64,7 +64,7 @@ export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf
 
 # Install the configuration files
 sudo mkdir /etc/swift > /dev/null 2>&1
-sudo cp -r test/functional/conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
+sudo cp -r test/functional_auth/tempauth/conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
 sudo_env gluster-swift-gen-builders test test2 || fail "Unable to create ring files"
 
 # Start the services
@@ -74,10 +74,16 @@ sudo_env swift-init main start || fail "Unable to start swift"
 mkdir functional_tests > /dev/null 2>&1
 nosetests -v --exe \
 	--with-xunit \
-	--xunit-file functional_tests/gluster-swift-functional-TC-report.xml test/functional || fail "Functional tests failed"
+	--xunit-file functional_tests/gluster-swift-generic-functional-TC-report.xml \
+    --with-html-output \
+    --html-out-file functional_tests/gluster-swift-generic-functional-result.html \
+    test/functional || fail "Functional tests failed"
 nosetests -v --exe \
 	--with-xunit \
-	--xunit-file functional_tests/gluster-swift-functionalnosetests-TC-report.xml test/functionalnosetests || fail "Functional-nose tests failed"
+	--xunit-file functional_tests/gluster-swift-functionalnosetests-TC-report.xml \
+    --with-html-output \
+    --html-out-file functional_tests/gluster-swift-functionalnosetests-result.html \
+    test/functionalnosetests || fail "Functional-nose tests failed"
 
 cleanup
 exit 0
