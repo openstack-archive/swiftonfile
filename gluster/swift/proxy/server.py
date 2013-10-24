@@ -18,11 +18,14 @@
 # needs
 import gluster.swift.common.constraints    # noqa
 
-from swift.proxy import server
+from swift.proxy.server import Application, mimetypes  # noqa
+from swift.proxy.controllers import AccountController  # noqa
+from swift.proxy.controllers import ObjectController  # noqa
+from swift.proxy.controllers import ContainerController  # noqa
 
 
 def app_factory(global_conf, **local_conf):  # noqa
     """paste.deploy app factory for creating WSGI proxy apps."""
     conf = global_conf.copy()
     conf.update(local_conf)
-    return server.Application(conf)
+    return Application(conf)

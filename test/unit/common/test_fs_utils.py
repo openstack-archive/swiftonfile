@@ -30,8 +30,22 @@ from gluster.swift.common.exceptions import NotDirectoryError, \
 def mock_os_fsync(fd):
     return True
 
-def mock_tpool_execute(func, *args, **kwargs):
-    func(*args, **kwargs)
+def mock_os_fdatasync(fd):
+    return True
+
+
+class TestFakefile(unittest.TestCase):
+    """ Tests for common.fs_utils.Fake_file """
+
+    def test_Fake_file(self):
+        path = "/tmp/bar"
+        ff = fs.Fake_file(path)
+        self.assertEqual(path, ff.path)
+        self.assertEqual(0, ff.tell())
+        self.assertEqual(None, ff.read(50))
+        self.assertEqual(-1, ff.fileno())
+        self.assertEqual(None, ff.close())
+
 
 class TestFsUtils(unittest.TestCase):
     """ Tests for common.fs_utils """
@@ -688,9 +702,8 @@ class TestFsUtils(unittest.TestCase):
             fd, tmpfile = mkstemp(dir=tmpdir)
             try:
                 os.write(fd, 'test')
-                with patch('eventlet.tpool.execute', mock_tpool_execute):
-                    with patch('os.fsync', mock_os_fsync):
-                        assert fs.do_fsync(fd) is None
+                with patch('os.fsync', mock_os_fsync):
+                    assert fs.do_fsync(fd) is None
             except GlusterFileSystemOSError as ose:
                 self.fail('Opening a temporary file failed with %s' %ose.strerror)
             else:
@@ -704,15 +717,47 @@ class TestFsUtils(unittest.TestCase):
         try:
             fd, tmpfile = mkstemp(dir=tmpdir)
             os.write(fd, 'test')
-            with patch('eventlet.tpool.execute', mock_tpool_execute):
-                with patch('os.fsync', mock_os_fsync):
-                    assert fs.do_fsync(fd) is None
+            with patch('os.fsync', mock_os_fsync):
+                assert fs.do_fsync(fd) is None
+            os.close(fd)
+            try:
+                fs.do_fsync(fd)
+            except GlusterFileSystemOSError:
+                pass
+            else:
+                self.fail("Expected GlusterFileSystemOSError")
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_do_fdatasync(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            try:
+                os.write(fd, 'test')
+                with patch('os.fdatasync', mock_os_fdatasync):
+                    assert fs.do_fdatasync(fd) is None
+            except GlusterFileSystemOSError as ose:
+                self.fail('Opening a temporary file failed with %s' %ose.strerror)
+            else:
                 os.close(fd)
-                try:
-                    fs.do_fsync(fd)
-                except GlusterFileSystemOSError:
-                    pass
-                else:
-                    self.fail("Expected GlusterFileSystemOSError")
+        finally:
+            shutil.rmtree(tmpdir)
+
+
+    def test_do_fdatasync_err(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            os.write(fd, 'test')
+            with patch('os.fdatasync', mock_os_fdatasync):
+                assert fs.do_fdatasync(fd) is None
+            os.close(fd)
+            try:
+                fs.do_fdatasync(fd)
+            except GlusterFileSystemOSError:
+                pass
+            else:
+                self.fail("Expected GlusterFileSystemOSError")
         finally:
             shutil.rmtree(tmpdir)

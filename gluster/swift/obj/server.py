@@ -39,8 +39,6 @@ class ObjectController(server.ObjectController):
         kwargs.setdefault('disk_chunk_size', self.disk_chunk_size)
         kwargs.setdefault('threadpool', self.threadpools[device])
         kwargs.setdefault('obj_dir', server.DATADIR)
-        kwargs.setdefault('disallowed_metadata_keys',
-                          server.DISALLOWED_HEADERS)
         return DiskFile(self.devices, device, partition, account,
                         container, obj, self.logger, **kwargs)
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2012 OpenStack, LLC.
+# Copyright (c) 2010-2012 OpenStack Foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,28 @@ class TestContainerController(unittest.TestCase):
         self.assertTrue("swift.container/a/c" in resp.environ)
         self.assertEqual(headers_to_container_info(resp.headers),
                          resp.environ['swift.container/a/c'])
+
+    def test_swift_owner(self):
+        owner_headers = {
+            'x-container-read': 'value', 'x-container-write': 'value',
+            'x-container-sync-key': 'value', 'x-container-sync-to': 'value'}
+        controller = proxy_server.ContainerController(self.app, 'a', 'c')
+
+        req = Request.blank('/a/c')
+        with mock.patch('swift.proxy.controllers.base.http_connect',
+                        fake_http_connect(200, 200, headers=owner_headers)):
+            resp = controller.HEAD(req)
+        self.assertEquals(2, resp.status_int // 100)
+        for key in owner_headers:
+            self.assertTrue(key not in resp.headers)
+
+        req = Request.blank('/a/c', environ={'swift_owner': True})
+        with mock.patch('swift.proxy.controllers.base.http_connect',
+                        fake_http_connect(200, 200, headers=owner_headers)):
+            resp = controller.HEAD(req)
+        self.assertEquals(2, resp.status_int // 100)
+        for key in owner_headers:
+            self.assertTrue(key in resp.headers)
 
 
 if __name__ == '__main__':

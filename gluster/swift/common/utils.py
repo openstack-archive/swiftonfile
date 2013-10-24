@@ -23,8 +23,9 @@ from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
 from swift.common.utils import normalize_timestamp
+from gluster.swift.common.exceptions import GlusterFileSystemIOError
 from gluster.swift.common.fs_utils import do_rename, do_fsync, os_path, \
-    do_stat, do_listdir, do_walk, do_rmdir
+    do_stat, do_fstat, do_listdir, do_walk, do_rmdir
 from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -53,18 +54,6 @@ DEFAULT_UID = -1
 DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
 CHUNK_SIZE = 65536
-
-
-class GlusterFileSystemOSError(OSError):
-    # Having our own class means the name will show up in the stack traces
-    # recorded in the log files.
-    pass
-
-
-class GlusterFileSystemIOError(IOError):
-    # Having our own class means the name will show up in the stack traces
-    # recorded in the log files.
-    pass
 
 
 def read_metadata(path_or_fd):
@@ -320,6 +309,23 @@ def get_account_details(acc_path):
     return container_list, container_count
 
 
+def _read_for_etag(fp):
+    etag = md5()
+    while True:
+        chunk = fp.read(CHUNK_SIZE)
+        if chunk:
+            etag.update(chunk)
+            if len(chunk) >= CHUNK_SIZE:
+                # It is likely that we have more data to be read from the
+                # file. Yield the co-routine cooperatively to avoid
+                # consuming the worker during md5sum() calculations on
+                # large files.
+                sleep()
+        else:
+            break
+    return etag.hexdigest()
+
+
 def _get_etag(path):
     """
     FIXME: It would be great to have a translator that returns the md5sum() of
@@ -328,28 +334,24 @@ def _get_etag(path):
     Since we don't have that we should yield after each chunk read and
     computed so that we don't consume the worker thread.
     """
-    etag = md5()
-    with open(path, 'rb') as fp:
-        while True:
-            chunk = fp.read(CHUNK_SIZE)
-            if chunk:
-                etag.update(chunk)
-                if len(chunk) >= CHUNK_SIZE:
-                    # It is likely that we have more data to be read from the
-                    # file. Yield the co-routine cooperatively to avoid
-                    # consuming the worker during md5sum() calculations on
-                    # large files.
-                    sleep()
-            else:
-                break
-    return etag.hexdigest()
+    if isinstance(path, int):
+        with os.fdopen(os.dup(path), 'rb') as fp:
+            etag = _read_for_etag(fp)
+        os.lseek(path, 0, os.SEEK_SET)
+    else:
+        with open(path, 'rb') as fp:
+            etag = _read_for_etag(fp)
+    return etag
 
 
 def get_object_metadata(obj_path):
     """
     Return metadata of object.
     """
-    stats = do_stat(obj_path)
+    if isinstance(obj_path, int):
+        stats = do_fstat(obj_path)
+    else:
+        stats = do_stat(obj_path)
     if not stats:
         metadata = {}
     else:

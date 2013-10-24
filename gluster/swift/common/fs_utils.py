@@ -32,7 +32,7 @@ class Fake_file(object):
         return 0
 
     def read(self, count):
-        return 0
+        return None
 
     def fileno(self):
         return -1
@@ -263,6 +263,14 @@ def do_fsync(fd):
     except OSError as err:
         raise GlusterFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
+
+
+def do_fdatasync(fd):
+    try:
+        os.fdatasync(fd)
+    except OSError as err:
+        raise GlusterFileSystemOSError(
+            err.errno, '%s, os.fdatasync("%s")' % (err.strerror, fd))
 
 
 def mkdirs(path):

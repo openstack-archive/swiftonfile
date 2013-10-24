@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2013 OpenStack, LLC.
+# Copyright (c) 2010-2012 OpenStack Foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Copyright (c) 2013 Red Hat, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+from httplib import HTTPException
 import os
 import socket
 import sys
@@ -35,7 +21,7 @@ from time import sleep
 
 from test import get_config
 
-from swiftclient import get_auth, http_connection, HTTPException
+from swiftclient import get_auth, http_connection
 
 conf = get_config('func_test')
 web_front_end = conf.get('web_front_end', 'integral')
@@ -57,8 +43,8 @@ if conf:
     if 'auth_prefix' not in conf:
         conf['auth_prefix'] = '/'
     try:
-        swift_test_auth += \
-                '://%(auth_host)s:%(auth_port)s%(auth_prefix)s' % conf
+        suffix = '://%(auth_host)s:%(auth_port)s%(auth_prefix)s' % conf
+        swift_test_auth += suffix
     except KeyError:
         pass  # skip
 
@@ -71,17 +57,17 @@ if conf:
             swift_test_user[0] = '%(username)s' % conf
         swift_test_key[0] = conf['password']
         try:
-            swift_test_user[1] = '%s%s' % \
-               ('%s:' % conf['account2'] if 'account2' in conf else '',
+            swift_test_user[1] = '%s%s' % (
+                '%s:' % conf['account2'] if 'account2' in conf else '',
                 conf['username2'])
             swift_test_key[1] = conf['password2']
-        except KeyError, err:
+        except KeyError as err:
             pass  # old conf, no second account tests can be run
         try:
             swift_test_user[2] = '%s%s' % ('%s:' % conf['account'] if 'account'
                                            in conf else '', conf['username3'])
             swift_test_key[2] = conf['password3']
-        except KeyError, err:
+        except KeyError as err:
             pass  # old conf, no third account tests can be run
 
         for _ in range(3):
@@ -99,7 +85,8 @@ if conf:
         swift_test_key[2] = conf['password3']
 
         for _ in range(3):
-            swift_test_perm[_] = swift_test_tenant[_] + ':' + swift_test_user[_]
+            swift_test_perm[_] = swift_test_tenant[_] + ':' \
+                + swift_test_user[_]
 
 skip = not all([swift_test_auth, swift_test_user[0], swift_test_key[0]])
 if skip:
@@ -108,12 +95,12 @@ if skip:
 skip2 = not all([not skip, swift_test_user[1], swift_test_key[1]])
 if not skip and skip2:
     print >>sys.stderr, \
-          'SKIPPING SECOND ACCOUNT FUNCTIONAL TESTS DUE TO NO CONFIG FOR THEM'
+        'SKIPPING SECOND ACCOUNT FUNCTIONAL TESTS DUE TO NO CONFIG FOR THEM'
 
 skip3 = not all([not skip, swift_test_user[2], swift_test_key[2]])
 if not skip and skip3:
     print >>sys.stderr, \
-          'SKIPPING THIRD ACCOUNT FUNCTIONAL TESTS DUE TO NO CONFIG FOR THEM'
+        'SKIPPING THIRD ACCOUNT FUNCTIONAL TESTS DUE TO NO CONFIG FOR THEM'
 
 
 class AuthError(Exception):
@@ -160,7 +147,8 @@ def retry(func, *args, **kwargs):
                 parsed[use_account], conn[use_account] = \
                     http_connection(url[use_account])
             return func(url[use_account], token[use_account],
-                       parsed[use_account], conn[use_account], *args, **kwargs)
+                        parsed[use_account], conn[use_account],
+                        *args, **kwargs)
         except (socket.error, HTTPException):
             if attempts > retries:
                 raise
