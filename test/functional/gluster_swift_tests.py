@@ -15,12 +15,56 @@
 
 """ OpenStack Swift based functional tests for Gluster for Swift"""
 
-from test.functional.tests import config, locale, Base, Utils
+import random
+
+from nose import SkipTest
+
+from test.functional.tests import config, locale, Base, Base2, Utils, \
+    TestFileEnv
 from test.functional.swift_test_client import Account, Connection, File, \
     ResponseError
 
+web_front_end = config.get('web_front_end', 'integral')
 
-class TestGlusterContainerPathsEnv:
+
+class TestFile(Base):
+    env = TestFileEnv
+    set_up = False
+
+    def testObjectManifest(self):
+        if (web_front_end == 'apache2'):
+            raise SkipTest()
+        data = File.random_data(10000)
+        parts = random.randrange(2,10)
+        charsEachPart = len(data)/parts
+        for i in range(parts+1):
+            if i==0 :
+                file = self.env.container.file('objectmanifest')
+                hdrs={}
+                hdrs['Content-Length']='0'
+                hdrs['X-Object-Manifest']=str(self.env.container.name)+'/objectmanifest'
+                self.assert_(file.write('',hdrs=hdrs))
+                self.assert_(file.name in self.env.container.files())
+                self.assert_(file.read() == '')
+            elif i==parts :
+                file = self.env.container.file('objectmanifest'+'-'+str(i))
+                segment=data[ (i-1)*charsEachPart :]
+                self.assertTrue(file.write(segment))
+            else :
+                file = self.env.container.file('objectmanifest'+'-'+str(i))
+                segment=data[ (i-1)*charsEachPart : i*charsEachPart]
+                self.assertTrue(file.write(segment))
+        #matching the manifest file content with orignal data, as etag won't match
+        file = self.env.container.file('objectmanifest')
+        data_read = file.read()
+        self.assertEquals(data,data_read)
+
+
+class TestFileUTF8(Base2, TestFile):
+    set_up = False
+
+
+class TestContainerPathsEnv:
     @classmethod
     def setUp(cls):
         cls.conn = Connection(config)
@@ -76,8 +120,8 @@ class TestGlusterContainerPathsEnv:
         cls.sorted_objects = sorted(set(cls.dirs + cls.files))
 
 
-class TestGlusterContainerPaths(Base):
-    env = TestGlusterContainerPathsEnv
+class TestContainerPaths(Base):
+    env = TestContainerPathsEnv
     set_up = False
 
     def testTraverseContainer(self):
@@ -149,3 +193,49 @@ class TestGlusterContainerPaths(Base):
         assert_listing('dir1/subdir with spaces',
                        ['dir1/subdir with spaces/file B'])
 
+
+class TestObjectVersioningEnv:
+    @classmethod
+    def setUp(cls):
+        cls.conn = Connection(config)
+        cls.conn.authenticate()
+        cls.account = Account(cls.conn, config.get('account',
+                                                   config['username']))
+        cls.account.delete_containers()
+        cls.containers = {}
+        #create two containers one for object other for versions of objects
+        for i in range(2):
+            hdrs={}
+            if i==0:
+                hdrs={'X-Versions-Location':'versions'}
+                cont = cls.containers['object'] = cls.account.container('object')
+            else:
+                cont = cls.containers['versions'] = cls.account.container('versions')
+            if not cont.create(hdrs=hdrs):
+                raise ResponseError(cls.conn.response)
+                cls.containers.append(cont)
+
+
+class TestObjectVersioning(Base):
+    env = TestObjectVersioningEnv
+    set_up = False
+
+    def testObjectVersioning(self):
+        versions = random.randrange(2,10)
+        dataArr=[]
+        #create versions
+        for i in range(versions):
+            data = File.random_data(10000*(i+1))
+            file = self.env.containers['object'].file('object')
+            self.assertTrue(file.write(data))
+            dataArr.append(data)
+        cont = self.env.containers['versions']
+        info = cont.info()
+        self.assertEquals(info['object_count'], versions-1)
+        #match the current version of object with data in arr and delete it
+        for i in range(versions):
+            data = dataArr[-(i+1)]
+            file = self.env.containers['object'].file('object')
+            self.assertEquals(data,file.read())
+            self.assert_(file.delete())
+            self.assert_status(204)

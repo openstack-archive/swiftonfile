@@ -34,12 +34,8 @@ import unittest
 from nose import SkipTest
 from uuid import uuid4
 
-from swift.common.constraints import MAX_META_COUNT, MAX_META_NAME_LENGTH, \
-    MAX_META_OVERALL_SIZE, MAX_META_VALUE_LENGTH
-
 from swift_testing import check_response, retry, skip, skip3, \
     swift_test_perm, web_front_end
-from test import get_config
 
 
 class TestObject(unittest.TestCase):
@@ -127,7 +123,7 @@ class TestObject(unittest.TestCase):
                           'X-Copy-From': source})
             return check_response(conn)
         resp = retry(put)
-        contents = resp.read()
+        resp.read()
         self.assertEquals(resp.status, 201)
 
         # contents of dest should be the same as source
@@ -161,7 +157,7 @@ class TestObject(unittest.TestCase):
                           'Destination': dest})
             return check_response(conn)
         resp = retry(copy)
-        contents = resp.read()
+        resp.read()
         self.assertEquals(resp.status, 201)
 
         # contents of dest should be the same as source
