@@ -98,5 +98,8 @@ rm -rf %{buildroot}
 %config %{_confdir}/fs.conf-gluster
 
 %changelog
+* Mon Oct 28 2013 Luis Pabon <lpabon@redhat.com> - 1.10.0-0
+- Havana Release
+
 * Wed Aug 21 2013 Luis Pabon <lpabon@redhat.com> - 1.8.0-7
 - Update RPM spec file to support SRPMS
