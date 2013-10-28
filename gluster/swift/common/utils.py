@@ -326,7 +326,7 @@ def _read_for_etag(fp):
     return etag.hexdigest()
 
 
-def _get_etag(path):
+def _get_etag(path_or_fd):
     """
     FIXME: It would be great to have a translator that returns the md5sum() of
     the file as an xattr that can be simply fetched.
@@ -334,24 +334,34 @@ def _get_etag(path):
     Since we don't have that we should yield after each chunk read and
     computed so that we don't consume the worker thread.
     """
-    if isinstance(path, int):
-        with os.fdopen(os.dup(path), 'rb') as fp:
+    if isinstance(path_or_fd, int):
+        # We are given a file descriptor, so this is an invocation from the
+        # DiskFile.open() method.
+        fd = path_or_fd
+        with os.fdopen(os.dup(fd), 'rb') as fp:
             etag = _read_for_etag(fp)
-        os.lseek(path, 0, os.SEEK_SET)
+        os.lseek(fd, 0, os.SEEK_SET)
     else:
+        # We are given a path to the object when the DiskDir.list_objects_iter
+        # method invokes us.
+        path = path_or_fd
         with open(path, 'rb') as fp:
             etag = _read_for_etag(fp)
     return etag
 
 
-def get_object_metadata(obj_path):
+def get_object_metadata(obj_path_or_fd):
     """
     Return metadata of object.
     """
-    if isinstance(obj_path, int):
-        stats = do_fstat(obj_path)
+    if isinstance(obj_path_or_fd, int):
+        # We are given a file descriptor, so this is an invocation from the
+        # DiskFile.open() method.
+        stats = do_fstat(obj_path_or_fd)
     else:
-        stats = do_stat(obj_path)
+        # We are given a path to the object when the DiskDir.list_objects_iter
+        # method invokes us.
+        stats = do_stat(obj_path_or_fd)
     if not stats:
         metadata = {}
     else:
@@ -362,7 +372,7 @@ def get_object_metadata(obj_path):
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
             X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
-            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path)}
+            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path_or_fd)}
     return metadata
 
 
@@ -421,9 +431,12 @@ def restore_metadata(path, metadata):
     return meta_new
 
 
-def create_object_metadata(obj_path):
-    metadata = get_object_metadata(obj_path)
-    return restore_metadata(obj_path, metadata)
+def create_object_metadata(obj_path_or_fd):
+    # We must accept either a path or a file descriptor as an argument to this
+    # method, as the diskfile modules uses a file descriptior and the DiskDir
+    # module (for container operations) uses a path.
+    metadata = get_object_metadata(obj_path_or_fd)
+    return restore_metadata(obj_path_or_fd, metadata)
 
 
 def create_container_metadata(cont_path):
