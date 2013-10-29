@@ -89,6 +89,15 @@ rm -rf %{buildroot}
 %{python_sitelib}/gluster_swift-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
 %{_bindir}/gluster-swift-print-metadata
+%{_bindir}/swauth-add-account
+%{_bindir}/swauth-add-user
+%{_bindir}/swauth-cleanup-tokens
+%{_bindir}/swauth-delete-account
+%{_bindir}/swauth-delete-user
+%{_bindir}/swauth-list
+%{_bindir}/swauth-prep
+%{_bindir}/swauth-set-account-service
+
 %dir %{_confdir}
 %config %{_confdir}/account-server.conf-gluster
 %config %{_confdir}/container-server.conf-gluster

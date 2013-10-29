@@ -1180,7 +1180,7 @@ class TestAuth(unittest.TestCase):
 
     def test_prep_success(self):
         list_to_iter = [
-            # PUT of .auth account
+            # PUT of gsmetadata account
             ('201 Created', {}, ''),
             # PUT of .account_id container
             ('201 Created', {}, '')]
@@ -1266,7 +1266,7 @@ class TestAuth(unittest.TestCase):
 
     def test_prep_fail_account_create(self):
         self.test_auth.app = FakeApp(iter([
-            # PUT of .auth account
+            # PUT of gsmetadata account
             ('503 Service Unavailable', {}, '')]))
         resp = Request.blank('/auth/v2/.prep',
                              environ={
@@ -1281,7 +1281,7 @@ class TestAuth(unittest.TestCase):
 
     def test_prep_fail_token_container_create(self):
         self.test_auth.app = FakeApp(iter([
-            # PUT of .auth account
+            # PUT of gsmetadata account
             ('201 Created', {}, ''),
             # PUT of .token container
             ('503 Service Unavailable', {}, '')]))
@@ -1298,7 +1298,7 @@ class TestAuth(unittest.TestCase):
 
     def test_prep_fail_account_id_container_create(self):
         self.test_auth.app = FakeApp(iter([
-            # PUT of .auth account
+            # PUT of gsmetadata account
             ('201 Created', {}, ''),
             # PUT of .token container
             ('201 Created', {}, ''),
@@ -1317,13 +1317,13 @@ class TestAuth(unittest.TestCase):
 
     def test_get_reseller_success(self):
         self.test_auth.app = FakeApp(iter([
-            # GET of .auth account (list containers)
+            # GET of gsmetadata account (list containers)
             ('200 Ok', {}, json.dumps([
                 {"name": ".token", "count": 0, "bytes": 0},
                 {"name": ".account_id",
                     "count": 0, "bytes": 0},
                 {"name": "act", "count": 0, "bytes": 0}])),
-            # GET of .auth account (list containers
+            # GET of gsmetadata account (list containers
             # continuation)
             ('200 Ok', {}, '[]')]))
         resp = Request.blank('/auth/v2',
@@ -1342,13 +1342,13 @@ class TestAuth(unittest.TestCase):
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
              {"name": "test"}, {"name": ".admin"},
              {"name": ".reseller_admin"}], "auth": "plaintext:key"})),
-            # GET of .auth account (list containers)
+            # GET of gsmetadata account (list containers)
             ('200 Ok', {}, json.dumps([
                 {"name": ".token", "count": 0, "bytes": 0},
                 {"name": ".account_id",
                     "count": 0, "bytes": 0},
                 {"name": "act", "count": 0, "bytes": 0}])),
-            # GET of .auth account (list containers
+            # GET of gsmetadata account (list containers
             # continuation)
             ('200 Ok', {}, '[]')]))
         resp = Request.blank('/auth/v2',
@@ -1405,7 +1405,7 @@ class TestAuth(unittest.TestCase):
 
     def test_get_reseller_fail_listing(self):
         self.test_auth.app = FakeApp(iter([
-            # GET of .auth account (list containers)
+            # GET of gsmetadata account (list containers)
             ('503 Service Unavailable', {}, '')]))
         resp = Request.blank('/auth/v2',
                              headers={
@@ -1417,13 +1417,13 @@ class TestAuth(unittest.TestCase):
         self.assertEquals(self.test_auth.app.calls, 1)
 
         self.test_auth.app = FakeApp(iter([
-            # GET of .auth account (list containers)
+            # GET of gsmetadata account (list containers)
             ('200 Ok', {}, json.dumps([
                 {"name": ".token", "count": 0, "bytes": 0},
                 {"name": ".account_id",
                     "count": 0, "bytes": 0},
                 {"name": "act", "count": 0, "bytes": 0}])),
-            # GET of .auth account (list containers
+            # GET of gsmetadata account (list containers
             # continuation)
             ('503 Service Unavailable', {}, '')]))
         resp = Request.blank('/auth/v2',
@@ -3858,7 +3858,7 @@ class TestAuth(unittest.TestCase):
         except Exception as err:
             exc = err
         self.assertEquals(str(exc), 'Could not get admin user object: '
-                          '/v1/AUTH_.auth/act/usr 503 Service Unavailable')
+                          '/v1/AUTH_gsmetadata/act/usr 503 Service Unavailable')
         self.assertEquals(self.test_auth.app.calls, 1)
 
     def test_get_admin_detail_success(self):
@@ -4079,7 +4079,7 @@ class TestAuth(unittest.TestCase):
 
     def test_reseller_admin_but_account_is_internal_use_only(
             self):
-        req = Request.blank('/v1/AUTH_.auth',
+        req = Request.blank('/v1/AUTH_gsmetadata',
                             environ={'REQUEST_METHOD': 'GET'})
         req.remote_user = 'act:usr,act,.reseller_admin'
         resp = self.test_auth.authorize(req)

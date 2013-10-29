@@ -92,7 +92,7 @@ class Swauth(object):
                     pass
                 raise ValueError(msg)
         self.swauth_remote_timeout = int(conf.get('swauth_remote_timeout', 10))
-        self.auth_account = '%s.auth' % self.reseller_prefix
+        self.auth_account = '%sgsmetadata' % self.reseller_prefix
         self.default_swift_cluster = conf.get(
             'default_swift_cluster',
             'local#http://127.0.0.1:8080/v1')
@@ -398,7 +398,7 @@ class Swauth(object):
         user_groups = (req.remote_user or '').split(',')
         if '.reseller_admin' in user_groups and \
                 account != self.reseller_prefix and \
-                account[len(self.reseller_prefix)] != '.':
+                account[len(self.reseller_prefix):] != 'gsmetadata':
             req.environ['swift_owner'] = True
             return None
         if account in user_groups and \
