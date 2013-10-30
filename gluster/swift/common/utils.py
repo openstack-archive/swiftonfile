@@ -22,8 +22,9 @@ from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
 from gluster.swift.common.exceptions import GlusterFileSystemIOError
+from swift.common.exceptions import DiskFileNoSpace
 from gluster.swift.common.fs_utils import os_path, do_stat, do_listdir, \
-    do_walk, do_rmdir, do_fstat
+    do_walk, do_rmdir, do_fstat, do_log_rl, get_filename_from_fd
 from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -137,9 +138,19 @@ def write_metadata(path_or_fd, metadata):
                            '%s%s' % (METADATA_KEY, key or ''),
                            metastr[:MAX_XATTR_SIZE])
         except IOError as err:
-            raise GlusterFileSystemIOError(
-                err.errno,
-                'xattr.setxattr("%s", %s, metastr)' % (path_or_fd, key))
+            if err.errno in (errno.ENOSPC, errno.EDQUOT):
+                if isinstance(path_or_fd, int):
+                    filename = get_filename_from_fd(path_or_fd)
+                    do_log_rl("write_metadata(%d, metadata) failed: %s : %s",
+                              path_or_fd, err, filename)
+                else:
+                    do_log_rl("write_metadata(%s, metadata) failed: %s",
+                              path_or_fd, err)
+                raise DiskFileNoSpace()
+            else:
+                raise GlusterFileSystemIOError(
+                    err.errno,
+                    'xattr.setxattr("%s", %s, metastr)' % (path_or_fd, key))
         metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
 

@@ -20,18 +20,26 @@ import errno
 import unittest
 import eventlet
 from nose import SkipTest
-from mock import patch
+from mock import patch, Mock
+from time import sleep
 from tempfile import mkdtemp, mkstemp
 from gluster.swift.common import fs_utils as fs
 from gluster.swift.common.exceptions import NotDirectoryError, \
     FileOrDirNotFoundError, GlusterFileSystemOSError, \
     GlusterFileSystemIOError
+from swift.common.exceptions import DiskFileNoSpace
 
 def mock_os_fsync(fd):
     return True
 
 def mock_os_fdatasync(fd):
     return True
+
+def mock_os_mkdir_makedirs_enospc(path):
+    raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+def mock_os_mkdir_makedirs_edquot(path):
+    raise OSError(errno.EDQUOT, os.strerror(errno.EDQUOT))
 
 
 class TestFsUtils(unittest.TestCase):
@@ -235,6 +243,30 @@ class TestFsUtils(unittest.TestCase):
             os.close(fd)
             os.remove(tmpfile)
 
+    def test_do_write_DiskFileNoSpace(self):
+
+        def mock_os_write_enospc(fd, msg):
+            raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+        def mock_os_write_edquot(fd, msg):
+            raise OSError(errno.EDQUOT, os.strerror(errno.EDQUOT))
+
+        with patch('os.write', mock_os_write_enospc):
+            try:
+                fs.do_write(9, "blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
+        with patch('os.write', mock_os_write_edquot):
+            try:
+                fs.do_write(9, "blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
     def test_mkdirs(self):
         try:
             subdir = os.path.join('/tmp', str(random.random()))
@@ -293,6 +325,25 @@ class TestFsUtils(unittest.TestCase):
             os.close(fd)
             shutil.rmtree(tmpdir)
 
+    def test_mkdirs_DiskFileNoSpace(self):
+
+        with patch('os.makedirs', mock_os_mkdir_makedirs_enospc):
+            try:
+                fs.mkdirs("blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
+        with patch('os.makedirs', mock_os_mkdir_makedirs_edquot):
+            try:
+                fs.mkdirs("blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
+
     def test_do_mkdir(self):
         try:
             path = os.path.join('/tmp', str(random.random()))
@@ -310,6 +361,23 @@ class TestFsUtils(unittest.TestCase):
             pass
         else:
             self.fail("GlusterFileSystemOSError expected")
+
+        with patch('os.mkdir', mock_os_mkdir_makedirs_enospc):
+            try:
+                fs.do_mkdir("blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
+        with patch('os.mkdir', mock_os_mkdir_makedirs_edquot):
+            try:
+                fs.do_mkdir("blah")
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+
 
     def test_do_listdir(self):
         tmpdir = mkdtemp()
@@ -712,3 +780,60 @@ class TestFsUtils(unittest.TestCase):
                 self.fail("Expected GlusterFileSystemOSError")
         finally:
             shutil.rmtree(tmpdir)
+
+    def test_get_filename_from_fd(self):
+        tmpdir = mkdtemp()
+        try:
+            fd, tmpfile = mkstemp(dir=tmpdir)
+            result = fs.get_filename_from_fd(fd)
+            self.assertEqual(tmpfile, result)
+            result = fs.get_filename_from_fd(fd, True)
+            self.assertEqual(tmpfile, result)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_get_filename_from_fd_err(self):
+        result = fs.get_filename_from_fd("blah")
+        self.assertIsNone(result)
+        result = fs.get_filename_from_fd(-1000)
+        self.assertIsNone(result)
+        result = fs.get_filename_from_fd("blah", True)
+        self.assertIsNone(result)
+
+    def test_static_var(self):
+        @fs.static_var("counter", 0)
+        def test_func():
+            test_func.counter += 1
+            return test_func.counter
+
+        result = test_func()
+        self.assertEqual(result, 1)
+
+    def test_do_log_rl(self):
+        _mock = Mock()
+        pid = os.getpid()
+        with patch("logging.error", _mock):
+            # The first call always invokes logging.error
+            fs.do_log_rl("Hello %s", "world")
+            _mock.reset_mock()
+            # We call do_log_rl 3 times. Twice in immediate succession and
+            # then after an interval of 1.1 second. Thus, the last call will
+            # invoke logging.error
+            for i in range(2):
+                fs.do_log_rl("Hello %s", "world")
+            sleep(1.1)
+            fs.do_log_rl("Hello %s", "world")
+
+        # We check if logging.error was called exactly once even though
+        # do_log_rl was called 3 times.
+        _mock.assert_called_once_with('[PID:' + str(pid) + '][RateLimitedLog;'
+                                      'Count:3] Hello %s', 'world')
+
+    def test_do_log_rl_err(self):
+        _mock = Mock()
+        pid = os.getpid()
+        sleep(1.1)
+        with patch("logging.error", _mock):
+            fs.do_log_rl("Hello %s", "world", log_level="blah")
+        _mock.assert_called_once_with('[PID:' + str(pid) + '][RateLimitedLog;'
+                                      'Count:1] Hello %s', 'world')

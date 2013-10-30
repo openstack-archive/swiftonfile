@@ -28,6 +28,7 @@ from collections import defaultdict
 from mock import patch
 from gluster.swift.common import utils, Glusterfs
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
+from swift.common.exceptions import DiskFileNoSpace
 
 #
 # Somewhat hacky way of emulating the operation of xattr calls. They are made
@@ -168,6 +169,28 @@ class TestUtils(unittest.TestCase):
             assert _xattr_op_cnt['set'] == 1
         else:
             self.fail("Expected an IOError exception on write")
+
+    def test_write_metadata_space_err(self):
+
+        def _mock_xattr_setattr(item, name, value):
+            raise IOError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+        with patch('xattr.setxattr', _mock_xattr_setattr):
+            path = "/tmp/foo/w"
+            orig_d = {'bar': 'foo'}
+            try:
+                utils.write_metadata(path, orig_d)
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
+            fd = 0
+            try:
+                utils.write_metadata(fd, orig_d)
+            except DiskFileNoSpace:
+                pass
+            else:
+                self.fail("Expected DiskFileNoSpace exception")
 
     def test_write_metadata_multiple(self):
         # At 64 KB an xattr key/value pair, this should generate three keys.
