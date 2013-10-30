@@ -18,10 +18,14 @@ import os
 import errno
 import stat
 import random
+import time
+from collections import defaultdict
+from itertools import repeat
 import os.path as os_path    # noqa
 from eventlet import sleep
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
     NotDirectoryError, GlusterFileSystemOSError, GlusterFileSystemIOError
+from swift.common.exceptions import DiskFileNoSpace
 
 
 class Fake_file(object):
@@ -49,8 +53,14 @@ def do_write(fd, msg):
     try:
         cnt = os.write(fd, msg)
     except OSError as err:
-        raise GlusterFileSystemOSError(
-            err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
+        filename = get_filename_from_fd(fd)
+        if err.errno in (errno.ENOSPC, errno.EDQUOT):
+            do_log_rl("do_write(%d, msg[%d]) failed: %s : %s",
+                      fd, len(msg), err, filename)
+            raise DiskFileNoSpace()
+        else:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
     return cnt
 
 
@@ -103,6 +113,9 @@ def do_mkdir(path):
     except OSError as err:
         if err.errno == errno.EEXIST:
             logging.warn("fs_utils: os.mkdir - path %s already exists", path)
+        elif err.errno in (errno.ENOSPC, errno.EDQUOT):
+            do_log_rl("do_mkdir(%s) failed: %s", path, err)
+            raise DiskFileNoSpace()
         else:
             raise GlusterFileSystemOSError(
                 err.errno, '%s, os.mkdir("%s")' % (err.strerror, path))
@@ -285,5 +298,86 @@ def mkdirs(path):
     except OSError as err:
         if err.errno == errno.EEXIST and os.path.isdir(path):
             return
-        raise GlusterFileSystemOSError(
-            err.errno, '%s, os.makedirs("%s")' % (err.strerror, path))
+        elif err.errno in (errno.ENOSPC, errno.EDQUOT):
+            do_log_rl("mkdirs(%s) failed: %s", path, err)
+            raise DiskFileNoSpace()
+        else:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.makedirs("%s")' % (err.strerror, path))
+
+
+def get_filename_from_fd(fd, verify=False):
+    """
+    Given the file descriptor, this method attempts to get the filename as it
+    was when opened. This may not give accurate results in following cases:
+    - file was renamed/moved/deleted after it was opened
+    - file has multiple hardlinks
+
+    :param fd: file descriptor of file opened
+    :param verify: If True, performs additional checks using inode number
+    """
+    filename = None
+    if isinstance(fd, int):
+        try:
+            filename = os.readlink("/proc/self/fd/" + str(fd))
+        except OSError:
+            pass
+
+    if not verify:
+        return filename
+
+    # If verify = True, we compare st_dev and st_ino of file and fd.
+    # This involves additional stat and fstat calls. So this is disabled
+    # by default.
+    if filename and fd:
+        s_file = do_stat(filename)
+        s_fd = do_fstat(fd)
+
+        if s_file and s_fd:
+            if (s_file.st_ino, s_file.st_dev) == (s_fd.st_ino, s_fd.st_dev):
+                return filename
+
+    return None
+
+
+def static_var(varname, value):
+    """Decorator function to create pseudo static variables."""
+    def decorate(func):
+        setattr(func, varname, value)
+        return func
+    return decorate
+
+# Rate limit to emit log message once a second
+_DO_LOG_RL_INTERVAL = 1.0
+
+
+@static_var("counter", defaultdict(int))
+@static_var("last_called", defaultdict(repeat(0.0).next))
+def do_log_rl(msg, *args, **kwargs):
+    """
+    Rate limited logger.
+
+    :param msg: String or message to be logged
+    :param log_level: Possible values- error, warning, info, debug, critical
+    """
+    log_level = kwargs.get('log_level', "error")
+    if log_level not in ("error", "warning", "info", "debug", "critical"):
+        log_level = "error"
+
+    do_log_rl.counter[msg] += 1  # Increment msg counter
+    interval = time.time() - do_log_rl.last_called[msg]
+
+    if interval >= _DO_LOG_RL_INTERVAL:
+        # Prefix PID of process and message count to original log msg
+        emit_msg = "[PID:" + str(os.getpid()) + "]" \
+            + "[RateLimitedLog;Count:" + str(do_log_rl.counter[msg]) + "] " \
+            + msg
+        # log_level is a param for do_log_rl and not for logging.* methods
+        try:
+            del kwargs['log_level']
+        except KeyError:
+            pass
+
+        getattr(logging, log_level)(emit_msg, *args, **kwargs)  # Emit msg
+        do_log_rl.counter[msg] = 0  # Reset msg counter when message is emitted
+        do_log_rl.last_called[msg] = time.time()  # Reset msg time

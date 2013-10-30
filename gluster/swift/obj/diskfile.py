@@ -700,8 +700,9 @@ class DiskFile(SwiftDiskFile):
                 fd = do_open(tmppath,
                              os.O_WRONLY | os.O_CREAT | os.O_EXCL | O_CLOEXEC)
             except GlusterFileSystemOSError as gerr:
-                if gerr.errno == errno.ENOSPC:
-                    # Raise DiskFileNoSpace to be handled by upper layers
+                if gerr.errno in (errno.ENOSPC, errno.EDQUOT):
+                    # Raise DiskFileNoSpace to be handled by upper layers when
+                    # there is no space on disk OR when quota is exceeded
                     raise DiskFileNoSpace()
                 if gerr.errno not in (errno.ENOENT, errno.EEXIST, errno.EIO):
                     # FIXME: Other cases we should handle?

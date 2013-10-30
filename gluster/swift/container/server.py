@@ -21,6 +21,9 @@ import gluster.swift.common.constraints    # noqa
 
 from swift.container import server
 from gluster.swift.common.DiskDir import DiskDir
+from swift.common.utils import public, timing_stats
+from swift.common.exceptions import DiskFileNoSpace
+from swift.common.swob import HTTPInsufficientStorage
 
 
 class ContainerController(server.ContainerController):
@@ -62,6 +65,17 @@ class ContainerController(server.ContainerController):
         :returns: None.
         """
         return None
+
+    @public
+    @timing_stats()
+    def PUT(self, req):
+        try:
+            return server.ContainerController.PUT(self, req)
+        except DiskFileNoSpace:
+            # As container=directory in gluster-swift, we might run out of
+            # space or exceed quota when creating containers.
+            drive = req.split_path(1, 1, True)
+            return HTTPInsufficientStorage(drive=drive, request=req)
 
 
 def app_factory(global_conf, **local_conf):
