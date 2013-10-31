@@ -1,4 +1,3 @@
-# Copyright (c) 2010-2012 OpenStack Foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -155,13 +154,13 @@ class Connection(object):
         self.storage_host = x[2].split(':')[0]
         if ':' in x[2]:
             self.storage_port = int(x[2].split(':')[1])
-        # Make sure storage_url is a string and not unicode, since
+        # Make sure storage_url and the storage_token are
+        # strings and not unicode, since
         # keystoneclient (called by swiftclient) returns them in
         # unicode and this would cause troubles when doing
         # no_safe_quote query.
         self.storage_url = str('/%s/%s' % (x[3], x[4]))
-
-        self.storage_token = storage_token
+        self.storage_token = str(storage_token)
 
         self.http_connect()
         return self.storage_url, self.storage_token
