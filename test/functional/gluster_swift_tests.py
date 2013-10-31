@@ -16,7 +16,7 @@
 """ OpenStack Swift based functional tests for Gluster for Swift"""
 
 import random
-
+import os,sys,re,hashlib
 from nose import SkipTest
 
 from test.functional.tests import config, locale, Base, Base2, Utils, \
@@ -25,7 +25,6 @@ from test.functional.swift_test_client import Account, Connection, File, \
     ResponseError
 
 web_front_end = config.get('web_front_end', 'integral')
-
 
 class TestFile(Base):
     env = TestFileEnv
@@ -239,3 +238,103 @@ class TestObjectVersioning(Base):
             self.assertEquals(data,file.read())
             self.assert_(file.delete())
             self.assert_status(204)
+
+
+class TestMultiProtocolAccessEnv:
+    @classmethod
+    def setUp(cls):
+        cls.conn = Connection(config)
+        cls.conn.authenticate()
+        cls.account = Account(cls.conn, config.get('account',
+                                                   config['username']))
+	cls.root_dir = os.path.join('/mnt/gluster-object',cls.account.conn.storage_url.split('/')[2].split('_')[1])
+        cls.account.delete_containers()
+
+        cls.file_size = 8
+        cls.container = cls.account.container(Utils.create_name())
+        if not cls.container.create():
+            raise ResponseError(cls.conn.response)
+
+        cls.dirs = [
+            'dir1',
+            'dir2',
+            'dir1/subdir1',
+            'dir1/subdir2',
+            'dir1/subdir1/subsubdir1',
+            'dir1/subdir1/subsubdir2',
+            'dir1/subdir with spaces',
+            'dir1/subdir+with{whatever',
+        ]
+
+        cls.files = [
+            'file1',
+            'file A',
+            'dir1/file2',
+            'dir1/subdir1/file2',
+            'dir1/subdir1/file3',
+            'dir1/subdir1/file4',
+            'dir1/subdir1/subsubdir1/file5',
+            'dir1/subdir1/subsubdir1/file6',
+            'dir1/subdir1/subsubdir1/file7',
+            'dir1/subdir1/subsubdir1/file8',
+            'dir1/subdir1/subsubdir2/file9',
+            'dir1/subdir1/subsubdir2/file0',
+            'dir1/subdir with spaces/file B',
+            'dir1/subdir+with{whatever/file D',
+        ]
+
+        stored_files = set()
+        for d in cls.dirs:
+            file = cls.container.file(d)
+            file.write(hdrs={'Content-Type': 'application/directory'})
+        for f in cls.files:
+            file = cls.container.file(f)
+            file.write_random(cls.file_size, hdrs={'Content-Type':
+                                  'application/octet-stream'})
+            stored_files.add(f)
+        cls.stored_files = sorted(stored_files)
+        cls.sorted_objects = sorted(set(cls.dirs + cls.files))
+
+
+class TestMultiProtocolAccess(Base):
+    env = TestMultiProtocolAccessEnv
+    set_up = False
+
+    def testObjectsFromMountPoint(self):
+        found_files = []
+        found_dirs = []
+
+        def recurse_path(path, count=0):
+            if count > 10:
+                raise ValueError('too deep recursion')
+            self.assert_(os.path.exists(path))
+            for file in os.listdir(path):
+                if os.path.isdir(os.path.join(path,file)):
+                    recurse_path(os.path.join(path,file), count + 1)
+                    found_dirs.append(file)
+                elif os.path.isfile(os.path.join(path,file)):
+                    filename=os.path.join(os.path.relpath(path,os.path.join(self.env.root_dir,self.env.container.name)),file)
+                    if re.match('^[\.]',filename):
+                        filename=filename[2:]
+                    found_files.append(filename)
+                else:
+                    pass #Just a Place holder
+
+        recurse_path(os.path.join(self.env.root_dir,self.env.container.name))
+        for file in self.env.stored_files:
+                self.assert_(file in found_files)
+                self.assert_(file not in found_dirs)
+
+    def testObjectContentFromMountPoint(self):
+        file_name = Utils.create_name()
+        file_item = self.env.container.file(file_name)
+        data = file_item.write_random()
+        self.assert_status(201)
+        file_info = file_item.info()
+        fhOnMountPoint = open(os.path.join(self.env.root_dir,self.env.container.name,file_name),'r')
+        data_read_from_mountP = fhOnMountPoint.read()
+        md5_returned = hashlib.md5(data_read_from_mountP).hexdigest()
+        self.assertEquals(md5_returned,file_info['etag'])
+        fhOnMountPoint.close()
+
+
