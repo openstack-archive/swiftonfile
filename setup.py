@@ -48,6 +48,16 @@ setup(
     scripts=[
         'bin/gluster-swift-gen-builders',
         'bin/gluster-swift-print-metadata',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-add-account',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-add-user',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-cleanup-tokens',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-delete-account',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-delete-user',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-list',
+        'gluster/swift/common/middleware/gswauth/bin/swauth-prep',
+        'gluster/swift/common/middleware/gswauth/bin/'
+        'swauth-set-account-service',
+
     ],
     entry_points={
         'paste.app_factory': [
@@ -55,6 +65,10 @@ setup(
             'object=gluster.swift.obj.server:app_factory',
             'container=gluster.swift.container.server:app_factory',
             'account=gluster.swift.account.server:app_factory',
+        ],
+        'paste.filter_factory': [
+            'swauth=gluster.swift.common.middleware.gswauth.swauth.middleware:'
+            'filter_factory',
         ],
     },
 )
