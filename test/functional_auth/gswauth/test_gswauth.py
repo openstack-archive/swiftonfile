@@ -15,6 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
 import unittest
 from nose import SkipTest
 from swift.common.bufferedhttp import http_connect_raw as http_connect
@@ -36,7 +40,7 @@ class TestGSWauth(unittest.TestCase):
         return {'X-Auth-Admin-User': config['admin_user'],
                 'X-Auth-Admin-Key': config['admin_key']}
 
-    def _check_test_account_does_not_exist(self):
+    def _check_test_account_is_not_registered(self):
         # check account exists
         path = '%sv2/%s' % (config['auth_prefix'], config['account'])
 
@@ -47,7 +51,7 @@ class TestGSWauth(unittest.TestCase):
         resp = conn.getresponse()
         self.assertTrue(resp.status == 404)
 
-    def _create_test_account(self):
+    def _register_test_account(self):
         # create account in swauth (not a swift account)
         # This current version only supports one account per volume
         # and the account name is the same as the volume name
@@ -61,9 +65,9 @@ class TestGSWauth(unittest.TestCase):
         resp = conn.getresponse()
         self.assertTrue(resp.status == 201)
 
-    def _delete_test_account(self):
+    def _deregister_test_account(self):
         # delete account in swauth (not a swift account)
-        # @see _create_test_account
+        # @see _register_test_account
         path = '%sv2/%s' % (config['auth_prefix'], config['account'])
         headers = self._get_admin_headers()
         headers.update({'Content-Length': '0'})
@@ -72,15 +76,31 @@ class TestGSWauth(unittest.TestCase):
         resp = conn.getresponse()
         self.assertTrue(resp.status == 204)
 
-    def test_add_account(self):
-        self._check_test_account_does_not_exist()
-        self._create_test_account()
-        self._delete_test_account()
+    def test_register_account(self):
+        # check and register account
+        self._check_test_account_is_not_registered()
+        self._register_test_account()
+
+        try:
+            # list account
+            path = '%sv2/%s' % (config['auth_prefix'], config['account'])
+            headers = self._get_admin_headers()
+            conn = http_connect(config['auth_host'], config['auth_port'],
+                    'GET', path, headers)
+            resp = conn.getresponse()
+            body = resp.read()
+            info = json.loads(body)
+            self.assertEqual(info['account_id'], 'AUTH_test')
+            self.assertTrue(resp.status == 200)
+
+        finally:
+            # de-register account
+            self._deregister_test_account()
 
     def test_add_user(self):
-        # check and create account
-        self._check_test_account_does_not_exist()
-        self._create_test_account()
+        # check and register account
+        self._check_test_account_is_not_registered()
+        self._register_test_account()
 
         # create user
         path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
@@ -93,3 +113,27 @@ class TestGSWauth(unittest.TestCase):
                 path, headers)
         resp = conn.getresponse()
         self.assertTrue(resp.status == 201)
+
+        try:
+            # list user
+            headers = self._get_admin_headers()
+            conn = http_connect(config['auth_host'], config['auth_port'],
+                    'GET', path, headers)
+            resp = conn.getresponse()
+            body = resp.read()
+            self.assertEqual(body, '{"groups": [{"name": "test:tester"}, {"name":'
+                ' "test"}, {"name": ".admin"}], "auth": "plaintext:testing"}')
+            self.assertTrue(resp.status == 200)
+
+        finally:
+            try:
+                # delete user
+                headers = self._get_admin_headers()
+                conn = http_connect(config['auth_host'], config['auth_port'],
+                        'DELETE', path, headers)
+                resp = conn.getresponse()
+                self.assertTrue(resp.status == 204)
+
+            finally:
+                # de-register account
+                self._deregister_test_account()

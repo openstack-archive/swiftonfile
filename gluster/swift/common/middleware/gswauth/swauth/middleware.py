@@ -750,6 +750,7 @@ class Swauth(object):
         account = req.path_info_pop()
         if req.path_info or not account or account[0] == '.':
             return HTTPBadRequest(request=req)
+
         # Ensure the container in the main auth account exists (this
         # container represents the new account)
         path = quote('/v1/%s/%s' % (self.auth_account, account))

@@ -53,6 +53,31 @@ fail()
 	quit "$1"
 }
 
+run_generic_tests()
+{
+    # clean up gsmetadata dir
+    gswauth_cleanup
+
+    #swauth-prep
+    sudo_env swauth-prep -K swauthkey || fail "Unable to prep gswauth"
+    sudo_env swauth-add-user -K swauthkey -a test tester testing || fail "Unable to add user test"
+    sudo_env swauth-add-user -K swauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
+    sudo_env swauth-add-user -K swauthkey test tester3 testing3 || fail "Unable to add user test3"
+
+    nosetests -v --exe \
+        --with-xunit \
+        --xunit-file functional_tests/gluster-swift-gswauth-generic-functional-TC-report.xml \
+        --with-html-output \
+        --html-out-file functional_tests/gluster-swift-gswauth-generic-functional-result.html \
+        test/functional || fail "Functional tests failed"
+    nosetests -v --exe \
+        --with-xunit \
+        --xunit-file functional_tests/gluster-swift-gswauth-functionalnosetests-TC-report.xml \
+        --with-html-output \
+        --html-out-file functional_tests/gluster-swift-gswauth-functionalnosetests-result.html \
+        test/functionalnosetests || fail "Functional-nose tests failed"
+}
+
 ### MAIN ###
 
 # Only run if there is no configuration in the system
@@ -90,27 +115,7 @@ nosetests -v --exe \
     --html-out-file functional_tests/gluster-swift-gswauth-functional-result.html \
     test/functional_auth/gswauth || fail "Functional gswauth test failed"
 
-# clean up gsmetadata dir
-gswauth_cleanup
-
-#swauth-prep
-sudo_env swauth-prep -K swauthkey || fail "Unable to prep gswauth"
-sudo_env swauth-add-user -K swauthkey -a test tester testing || fail "Unable to add user test"
-sudo_env swauth-add-user -K swauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
-sudo_env swauth-add-user -K swauthkey test tester3 testing3 || fail "Unable to add user test3"
-
-nosetests -v --exe \
-	--with-xunit \
-	--xunit-file functional_tests/gluster-swift-gswauth-generic-functional-TC-report.xml \
-    --with-html-output \
-    --html-out-file functional_tests/gluster-swift-gswauth-generic-functional-result.html \
-    test/functional || fail "Functional tests failed"
-nosetests -v --exe \
-	--with-xunit \
-	--xunit-file functional_tests/gluster-swift-gswauth-functionalnosetests-TC-report.xml \
-    --with-html-output \
-    --html-out-file functional_tests/gluster-swift-gswauth-functionalnosetests-result.html \
-    test/functionalnosetests || fail "Functional-nose tests failed"
+run_generic_tests
 
 cleanup
 exit 0
