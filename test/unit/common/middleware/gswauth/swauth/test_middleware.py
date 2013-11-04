@@ -194,6 +194,20 @@ class TestAuth(unittest.TestCase):
                           'Invalid auth_type in config file: %s' %
                           'Nonexistant')
 
+    def test_default_metadata_volume_init(self):
+        app = FakeApp()
+        ath = auth.filter_factory({})(app)
+        self.assertEquals(ath.metadata_volume, 'gsmetadata')
+
+    def test_conf_metadata_volume_init(self):
+        app = FakeApp()
+        ath = auth.filter_factory(
+            {'metadata_volume': 'meta_test'})(app)
+        self.assertEquals(ath.metadata_volume, 'meta_test')
+        ath = auth.filter_factory(
+            {'metadata_volume': 'new_meta_volume'})(app)
+        self.assertEquals(ath.metadata_volume, 'new_meta_volume')
+
     def test_default_swift_cluster_init(self):
         app = FakeApp()
         self.assertRaises(Exception, auth.filter_factory({
