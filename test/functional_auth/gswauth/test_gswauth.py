@@ -28,14 +28,6 @@ config = get_config('func_test')
 
 class TestGSWauth(unittest.TestCase):
 
-    def setUp(self):
-        #TODO
-        None
-
-    def tearDown(self):
-        #TODO
-        None
-
     def _get_admin_headers(self):
         return {'X-Auth-Admin-User': config['admin_user'],
                 'X-Auth-Admin-Key': config['admin_key']}
@@ -124,6 +116,126 @@ class TestGSWauth(unittest.TestCase):
             self.assertEqual(body, '{"groups": [{"name": "test:tester"}, {"name":'
                 ' "test"}, {"name": ".admin"}], "auth": "plaintext:testing"}')
             self.assertTrue(resp.status == 200)
+
+        finally:
+            try:
+                # delete user
+                headers = self._get_admin_headers()
+                conn = http_connect(config['auth_host'], config['auth_port'],
+                        'DELETE', path, headers)
+                resp = conn.getresponse()
+                self.assertTrue(resp.status == 204)
+
+            finally:
+                # de-register account
+                self._deregister_test_account()
+
+    def test_register_invalid_account(self):
+        # invalid account
+        path = '%sv2/%s' % (config['auth_prefix'], '.test')
+        headers = self._get_admin_headers()
+        headers.update({'Content-Length': '0'})
+        conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                path, headers)
+        resp = conn.getresponse()
+        self.assertTrue(resp.status == 400)
+
+    def test_add_invalid_user(self):
+        path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
+                '.invaliduser')
+        headers = self._get_admin_headers()
+        headers.update({'X-Auth-User-Key': config['password'],
+                        'Content-Length': '0',
+                        'X-Auth-User-Admin': 'true'})
+        conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                path, headers)
+        resp = conn.getresponse()
+        self.assertTrue(resp.status == 400)
+
+    def test_register_account_without_admin_rights(self):
+        path = '%sv2/%s' % (config['auth_prefix'], config['account'])
+        headers = {'X-Auth-Admin-User': config['admin_user']}
+        headers.update({'Content-Length': '0'})
+        conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                path, headers)
+        resp = conn.getresponse()
+        self.assertTrue(resp.status == 403)
+
+    def test_change_user_password(self):
+        # check and register account
+        self._check_test_account_is_not_registered()
+        self._register_test_account()
+
+        try:
+            # create user
+            path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
+                    config['username'])
+            headers = self._get_admin_headers()
+            headers.update({'X-Auth-User-Key': config['password'],
+                            'Content-Length': '0',
+                            'X-Auth-User-Admin': 'true'})
+            conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                    path, headers)
+            resp = conn.getresponse()
+            print "resp creating user %s" % resp.status
+            self.assertTrue(resp.status == 201)
+
+            # change password
+            path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
+                    config['username'])
+            headers = self._get_admin_headers()
+            headers.update({'X-Auth-User-Key': 'newpassword',
+                            'Content-Length': '0',
+                            'X-Auth-User-Admin': 'true'})
+            conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                    path, headers)
+            resp = conn.getresponse()
+            print "resp changing password %s" % resp.status
+            self.assertTrue(resp.status == 201)
+        finally:
+            try:
+                # delete user
+                headers = self._get_admin_headers()
+                conn = http_connect(config['auth_host'], config['auth_port'],
+                        'DELETE', path, headers)
+                resp = conn.getresponse()
+                self.assertTrue(resp.status == 204)
+
+            finally:
+                # de-register account
+                self._deregister_test_account()
+
+    def test_change_user_password_without_admin_rights(self):
+        # check and register account
+        self._check_test_account_is_not_registered()
+        self._register_test_account()
+
+        try:
+            # create user
+            path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
+                    config['username'])
+            headers = self._get_admin_headers()
+            headers.update({'X-Auth-User-Key': config['password'],
+                            'Content-Length': '0',
+                            'X-Auth-User-Admin': 'true'})
+            conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                    path, headers)
+            resp = conn.getresponse()
+            print "resp creating user %s" % resp.status
+            self.assertTrue(resp.status == 201)
+
+            # attempt to change password
+            path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
+                    config['username'])
+            headers = self._get_admin_headers()
+            headers.update({'X-Auth-User-Key': 'newpassword',
+                            'Content-Length': '0',
+                            'X-Auth-Admin-Key': config['password'],
+                            'X-Auth-User-Admin': 'true'})
+            conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
+                    path, headers)
+            resp = conn.getresponse()
+            self.assertTrue(resp.status == 403)
 
         finally:
             try:
