@@ -92,7 +92,10 @@ class Swauth(object):
                     pass
                 raise ValueError(msg)
         self.swauth_remote_timeout = int(conf.get('swauth_remote_timeout', 10))
-        self.auth_account = '%sgsmetadata' % self.reseller_prefix
+
+        self.metadata_volume = conf.get('metadata_volume', 'gsmetadata')
+        self.auth_account = '%s%s' % (self.reseller_prefix,
+                                      self.metadata_volume)
         self.default_swift_cluster = conf.get(
             'default_swift_cluster',
             'local#http://127.0.0.1:8080/v1')
