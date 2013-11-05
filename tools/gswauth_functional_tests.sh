@@ -59,10 +59,10 @@ run_generic_tests()
     gswauth_cleanup
 
     #swauth-prep
-    sudo_env swauth-prep -K swauthkey || fail "Unable to prep gswauth"
-    sudo_env swauth-add-user -K swauthkey -a test tester testing || fail "Unable to add user test"
-    sudo_env swauth-add-user -K swauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
-    sudo_env swauth-add-user -K swauthkey test tester3 testing3 || fail "Unable to add user test3"
+    sudo_env swauth-prep -K gswauthkey || fail "Unable to prep gswauth"
+    sudo_env swauth-add-user -K gswauthkey -a test tester testing || fail "Unable to add user test"
+    sudo_env swauth-add-user -K gswauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
+    sudo_env swauth-add-user -K gswauthkey test tester3 testing3 || fail "Unable to add user test3"
 
     nosetests -v --exe \
         --with-xunit \
@@ -105,7 +105,7 @@ sudo service memcached start || fail "Unable to start memcached"
 sudo_env swift-init main start || fail "Unable to start swift"
 
 #swauth-prep
-sudo_env swauth-prep -K swauthkey || fail "Unable to prep gswauth"
+sudo_env swauth-prep -K gswauthkey || fail "Unable to prep gswauth"
 
 mkdir functional_tests > /dev/null 2>&1
 nosetests -v --exe \
