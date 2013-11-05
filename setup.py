@@ -67,8 +67,8 @@ setup(
             'account=gluster.swift.account.server:app_factory',
         ],
         'paste.filter_factory': [
-            'swauth=gluster.swift.common.middleware.gswauth.swauth.middleware:'
-            'filter_factory',
+            'gswauth=gluster.swift.common.middleware.gswauth.swauth.'
+            'middleware:filter_factory',
         ],
     },
 )

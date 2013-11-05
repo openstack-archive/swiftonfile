@@ -59,7 +59,7 @@ class Swauth(object):
     def __init__(self, app, conf):
         self.app = app
         self.conf = conf
-        self.logger = get_logger(conf, log_route='swauth')
+        self.logger = get_logger(conf, log_route='gswauth')
         self.log_headers = conf.get('log_headers', 'no').lower() in TRUE_VALUES
         self.reseller_prefix = conf.get('reseller_prefix', 'AUTH').strip()
         if self.reseller_prefix and self.reseller_prefix[-1] != '_':
@@ -148,7 +148,7 @@ class Swauth(object):
             raise Exception(
                 'Invalid auth_type in config file: %s'
                 % self.auth_type)
-        self.auth_encoder.salt = conf.get('auth_type_salt', 'swauthsalt')
+        self.auth_encoder.salt = conf.get('auth_type_salt', 'gswauthsalt')
         self.allow_overrides = \
             conf.get('allow_overrides', 't').lower() in TRUE_VALUES
         self.agent = '%(orig)s Swauth'
