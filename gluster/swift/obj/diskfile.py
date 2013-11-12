@@ -43,7 +43,8 @@ from gluster.swift.common.utils import read_metadata, write_metadata, \
     get_object_metadata
 from gluster.swift.common.utils import X_CONTENT_LENGTH, X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
-    FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT
+    FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
+    X_ETAG
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 
 from swift.obj.diskfile import DiskFile as SwiftDiskFile
@@ -260,7 +261,8 @@ def _adjust_metadata(metadata):
     # Fix up the metadata to ensure it has a proper value for the
     # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
     # metadata values.
-    content_type = metadata[X_CONTENT_TYPE]
+    content_type = metadata.get(X_CONTENT_TYPE, '')
+
     if not content_type:
         # FIXME: How can this be that our caller supplied us with metadata
         # that has a content type that evaluates to False?
@@ -777,9 +779,41 @@ class DiskFile(SwiftDiskFile):
         if tombstone:
             # We don't write tombstone files. So do nothing.
             return
-        metadata = _adjust_metadata(metadata)
+        metadata = self._keep_sys_metadata(metadata)
         data_file = os.path.join(self.put_datadir, self._obj)
         self.threadpool.run_in_thread(write_metadata, data_file, metadata)
+
+    def _keep_sys_metadata(self, metadata):
+        """
+        Make sure system metadata is not lost when writing new user metadata
+
+        This method will read the existing metadata and check for system
+        metadata. If there are any, it should be appended to the metadata obj
+        the user is trying to write.
+        """
+        if self._metadata:
+            orig_metadata = self._metadata
+        else:
+            data_file = os.path.join(self.put_datadir, self._obj)
+            orig_metadata = read_metadata(data_file)
+
+        sys_keys = [X_CONTENT_TYPE, X_ETAG, 'name', X_CONTENT_LENGTH,
+                    X_OBJECT_TYPE, X_TYPE]
+
+        for key in sys_keys:
+            if key in orig_metadata:
+                metadata[key] = orig_metadata[key]
+
+        if X_OBJECT_TYPE not in orig_metadata:
+            if metadata[X_CONTENT_TYPE].lower() == DIR_TYPE:
+                metadata[X_OBJECT_TYPE] = DIR_OBJECT
+            else:
+                metadata[X_OBJECT_TYPE] = FILE
+
+        if X_TYPE not in orig_metadata:
+            metadata[X_TYPE] = OBJECT
+
+        return metadata
 
     def _delete(self):
         if self._is_dir:
