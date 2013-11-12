@@ -40,11 +40,7 @@ from swift.common.utils import cache_from_env, get_logger, get_remote_client, \
 import swift.common.wsgi
 
 
-from gluster.swift.common.middleware.gswauth.swauth import swift_version
 from gluster.swift.common.middleware.gswauth.swauth import authtypes
-
-
-MEMCACHE_TIME = swift_version.newer_than('1.7.7-dev')
 
 
 class Swauth(object):
@@ -349,14 +345,9 @@ class Swauth(object):
                 expires_from_now = float(resp.getheader('x-auth-ttl'))
                 groups = resp.getheader('x-auth-groups')
                 if memcache_client:
-                    if MEMCACHE_TIME:
-                        memcache_client.set(
-                            memcache_key, (time() + expires_from_now, groups),
-                            time=expires_from_now)
-                    else:
-                        memcache_client.set(
-                            memcache_key, (time() + expires_from_now, groups),
-                            timeout=expires_from_now)
+                    memcache_client.set(
+                        memcache_key, (time() + expires_from_now, groups),
+                        timeout=expires_from_now)
             else:
                 path = quote('/v1/%s/.token_%s/%s' %
                              (self.auth_account, token[-1], token))
@@ -375,16 +366,10 @@ class Swauth(object):
                     groups.append(detail['account_id'])
                 groups = ','.join(groups)
                 if memcache_client:
-                    if MEMCACHE_TIME:
-                        memcache_client.set(
-                            memcache_key,
-                            (detail['expires'], groups),
-                            time=float(detail['expires'] - time()))
-                    else:
-                        memcache_client.set(
-                            memcache_key,
-                            (detail['expires'], groups),
-                            timeout=float(detail['expires'] - time()))
+                    memcache_client.set(
+                        memcache_key,
+                        (detail['expires'], groups),
+                        timeout=float(detail['expires'] - time()))
         return groups
 
     def authorize(self, req):
@@ -1369,18 +1354,11 @@ class Swauth(object):
             if not memcache_client:
                 raise Exception(
                     'No memcache set up; required for Swauth middleware')
-            if MEMCACHE_TIME:
-                memcache_client.set(
-                    memcache_key,
-                    (self.itoken_expires,
-                     '.auth,.reseller_admin,%s.auth' % self.reseller_prefix),
-                    time=self.token_life)
-            else:
-                memcache_client.set(
-                    memcache_key,
-                    (self.itoken_expires,
-                     '.auth,.reseller_admin,%s.auth' % self.reseller_prefix),
-                    timeout=self.token_life)
+            memcache_client.set(
+                memcache_key,
+                (self.itoken_expires,
+                 '.auth,.reseller_admin,%s.auth' % self.reseller_prefix),
+                timeout=self.token_life)
         return self.itoken
 
     def get_admin_detail(self, req):

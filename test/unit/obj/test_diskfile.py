@@ -425,11 +425,101 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         md = {'Content-Type': 'application/octet-stream', 'a': 'b'}
         gdf.write_metadata(md.copy())
-        on_disk_md = _metadata[_mapit(the_dir)]
-        del on_disk_md['X-Type']
-        del on_disk_md['X-Object-Type']
-        assert on_disk_md == md, "on_disk_md = %r, md = %r" % (
-            on_disk_md, md)
+        self.assertIsNone(gdf._metadata)
+        fmd = _metadata[_mapit(the_dir)]
+        md.update({'X-Object-Type': 'file', 'X-Type': 'Object'})
+        self.assertTrue(fmd['a'], md['a'])
+        self.assertTrue(fmd['Content-Type'], md['Content-Type'])
+
+    def test_add_metadata_to_existing_file(self):
+        the_path = os.path.join(self.td, "vol0", "bar")
+        the_file = os.path.join(the_path, "z")
+        os.makedirs(the_path)
+        with open(the_file, "wb") as fd:
+            fd.write("1234")
+        ini_md = {
+            'X-Type': 'Object',
+            'X-Object-Type': 'file',
+            'Content-Length': 4,
+            'ETag': 'etag',
+            'X-Timestamp': 'ts',
+            'Content-Type': 'application/loctet-stream'}
+        _metadata[_mapit(the_file)] = ini_md
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+        md = {'Content-Type': 'application/octet-stream', 'a': 'b'}
+        gdf.write_metadata(md.copy())
+        self.assertTrue(_metadata[_mapit(the_file)]['a'], 'b')
+        newmd = {'X-Object-Meta-test':'1234'}
+        gdf.write_metadata(newmd.copy())
+        on_disk_md = _metadata[_mapit(the_file)]
+        self.assertTrue(on_disk_md['Content-Length'], 4)
+        self.assertTrue(on_disk_md['X-Object-Meta-test'], '1234')
+        self.assertTrue(on_disk_md['X-Type'], 'Object')
+        self.assertTrue(on_disk_md['X-Object-Type'], 'file')
+        self.assertTrue(on_disk_md['ETag'], 'etag')
+        self.assertFalse('a' in on_disk_md)
+
+    def test_add_md_to_existing_file_with_md_in_gdf(self):
+        the_path = os.path.join(self.td, "vol0", "bar")
+        the_file = os.path.join(the_path, "z")
+        os.makedirs(the_path)
+        with open(the_file, "wb") as fd:
+            fd.write("1234")
+        ini_md = {
+            'X-Type': 'Object',
+            'X-Object-Type': 'file',
+            'Content-Length': 4,
+            'name': 'z',
+            'ETag': 'etag',
+            'X-Timestamp': 'ts'}
+        _metadata[_mapit(the_file)] = ini_md
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+
+        # make sure gdf has the _metadata
+        gdf.open()
+        md = {'a': 'b'}
+        gdf.write_metadata(md.copy())
+        self.assertTrue(_metadata[_mapit(the_file)]['a'], 'b')
+        newmd = {'X-Object-Meta-test':'1234'}
+        gdf.write_metadata(newmd.copy())
+        on_disk_md = _metadata[_mapit(the_file)]
+        self.assertTrue(on_disk_md['Content-Length'], 4)
+        self.assertTrue(on_disk_md['X-Object-Meta-test'], '1234')
+        self.assertFalse('a' in on_disk_md)
+
+    def test_add_metadata_to_existing_dir(self):
+        the_cont = os.path.join(self.td, "vol0", "bar")
+        the_dir = os.path.join(the_cont, "dir")
+        os.makedirs(the_dir)
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir")
+        self.assertEquals(gdf._metadata, None)
+        init_md = {
+            'X-Type': 'Object',
+            'Content-Length': 0,
+            'ETag': 'etag',
+            'X-Timestamp': 'ts',
+            'X-Object-Meta-test':'test',
+            'Content-Type': 'application/directory'}
+        _metadata[_mapit(the_dir)] = init_md
+
+        md = {'X-Object-Meta-test':'test'}
+        gdf.write_metadata(md.copy())
+        self.assertEqual(_metadata[_mapit(the_dir)]['X-Object-Meta-test'],
+                'test')
+        self.assertEqual(_metadata[_mapit(the_dir)]['Content-Type'].lower(),
+                'application/directory')
+
+        # set new metadata
+        newmd = {'X-Object-Meta-test2':'1234'}
+        gdf.write_metadata(newmd.copy())
+        self.assertEqual(_metadata[_mapit(the_dir)]['Content-Type'].lower(),
+                'application/directory')
+        self.assertEqual(_metadata[_mapit(the_dir)]["X-Object-Meta-test2"],
+                '1234')
+        self.assertEqual(_metadata[_mapit(the_dir)]['X-Object-Type'],
+                DIR_OBJECT)
+        self.assertFalse('X-Object-Meta-test' in _metadata[_mapit(the_dir)])
+
 
     def test_write_metadata_w_meta_file(self):
         the_path = os.path.join(self.td, "vol0", "bar")
