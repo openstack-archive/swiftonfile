@@ -15,21 +15,17 @@
 # limitations under the License.
 
 from setuptools import setup, find_packages
-
-from gluster.swift import __canonical_version__ as version
-
-
-name = 'gluster_swift'
+from gluster.swift import _pkginfo
 
 
 setup(
-    name=name,
-    version=version,
+    name=_pkginfo.name,
+    version=_pkginfo.full_version,
     description='Gluster For Swift',
     license='Apache License (2.0)',
     author='Red Hat, Inc.',
     author_email='gluster-users@gluster.org',
-    url='https://forge.gluster.org/gluster-swift',
+    url='http://launchpad.net/gluster-swift',
     packages=find_packages(exclude=['test', 'bin']),
     test_suite='nose.collector',
     classifiers=[
