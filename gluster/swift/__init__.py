@@ -22,6 +22,7 @@ class PkgInfo(object):
         self.release = release
         self.name = name
         self.final = final
+        self.full_version = self.canonical_version + '-' + self.release
 
     def save_config(self, filename):
         """
@@ -44,6 +45,6 @@ class PkgInfo(object):
 ###
 ### Change the Package version here
 ###
-_pkginfo = PkgInfo('1.10.1', '0', 'glusterfs-openstack-swift', False)
+_pkginfo = PkgInfo('1.10.1', '0', 'gluster_swift', False)
 __version__ = _pkginfo.pretty_version
 __canonical_version__ = _pkginfo.canonical_version
