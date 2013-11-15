@@ -2922,7 +2922,7 @@ class TestObjectController(unittest.TestCase):
             req = Request.blank('/a/c/o', environ={'REQUEST_METHOD': 'COPY'},
                                 headers={'Destination': 'c/o'})
             req.account = 'a'
-            set_http_connect(200, 200, 200, 200, 200, 200, 200, 201, 201, 201)
+            set_http_connect(200, 200, 200, 200, 200, 201, 201, 201, 200, 200)
             #                acct cont acct cont objc objc objc obj  obj  obj
             self.app.memcache.store = {}
             resp = controller.COPY(req)
@@ -2934,7 +2934,7 @@ class TestObjectController(unittest.TestCase):
                                 headers={'Destination': 'c/o'})
             req.account = 'a'
             controller.object_name = 'o/o2'
-            set_http_connect(200, 200, 200, 200, 200, 200, 200, 201, 201, 201)
+            set_http_connect(200, 200, 200, 200, 200, 201, 201, 201, 200, 200)
             #                acct cont acct cont objc objc objc obj  obj  obj
             self.app.memcache.store = {}
             resp = controller.COPY(req)
@@ -2945,7 +2945,7 @@ class TestObjectController(unittest.TestCase):
                                 headers={'Destination': '/c/o'})
             req.account = 'a'
             controller.object_name = 'o'
-            set_http_connect(200, 200, 200, 200, 200, 200, 200, 201, 201, 201)
+            set_http_connect(200, 200, 200, 200, 200, 201, 201, 201, 200, 200)
             #                acct cont acct cont objc objc objc obj  obj  obj
             self.app.memcache.store = {}
             resp = controller.COPY(req)
@@ -2957,7 +2957,7 @@ class TestObjectController(unittest.TestCase):
                                 headers={'Destination': '/c/o'})
             req.account = 'a'
             controller.object_name = 'o/o2'
-            set_http_connect(200, 200, 200, 200, 200, 200, 200, 201, 201, 201)
+            set_http_connect(200, 200, 200, 200, 200, 201, 201, 201, 200, 200)
             #                acct cont acct cont objc objc objc obj  obj  obj
             self.app.memcache.store = {}
             resp = controller.COPY(req)
@@ -5178,7 +5178,7 @@ class TestContainerController(unittest.TestCase):
             controller = proxy_server.ContainerController(self.app, 'account',
                                                           'container')
             self.assert_status_map(controller.PUT,
-                                   (200, 200, 200, 201, 201, 201), 201,
+                                   (200, 201, 201, 201), 201,
                                    missing_container=True)
 
             self.app.max_containers_per_account = 12345
@@ -5192,7 +5192,7 @@ class TestContainerController(unittest.TestCase):
             controller = proxy_server.ContainerController(self.app, 'account',
                                                           'container')
             self.assert_status_map(controller.PUT,
-                                   (200, 200, 200, 201, 201, 201), 201,
+                                   (200, 201, 201, 201), 201,
                                    missing_container=True)
 
     def test_PUT_max_container_name_length(self):
@@ -5201,7 +5201,7 @@ class TestContainerController(unittest.TestCase):
             controller = proxy_server.ContainerController(self.app, 'account',
                                                           '1' * limit)
             self.assert_status_map(controller.PUT,
-                                   (200, 200, 200, 201, 201, 201), 201,
+                                   (200, 201, 201, 201), 201,
                                    missing_container=True)
             controller = proxy_server.ContainerController(self.app, 'account',
                                                           '2' * (limit + 1))
@@ -5286,7 +5286,7 @@ class TestContainerController(unittest.TestCase):
             controller = proxy_server.ContainerController(self.app, 'account',
                                                           'container')
             self.app.memcache = MockMemcache(allow_lock=True)
-            set_http_connect(200, 200, 200, 201, 201, 201,
+            set_http_connect(200, 201, 201, 201,
                              missing_container=True)
             req = Request.blank('/a/c', environ={'REQUEST_METHOD': 'PUT'})
             self.app.update_request(req)
