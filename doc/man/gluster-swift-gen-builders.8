@@ -1,0 +1,69 @@
+.TH gluster-swift-gen-builders 8 "gluster-swift helper utility" "18 November 2013" "Red Hat Inc."
+.SH NAME
+\fBgluster-swift-gen-builders \fP- Registers GlusterFS volumes to be accessed by
+\fBOpenStack Swift.
+\fB
+.SH SYNOPSIS
+.nf
+.fam C
+\fBgluster-swift-gen-builders\fP [\fB-v\fP] [\fB-h\fP] volumes\.\.\.
+
+.fam T
+.fi
+.fam T
+.fi
+.SH DESCRIPTION
+Register GlusterFS volumes to be accessed over OpenStack Swift.
+.SH OPTIONS
+\fB-v\fP or \fB--verbose\fP
+.PP
+.nf
+.fam C
+        Verbose
+
+.fam T
+.fi
+\fB-h\fP or \fB--help\fP
+.PP
+.nf
+.fam C
+        Prints help screen
+
+.fam T
+.fi
+.SH EXAMPLES
+
+\fBgluster-swift-gen-builders\fP vol1 vol2
+.PP
+.nf
+.fam C
+        Creates new ring files with vol1 and vol2
+
+.fam T
+.fi
+\fBgluster-swift-gen-builders\fP vol2
+.PP
+.nf
+.fam C
+        Creates new ring files by removing vol1
+
+.fam T
+.fi
+\fBgluster-swift-gen-builders\fP \fB-v\fP vol1
+.PP
+.nf
+.fam C
+        Create new ring files with vol1, (Verbose).
+
+.fam T
+.fi
+\fBgluster-swift-gen-builders\fP \fB-h\fP
+.PP
+.nf
+.fam C
+        Displays help screen
+
+.fam T
+.fi
+.SH COPYRIGHT
+\fBCopyright\fP(c) 2013 RedHat, Inc. <http://www.redhat.com>
