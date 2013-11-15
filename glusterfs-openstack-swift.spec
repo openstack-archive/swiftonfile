@@ -58,6 +58,12 @@ rm -rf %{buildroot}
 mkdir -p      %{buildroot}/%{_confdir}/
 cp -r etc/*   %{buildroot}/%{_confdir}/
 
+# Man Pages
+install -d -m 755 %{buildroot}%{_mandir}/man8
+for page in doc/man/*.8; do
+    install -p -m 0644 $page %{buildroot}%{_mandir}/man8
+done
+
 # Remove tests
 %{__rm} -rf %{buildroot}/%{python_sitelib}/test
 
@@ -78,6 +84,7 @@ cp -r etc/*   %{buildroot}/%{_confdir}/
 %{_bindir}/swauth-list
 %{_bindir}/swauth-prep
 %{_bindir}/swauth-set-account-service
+%{_mandir}/man8/*
 
 %dir %{_confdir}
 %config(noreplace) %{_confdir}/account-server.conf-gluster
