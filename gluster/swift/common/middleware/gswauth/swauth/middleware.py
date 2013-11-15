@@ -1173,7 +1173,7 @@ class Swauth(object):
         if user == '.super_admin' and self.super_admin_key and \
                 key == self.super_admin_key:
             token = self.get_itoken(req.environ)
-            url = '%s/%s.auth' % (self.dsc_url, self.reseller_prefix)
+            url = '%s/%s' % (self.dsc_url, self.auth_account)
             return Response(
                 request=req,
                 body=json.dumps(
