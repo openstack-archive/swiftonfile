@@ -804,6 +804,40 @@ class TestAuth(unittest.TestCase):
         self.assertEquals(resp.status_int, 500)
         self.assertEquals(self.test_auth.app.calls, 2)
 
+    def test_get_token_for_auth_acct_success(self):
+        local_auth = \
+            auth.filter_factory({
+                'super_admin_key': 'supertest',
+                'metadata_volume': 'gsmd',
+                'token_life': str(DEFAULT_TOKEN_LIFE),
+                'max_token_life': str(MAX_TOKEN_LIFE)})(FakeApp())
+        resp = Request.blank(
+            '/auth/v1.0',
+            environ={'REQUEST_METHOD': 'GET',
+                     'swift.cache': FakeMemcache()},
+            headers={'X-Auth-User': 'act:.super_admin',
+                     'X-Auth-Key': 'supertest'}).get_response(local_auth)
+        self.assertEquals(resp.status_int, 200)
+        itk = resp.headers.get('x-auth-token')
+        self.assertTrue(itk.startswith('AUTH_itk'), itk)
+        self.assertEquals(resp.headers.get('x-storage-url'),
+                          'http://127.0.0.1:8080/v1/AUTH_gsmd')
+
+    def test_get_token_for_auth_acct_fail_passwd(self):
+        local_auth = \
+            auth.filter_factory({
+                'super_admin_key': 'supertest',
+                'metadata_volume': 'gsmd',
+                'token_life': str(DEFAULT_TOKEN_LIFE),
+                'max_token_life': str(MAX_TOKEN_LIFE)})(FakeApp())
+        resp = Request.blank(
+            '/auth/v1.0',
+            environ={'REQUEST_METHOD': 'GET',
+                     'swift.cache': FakeMemcache()},
+            headers={'X-Auth-User': 'act:.super_admin',
+                     'X-Auth-Key': 'invalidpasswd'}).get_response(local_auth)
+        self.assertEquals(resp.status_int, 401)
+
     def test_get_token_success_v1_0(self):
         self.test_auth.app = FakeApp(iter([
             # GET of user object
