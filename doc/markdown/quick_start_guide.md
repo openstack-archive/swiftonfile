@@ -9,20 +9,24 @@
 
 <a name="overview" />
 ## Overview
-The following guide will get you started quickly with a Gluster
-for Swift environment on a Fedora or RHEL/CentOS system.  This guide is a
-great way to begin using Gluster for Swift, and can be easily deployed on
-a single virtual machine. The final result will be a single Gluster for
-Swift node running Grizzly-based OpenStack Swift.
+Gluster-swift allows GlusterFS to be used as the backend to the object
+store OpenStack Swift.
 
-> NOTE: In Gluster for Swift, accounts are GlusterFS volumes.
+The following guide will get you quickly started with a gluster-swift
+environment on a Fedora or RHEL/CentOS system.  This guide is a
+great way to begin using gluster-swift, and can be easily deployed on
+a single virtual machine. The final result will be a single gluster-swift
+node.
+
+> NOTE: In Gluster-Swift, accounts must be GlusterFS volumes.
 
 <a name="system_setup" />
 ## System Setup
 
 ### Prerequisites on CentOS/RHEL
-On CentOS/RHEL you may need to setup yum to access [EPEL][] repository
-by running the following command:
+On CentOS/RHEL you will need to setup GlusterFS and EPEL repos.
+
+#### GlusterFS CentOS/RHEL Repo
 
 * CentOS
 
@@ -38,6 +42,9 @@ wget -O /etc/yum.repos.d/glusterfs-epel.repo \
   http://download.gluster.org/pub/gluster/glusterfs/LATEST/RHEL/glusterfs-epel.repo
 ~~~
 
+#### EPEL CentOS/RHEL Repo
+Please refer to [EPEL][] for more information on how to setup the EPEL repo.
+
 ### Required Package Installation
 Install and start the required packages on your system to create a GlusterFS volume.
 
@@ -47,18 +54,11 @@ yum install glusterfs glusterfs-server glusterfs-fuse memcached xfsprogs
 
 #### Start services
 
-* RHEL and Fedora 19
+Type the following to start `memcached` and `glusterfs` services:
 
 ~~~
-service glusterd start
 service memcached start
-~~~
-
-* CentOS 6+
-
-~~~
-/etc/init.d/glusterd start
-/etc/init.d/memcached start
+service glusterd start
 ~~~
 
 Type the following to start the services automatically on system startup:
@@ -69,7 +69,7 @@ chkconfig glusterd on
 ~~~
 
 ### Gluster Volume Setup
-Now you to need determine whether you are going to use a partition or a loopback device
+Now you need to determine whether you are going to use a partition or a loopback device
 for storage.
 
 #### Partition Storage Setup
@@ -121,30 +121,25 @@ mount -a
 You now need to create a GlusterFS volume
 
 ~~~
-mkdir /export/brick/myvolume
-gluster volume create myvolume `hostname`:/export/brick/myvolume
+mkdir /export/brick/b1
+gluster volume create myvolume `hostname`:/export/brick/b1
 gluster volume start myvolume
 ~~~
 
 <a name="swift_setup" />
-## Gluster for Swift Setup
+## Gluster-Swift Setup
 
 ### Repository Setup on RHEL/CentOS
-Gluster for Swift requires OpenStack Swift's latest stable release, which
+Gluster-Swift requires OpenStack Swift's Havana release, which
 may not be available on some older operating systems. For RHEL/CentOS
 systems, please setup Red Hat RDO's repo by executing the following command:
 
 ~~~
-yum install -y http://rdo.fedorapeople.org/openstack/openstack-grizzly/rdo-release-grizzly.rpm
+yum install -y http://rdo.fedorapeople.org/rdo-release.rpm
 ~~~
 
 ### Download
-Gluster for Swift uses [Jenkins][] for continuous integration and
-creation of distribution builds.  Download the latest RPM builds
-from one of the links below:
-
-* CentOS/RHEL 6: [Download](http://build.gluster.org/job/gluster-swift-builds-rhel6-grizzly/lastSuccessfulBuild/artifact/build/)
-* Fedora 19: [Download](http://build.gluster.org/job/gluster-swift-builds-f19-grizzly/lastSuccessfulBuild/artifact/build/)
+Download the latest Havana release RPMs from [launchpad.net downloads][]:
 
 ### Install
 Install the RPM by executing the following:
@@ -154,7 +149,7 @@ yum install -y <path to RPM>
 ~~~
 
 ### Enabling gluster-swift accross reboots
-Type the following to make sure Gluster for Swift is enabled at
+Type the following to make sure gluster-swift is enabled at
 system startup:
 
 ~~~
@@ -177,7 +172,7 @@ systemctl --system daemon-reload
 ~~~
 
 ### Configuration
-As with OpenStack Swift, Gluster for Swift uses `/etc/swift` as the
+As with OpenStack Swift, gluster-swift uses `/etc/swift` as the
 directory containing the configuration files.  You will need to base
 the configuration files on the template files provided.  On new
 installations, the simplest way is to copy the `*.conf-gluster`
@@ -189,8 +184,8 @@ for tmpl in *.conf-gluster ; do cp ${tmpl} ${tmpl%.*}.conf; done
 ~~~
 
 #### Generate Ring Files
-You now need to generate the ring files, which inform Gluster
-for Swift which GlusterFS volumes are accessible over the object
+You now need to generate the ring files, which inform gluster-swift
+which GlusterFS volumes are accessible over the object
 storage interface. The format is
 
 ~~~
@@ -198,9 +193,9 @@ gluster-swift-gen-builders [VOLUME] [VOLUME...]
 ~~~
 
 Where *VOLUME* is the name of the GlusterFS volume which you would
-like to access over Gluster for Swift.
+like to access over gluster-swift.
 
-Expose the GlusterFS volume called `myvolume` you created above
+Let's now expose the GlusterFS volume called `myvolume` you created above
 by executing the following command:
 
 ~~~
@@ -209,9 +204,7 @@ cd /etc/swift
 ~~~
 
 ### Start gluster-swift
-Use the following commands to start Gluster for Swift:
-
-* RHEL and Fedora 19
+Use the following commands to start gluster-swift:
 
 ~~~
 service openstack-swift-object start
@@ -220,17 +213,8 @@ service openstack-swift-account start
 service openstack-swift-proxy start
 ~~~
 
-* CentOS 6+
-
-~~~
-/etc/init.d/openstack-swift-object start
-/etc/init.d/openstack-swift-container start
-/etc/init.d/openstack-swift-account start
-/etc/init.d/openstack-swift-proxy start
-~~~
-
 <a name="using_swift" />
-## Using Gluster for Swift
+## Using gluster-swift
 
 ### Create a container
 Create a container using the following command:
@@ -275,11 +259,14 @@ cat newfile
 ## What now?
 For more information, please visit the following links:
 
+* [Authentication Services Start Guide][]
 * [GlusterFS Quick Start Guide][]
 * [OpenStack Swift API][]
 
-[EPEL]: http://fedoraproject.org/wiki/EPEL
 [GlusterFS Quick Start Guide]: http://www.gluster.org/community/documentation/index.php/QuickStart
 [OpenStack Swift API]: http://docs.openstack.org/api/openstack-object-storage/1.0/content/
 [Jenkins]: http://jenkins-ci.org
+[Authentication Services Start Guide]: auth_guide.md
+[EPEL]: https://fedoraproject.org/wiki/EPEL
+[launchpad.net downloads]: http://launchpad.net/gluster-swift/havana/1.10.0-1
 
