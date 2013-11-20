@@ -557,8 +557,9 @@ class DiskFile(SwiftDiskFile):
         try:
             fd = do_open(data_file, os.O_RDONLY | os.O_EXCL)
         except GlusterFileSystemOSError as err:
-            self.logger.exception(
-                "Error opening file, %s :: %s", data_file, err)
+            if err.errno != errno.ENOENT:
+                self.logger.exception(
+                    "Error opening file, %s :: %s", data_file, err)
         else:
             try:
                 stats = do_fstat(fd)

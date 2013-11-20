@@ -22,7 +22,7 @@ import unittest
 import tempfile
 import shutil
 import mock
-from mock import patch
+from mock import Mock, patch
 from hashlib import md5
 
 from swift.common.utils import normalize_timestamp
@@ -161,6 +161,31 @@ class TestDiskFile(unittest.TestCase):
         assert gdf.name == os.path.join("bar", "b", "a")
         assert gdf.datadir == os.path.join(self.td, "vol0", "bar", "b", "a")
         assert gdf.device_path == os.path.join(self.td, "vol0")
+
+    def test_open_no_logging_on_enoent(self):
+
+        def _mock_do_open(path, flags):
+            raise GlusterFileSystemOSError(errno.ENOENT,
+                                           os.strerror(errno.ENOENT))
+
+        with patch("gluster.swift.obj.diskfile.do_open",
+            _mock_do_open):
+            gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+            gdf.logger = Mock()
+            gdf.open()
+            self.assertEqual(0, gdf.logger.exception.call_count)
+
+    def test_open_logging_on_no_enoent(self):
+        def _mock_do_open(path, flags):
+            raise GlusterFileSystemOSError(errno.EIO,
+                                           os.strerror(errno.EIO))
+
+        with patch("gluster.swift.obj.diskfile.do_open",
+            _mock_do_open):
+            gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+            gdf.logger = Mock()
+            gdf.open()
+            self.assertEqual(1, gdf.logger.exception.call_count)
 
     def test_open_no_metadata(self):
         the_path = os.path.join(self.td, "vol0", "bar")
