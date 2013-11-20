@@ -367,6 +367,14 @@ class DiskFileWriter(object):
                 do_fadvise64(self._fd, self._last_sync, diff)
                 self._last_sync = self._upload_size
 
+    def close(self):
+        """
+        Close the file descriptor
+        """
+        if self._fd:
+            do_close(self._fd)
+            self._fd = None
+
     def write(self, chunk):
         """
         Write a chunk of data to disk.
@@ -463,10 +471,9 @@ class DiskFileWriter(object):
             else:
                 # Success!
                 break
-        # Close here so the calling context does not have to perform this,
-        # which keeps all file system operations in the threadpool context.
-        do_close(self._fd)
-        self._fd = None
+        # Close here so the calling context does not have to perform this
+        # in a thread.
+        self.close()
 
     def put(self, metadata):
         """
@@ -966,14 +973,9 @@ class DiskFile(object):
             dw = DiskFileWriter(fd, tmppath, self)
             yield dw
         finally:
-            if dw is not None:
-                try:
-                    if dw._fd:
-                        do_close(dw._fd)
-                except OSError:
-                    pass
-                if dw._tmppath:
-                    do_unlink(dw._tmppath)
+            dw.close()
+            if dw._tmppath:
+                do_unlink(dw._tmppath)
 
     def write_metadata(self, metadata):
         """

@@ -23,7 +23,7 @@ import tempfile
 import shutil
 import mock
 from eventlet import tpool
-from mock import patch
+from mock import Mock, patch
 from hashlib import md5
 from copy import deepcopy
 
@@ -35,7 +35,7 @@ from gluster.swift.common.exceptions import GlusterFileSystemOSError
 import gluster.swift.common.utils
 from gluster.swift.common.utils import normalize_timestamp
 import gluster.swift.obj.diskfile
-from gluster.swift.obj.diskfile import DiskFile, OnDiskManager
+from gluster.swift.obj.diskfile import DiskFileWriter, DiskFile, OnDiskManager
 from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
 
@@ -94,6 +94,24 @@ class MockRenamerCalled(Exception):
 def _mock_renamer(a, b):
     raise MockRenamerCalled()
 
+class TestDiskFileWriter(unittest.TestCase):
+    """ Tests for gluster.swift.obj.diskfile.DiskFileWriter """
+
+    def test_close(self):
+        dw = DiskFileWriter(100, 'a', None)
+        mock_close = Mock()
+        with patch("gluster.swift.obj.diskfile.do_close", mock_close):
+            # It should call do_close
+            self.assertEqual(100, dw._fd)
+            dw.close()
+            self.assertEqual(1, mock_close.call_count)
+            self.assertEqual(None, dw._fd)
+
+            # It should not call do_close since it should
+            # have made fd equal to None
+            dw.close()
+            self.assertEqual(None, dw._fd)
+            self.assertEqual(1, mock_close.call_count)
 
 class TestDiskFile(unittest.TestCase):
     """ Tests for gluster.swift.obj.diskfile """
@@ -881,7 +899,7 @@ class TestDiskFile(unittest.TestCase):
             assert os.path.exists(saved_tmppath)
             dw.write("123")
             # Closing the fd prematurely should not raise any exceptions.
-            os.close(dw._fd)
+            dw.close()
         assert not os.path.exists(saved_tmppath)
 
     def test_create_err_on_unlink(self):
