@@ -297,6 +297,14 @@ class DiskWriter(object):
         self.last_sync = 0
         self.threadpool = threadpool
 
+    def close(self):
+        """
+        Close the file descriptor
+        """
+        if self.fd:
+            do_close(self.fd)
+            self.fd = None
+
     def write(self, chunk):
         """
         Write a chunk of data into the temporary file.
@@ -407,7 +415,7 @@ class DiskWriter(object):
                 break
         # Close here so the calling context does not have to perform this
         # in a thread.
-        do_close(self.fd)
+        self.close()
 
     def put(self, metadata, extension='.data'):
         """
@@ -762,11 +770,7 @@ class DiskFile(SwiftDiskFile):
             dw = DiskWriter(self, fd, tmppath, self.threadpool)
             yield dw
         finally:
-            try:
-                if dw.fd:
-                    do_close(dw.fd)
-            except OSError:
-                pass
+            dw.close()
             if dw.tmppath:
                 do_unlink(dw.tmppath)
 
