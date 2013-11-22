@@ -107,6 +107,8 @@ if __name__ == '__main__':
                 if e.http_status == 404:
                     exit('Container %s not found. gswauth-prep needs to be '
                         'rerun' % (container))
+                elif e.http_status == 401:
+                    exit('Cleanup tokens failed: 401 Unauthorized: Invalid user/key provided')
                 else:
                     exit('Object listing on container %s failed with status '
                         'code %d' % (container, e.http_status))

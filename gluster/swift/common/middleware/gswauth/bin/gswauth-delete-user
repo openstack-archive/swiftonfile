@@ -57,4 +57,14 @@ if __name__ == '__main__':
                         ssl=(parsed.scheme == 'https'))
     resp = conn.getresponse()
     if resp.status // 100 != 2:
-        exit('User deletion failed: %s %s' % (resp.status, resp.reason))
+        if resp.status == 401:
+            exit('Delete user failed: %s %s: Invalid user/key provided' %
+                (resp.status, resp.reason))
+        elif resp.status == 403:
+            exit('Delete user failed: %s %s: Insufficient privileges' %
+                (resp.status, resp.reason))
+        elif resp.status == 404:
+            exit('Delete user failed: %s %s: User %s does not exist' %
+                (resp.status, resp.reason, user))
+        else:
+            exit('Delete user failed: %s %s' % (resp.status, resp.reason))

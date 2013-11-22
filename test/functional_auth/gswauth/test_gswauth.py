@@ -159,7 +159,7 @@ class TestGSWauth(unittest.TestCase):
         conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
                 path, headers)
         resp = conn.getresponse()
-        self.assertTrue(resp.status == 403)
+        self.assertTrue(resp.status == 401)
 
     def test_change_user_password(self):
         # check and register account
@@ -235,7 +235,7 @@ class TestGSWauth(unittest.TestCase):
             conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
                     path, headers)
             resp = conn.getresponse()
-            self.assertTrue(resp.status == 403)
+            self.assertTrue(resp.status == 401)
 
         finally:
             try:

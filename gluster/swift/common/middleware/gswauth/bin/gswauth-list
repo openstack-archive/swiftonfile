@@ -82,7 +82,14 @@ If the [user] is '.groups', the active groups for the account will be listed.
     resp = conn.getresponse()
     body = resp.read()
     if resp.status // 100 != 2:
-        exit('List failed: %s %s' % (resp.status, resp.reason))
+        if resp.status == 401:
+            exit('List failed: %s %s: Invalid user/key provided' %
+                (resp.status, resp.reason))
+        elif resp.status == 403:
+            exit('List failed: %s %s: Insufficient privileges' %
+                (resp.status, resp.reason))
+        else:
+            exit('List failed: %s %s' % (resp.status, resp.reason))
     if options.plain_text:
         info = json.loads(body)
         for group in info[['accounts', 'users', 'groups'][len(args)]]:

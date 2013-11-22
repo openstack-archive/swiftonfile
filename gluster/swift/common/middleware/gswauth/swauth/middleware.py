@@ -419,7 +419,9 @@ class Swauth(object):
         Returns a standard WSGI response callable with the status of 403 or 401
         depending on whether the REMOTE_USER is set or not.
         """
-        if req.remote_user:
+        if not hasattr(req, 'credentials_valid'):
+            req.credentials_valid = None
+        if req.remote_user or req.credentials_valid:
             return HTTPForbidden(request=req)
         else:
             return HTTPUnauthorized(request=req)
@@ -534,7 +536,7 @@ class Swauth(object):
         :returns: swob.Response, 204 on success
         """
         if not self.is_super_admin(req):
-            return HTTPForbidden(request=req)
+            return HTTPUnauthorized(request=req)
         path = quote('/v1/%s/.account_id' % self.auth_account)
         resp = self.make_pre_authed_request(
             req.environ, 'PUT', path).get_response(self.app)
@@ -568,7 +570,7 @@ class Swauth(object):
                   explained above.
         """
         if not self.is_reseller_admin(req):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         listing = []
         marker = ''
         while True:
@@ -613,7 +615,7 @@ class Swauth(object):
         if req.path_info or not account or account[0] == '.':
             return HTTPBadRequest(request=req)
         if not self.is_account_admin(req, account):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         path = quote('/v1/%s/%s/.services' % (self.auth_account, account))
         resp = self.make_pre_authed_request(
             req.environ, 'GET', path).get_response(self.app)
@@ -685,7 +687,7 @@ class Swauth(object):
                   dict as described above
         """
         if not self.is_reseller_admin(req):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         account = req.path_info_pop()
         if req.path_info != '/.services' or not account or account[0] == '.':
             return HTTPBadRequest(request=req)
@@ -731,7 +733,7 @@ class Swauth(object):
         :returns: swob.Response, 2xx on success.
         """
         if not self.is_reseller_admin(req):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         account = req.path_info_pop()
         if req.path_info or not account or account[0] == '.':
             return HTTPBadRequest(request=req)
@@ -798,7 +800,7 @@ class Swauth(object):
         :returns: swob.Response, 2xx on success.
         """
         if not self.is_reseller_admin(req):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         account = req.path_info_pop()
         if req.path_info or not account or account[0] == '.':
             return HTTPBadRequest(request=req)
@@ -905,7 +907,7 @@ class Swauth(object):
                 (user[0] == '.' and user != '.groups'):
             return HTTPBadRequest(request=req)
         if not self.is_account_admin(req, account):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         if user == '.groups':
             # TODO: This could be very slow for accounts with a really large
             # number of users. Speed could be improved by concurrently
@@ -990,9 +992,9 @@ class Swauth(object):
             return HTTPBadRequest(request=req)
         if reseller_admin:
             if not self.is_super_admin(req):
-                return HTTPForbidden(request=req)
+                return HTTPUnauthorized(request=req)
         elif not self.is_account_admin(req, account):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
 
         path = quote('/v1/%s/%s' % (self.auth_account, account))
         resp = self.make_pre_authed_request(
@@ -1040,7 +1042,7 @@ class Swauth(object):
                 user[0] == '.':
             return HTTPBadRequest(request=req)
         if not self.is_account_admin(req, account):
-            return HTTPForbidden(request=req)
+            return self.denied_response(req)
         # Delete the user's existing token, if any.
         path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
         resp = self.make_pre_authed_request(
@@ -1418,12 +1420,20 @@ class Swauth(object):
         Returns True if the admin specified in the request represents a
         .reseller_admin.
 
+        The variable req.credentials_valid is set to True if the credentials
+        match. This is used to distinguish between HTTPUnauthorized and
+        HTTPForbidden cases in denied_response method. HTTPUnauthorized is
+        returned when the credentials(username and key) do not match. A
+        HTTPForbidden is returned when the credentials match, but the user does
+        not have necessary permission to perform the requested action.
+
         :param req: The swob.Request to check.
         :param admin_detail: The previously retrieved dict from
                              :func:`get_admin_detail` or None for this function
                              to retrieve the admin_detail itself.
         :param returns: True if .reseller_admin.
         """
+        req.credentials_valid = False
         if self.is_super_admin(req):
             return True
         if not admin_detail:
@@ -1431,6 +1441,7 @@ class Swauth(object):
         if not self.credentials_match(admin_detail,
                                       req.headers.get('x-auth-admin-key')):
             return False
+        req.credentials_valid = True
         return '.reseller_admin' in (g['name'] for g in admin_detail['groups'])
 
     def is_account_admin(self, req, account):
@@ -1438,10 +1449,18 @@ class Swauth(object):
         Returns True if the admin specified in the request represents a .admin
         for the account specified.
 
+        The variable req.credentials_valid is set to True if the credentials
+        match. This is used to distinguish between HTTPUnauthorized and
+        HTTPForbidden cases in denied_response method. HTTPUnauthorized is
+        returned when the credentials(username and key) do not match. A
+        HTTPForbidden is returned when the credentials match, but the user does
+        not have necessary permission to perform the requested action.
+
         :param req: The swob.Request to check.
         :param account: The account to check for .admin against.
         :param returns: True if .admin.
         """
+        req.credentials_valid = False
         if self.is_super_admin(req):
             return True
         admin_detail = self.get_admin_detail(req)
@@ -1451,6 +1470,7 @@ class Swauth(object):
             if not self.credentials_match(admin_detail,
                                           req.headers.get('x-auth-admin-key')):
                 return False
+            req.credentials_valid = True
             return admin_detail and admin_detail['account'] == account and \
                 '.admin' in (g['name'] for g in admin_detail['groups'])
         return False
