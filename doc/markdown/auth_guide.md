@@ -92,4 +92,5 @@ See <http://gholt.github.com/swauth/> for more information on Swauth.
     ``swauth-add-user -A http://127.0.0.1:8080/auth/ -K swauthkey -a test user1 password1``
 
 1. Ensure it works
-    ``swift -A http://127.0.0.1:8080/auth/v1.0 -U test:user1 -K password stat``
+    ``swift -A http://127.0.0.1:8080/auth/v1.0 -U test:user1 -K password1 stat``
+    ``swift -A http://127.0.0.1:8080/auth/v1.0 -U test:user1 -K wrongpassword stat``
