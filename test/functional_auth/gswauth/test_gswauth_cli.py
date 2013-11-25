@@ -34,6 +34,10 @@ class Utils:
         return commands.getstatusoutput('swauth-delete-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
 
     @classmethod
+    def listAccounts(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        return commands.getstatusoutput('swauth-list -A %s -U %s -K %s' % (authurl, user, key))
+
+    @classmethod
     def swauthPrep(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
         return commands.getstatusoutput('swauth-prep -A %s -U %s -K %s' % (authurl, user, key))
 
@@ -56,8 +60,8 @@ class Utils:
     @classmethod
     def cleanAll(self):
         #TODO:It's a dirty hack,any suggestions?
-        commands.getstatusoutput('rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '*'))
-        commands.getstatusoutput('rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '.*'))
+        commands.getstatusoutput('sudo rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '*'))
+        return commands.getstatusoutput('sudo rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '.*'))
 
 
 class TestSwauthPrep(unittest.TestCase):
@@ -157,6 +161,15 @@ class TestAccount(unittest.TestCase):
         #TODO:decide on expected behavior
         self.assertNotEqual(status, 0, 'account deletion failed for accountdoesnotexist'+output)
         #TODO:more cases
+
+    def testListAcounts(self):
+        (status,output)=Utils.addAccount('test')
+        self.assertEqual(status, 0, 'account creation failed'+output)
+
+        (status,output)=Utils.listAccounts()
+        self.assertEqual(output,
+            '+----------+\n| Accounts |\n+----------+\n|   test   |\n+----------+',
+            'swauth-list failed:\n%s' % output)
 
 
 class TestUser(unittest.TestCase):
