@@ -26,6 +26,7 @@ from sys import argv, exit
 from swift.common.bufferedhttp import http_connect_raw as http_connect
 from swift.common.utils import urlparse
 
+from prettytable import PrettyTable
 
 if __name__ == '__main__':
     gettext.install('swauth', unicode=1)
@@ -34,11 +35,11 @@ Usage: %prog [options] [account] [user]
 
 If [account] and [user] are omitted, a list of accounts will be output.
 
-If [account] is included but not [user], an account's information will be
-output, including a list of users within the account.
+If [account] is included but not [user], a list of users within the account
+will be output.
 
-If [account] and [user] are included, the user's information will be output,
-including a list of groups the user belongs to.
+If [account] and [user] are included, a list of groups the user belongs to
+will be ouptput.
 
 If the [user] is '.groups', the active groups for the account will be listed.
 '''.strip())
@@ -46,6 +47,10 @@ If the [user] is '.groups', the active groups for the account will be listed.
         action='store_true', default=False, help='Changes the output from '
         'JSON to plain text. This will cause an account to list only the '
         'users and a user to list only the groups.')
+    parser.add_option('-j', '--json', dest='json_format',
+        action='store_true', default=False, help='Output in JSON format. '
+        'This will print all information about given account or user, '
+        'including stored password.')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/')
@@ -82,5 +87,12 @@ If the [user] is '.groups', the active groups for the account will be listed.
         info = json.loads(body)
         for group in info[['accounts', 'users', 'groups'][len(args)]]:
             print group['name']
-    else:
+    elif options.json_format:
         print body
+    else:
+        info = json.loads(body)
+        h = ['accounts', 'users', 'groups'][len(args)]
+        table = PrettyTable([h.title()])
+        for group in info[h]:
+            table.add_row([group['name']])
+        print table

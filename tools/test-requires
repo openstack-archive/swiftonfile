@@ -11,3 +11,4 @@ nosehtmloutput
 sphinx>=1.1.2
 mock>=0.8.0
 python-keystoneclient
+prettytable

@@ -23,6 +23,7 @@ BuildRequires: python-setuptools
 Requires : memcached
 Requires : openssl
 Requires : python
+Requires : python-prettytable
 Requires : openstack-swift = 1.10.0
 Requires : openstack-swift-account = 1.10.0
 Requires : openstack-swift-container = 1.10.0
