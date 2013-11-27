@@ -16,7 +16,7 @@
 import unittest
 import swift.common.constraints
 from nose import SkipTest
-from mock import patch
+from mock import Mock, patch
 from gluster.swift.common import constraints as cnt
 
 
@@ -75,12 +75,65 @@ class TestConstraints(unittest.TestCase):
         self.assertTrue(cnt.validate_obj_name_component('..'))
         self.assertTrue(cnt.validate_obj_name_component(''))
 
+    def test_validate_headers(self):
+        req = Mock()
+        req.headers = []
+        self.assertEqual(cnt.validate_headers(req), '')
+        req.headers = ['x-some-header']
+        self.assertEqual(cnt.validate_headers(req), '')
+        req.headers = ['x-delete-at', 'x-some-header']
+        self.assertNotEqual(cnt.validate_headers(req), '')
+        req.headers = ['x-delete-after', 'x-some-header']
+        self.assertNotEqual(cnt.validate_headers(req), '')
+        req.headers = ['x-delete-at', 'x-delete-after', 'x-some-header']
+        self.assertNotEqual(cnt.validate_headers(req), '')
+
+    def test_validate_headers_ignoring_config_set(self):
+        with patch('gluster.swift.common.constraints.'
+                   'Glusterfs._ignore_unsupported_headers', True):
+            req = Mock()
+            req.headers = []
+            self.assertEqual(cnt.validate_headers(req), '')
+            req.headers = ['x-some-header']
+            self.assertEqual(cnt.validate_headers(req), '')
+            req.headers = ['x-delete-at', 'x-some-header']
+            self.assertEqual(cnt.validate_headers(req), '')
+            req.headers = ['x-delete-after', 'x-some-header']
+            self.assertEqual(cnt.validate_headers(req), '')
+            req.headers = ['x-delete-at', 'x-delete-after', 'x-some-header']
+            self.assertEqual(cnt.validate_headers(req), '')
+
+    def test_gluster_check_metadata(self):
+        mock_check_metadata = Mock()
+        with patch('gluster.swift.common.constraints.__check_metadata',
+                   mock_check_metadata):
+            req = Mock()
+            req.headers = []
+            cnt.gluster_check_metadata(req, 'object')
+            self.assertTrue(1, mock_check_metadata.call_count)
+            cnt.gluster_check_metadata(req, 'object', POST=False)
+            self.assertTrue(1, mock_check_metadata.call_count)
+            req.headers = ['x-some-header']
+            self.assertEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
+            req.headers = ['x-delete-at', 'x-some-header']
+            self.assertNotEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
+            req.headers = ['x-delete-after', 'x-some-header']
+            self.assertNotEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
+            req.headers = ['x-delete-at', 'x-delete-after', 'x-some-header']
+            self.assertNotEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
+
     def test_gluster_check_object_creation(self):
         with patch('gluster.swift.common.constraints.__check_object_creation',
                    mock_check_object_creation):
-            self.assertFalse(cnt.gluster_check_object_creation(None, 'dir/z'))
+            req = Mock()
+            req.headers = []
+            self.assertFalse(cnt.gluster_check_object_creation(req, 'dir/z'))
 
     def test_gluster_check_object_creation_err(self):
         with patch('gluster.swift.common.constraints.__check_object_creation',
                    mock_check_object_creation):
-            self.assertTrue(cnt.gluster_check_object_creation(None, 'dir/.'))
+            req = Mock()
+            req.headers = []
+            self.assertTrue(cnt.gluster_check_object_creation(req, 'dir/.'))
+            req.headers = ['x-delete-at']
+            self.assertTrue(cnt.gluster_check_object_creation(req, 'dir/z'))

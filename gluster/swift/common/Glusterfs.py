@@ -37,6 +37,7 @@ _allow_mount_per_server = False
 _implicit_dir_objects = False
 _container_update_object_count = False
 _account_update_container_count = False
+_ignore_unsupported_headers = False
 
 if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
     try:
@@ -93,6 +94,19 @@ if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
         _account_update_container_count = \
             _fs_conf.get('DEFAULT',
                          'account_update_container_count',
+                         "no") in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+
+    # -- Hidden configuration option --
+    # Ignore unsupported headers and allow them in a request without
+    # returning a 400-BadRequest.  This setting can be set to
+    # allow unsupported headers such as X-Delete-At and
+    # X-Delete-After even though they will not be used.
+    try:
+        _ignore_unsupported_headers = \
+            _fs_conf.get('DEFAULT',
+                         'ignore_unsupported_headers',
                          "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
