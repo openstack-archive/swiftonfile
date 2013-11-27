@@ -23,6 +23,7 @@ import swift.common.ring as _ring
 from gluster.swift.common import Glusterfs, ring
 
 MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
+UNSUPPORTED_HEADERS = ['x-delete-at', 'x-delete-after']
 
 
 def set_object_name_component_length(len=None):
@@ -54,8 +55,41 @@ def validate_obj_name_component(obj):
         return 'cannot be . or ..'
     return ''
 
+
+def validate_headers(req):
+    """
+    Validate client header requests
+    :param req: Http request
+    """
+    if not Glusterfs._ignore_unsupported_headers:
+        for unsupported_header in UNSUPPORTED_HEADERS:
+            if unsupported_header in req.headers:
+                return '%s headers are not supported' \
+                       % ','.join(UNSUPPORTED_HEADERS)
+    return ''
+
 # Save the original check object creation
 __check_object_creation = swift.common.constraints.check_object_creation
+__check_metadata = swift.common.constraints.check_metadata
+
+
+def gluster_check_metadata(req, target_type, POST=True):
+    """
+    :param req: HTTP request object
+    :param target_type: Value from POST passed to __check_metadata
+    :param POST: Only call __check_metadata on POST since Swift only
+                 calls check_metadata on POSTs.
+    """
+    ret = None
+    if POST:
+        ret = __check_metadata(req, target_type)
+    if ret is None:
+        bdy = validate_headers(req)
+        if bdy:
+            ret = HTTPBadRequest(body=bdy,
+                                 request=req,
+                                 content_type='text/plain')
+    return ret
 
 
 # Define our new one which invokes the original
@@ -85,11 +119,14 @@ def gluster_check_object_creation(req, object_name):
                 ret = HTTPBadRequest(body=bdy,
                                      request=req,
                                      content_type='text/plain')
+    if ret is None:
+        ret = gluster_check_metadata(req, 'object', POST=False)
 
     return ret
 
-# Replace the original check object creation with ours
+# Replace the original checks with ours
 swift.common.constraints.check_object_creation = gluster_check_object_creation
+swift.common.constraints.check_metadata = gluster_check_metadata
 
 # Replace the original check mount with ours
 swift.common.constraints.check_mount = Glusterfs.mount
