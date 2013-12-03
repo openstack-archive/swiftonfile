@@ -386,7 +386,7 @@ class Swauth(object):
         user_groups = (req.remote_user or '').split(',')
         if '.reseller_admin' in user_groups and \
                 account != self.reseller_prefix and \
-                account[len(self.reseller_prefix):] != 'gsmetadata':
+                account[len(self.reseller_prefix):] != self.metadata_volume:
             req.environ['swift_owner'] = True
             return None
         if account in user_groups and \
@@ -1359,7 +1359,8 @@ class Swauth(object):
             memcache_client.set(
                 memcache_key,
                 (self.itoken_expires,
-                 '.auth,.reseller_admin,%s.auth' % self.reseller_prefix),
+                 '%s,.reseller_admin,%s' % (self.metadata_volume,
+                 self.auth_account)),
                 timeout=self.token_life)
         return self.itoken
 
