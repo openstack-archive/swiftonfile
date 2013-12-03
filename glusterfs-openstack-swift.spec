@@ -77,14 +77,14 @@ done
 %{python_sitelib}/gluster_swift-%{_version}_*.egg-info
 %{_bindir}/gluster-swift-gen-builders
 %{_bindir}/gluster-swift-print-metadata
-%{_bindir}/swauth-add-account
-%{_bindir}/swauth-add-user
-%{_bindir}/swauth-cleanup-tokens
-%{_bindir}/swauth-delete-account
-%{_bindir}/swauth-delete-user
-%{_bindir}/swauth-list
-%{_bindir}/swauth-prep
-%{_bindir}/swauth-set-account-service
+%{_bindir}/gswauth-add-account
+%{_bindir}/gswauth-add-user
+%{_bindir}/gswauth-cleanup-tokens
+%{_bindir}/gswauth-delete-account
+%{_bindir}/gswauth-delete-user
+%{_bindir}/gswauth-list
+%{_bindir}/gswauth-prep
+%{_bindir}/gswauth-set-account-service
 %{_mandir}/man8/*
 
 %dir %{_confdir}

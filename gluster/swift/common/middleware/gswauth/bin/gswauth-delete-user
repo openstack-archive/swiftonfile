@@ -14,10 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
 import gettext
 from optparse import OptionParser
 from os.path import basename
@@ -28,17 +24,11 @@ from swift.common.utils import urlparse
 
 
 if __name__ == '__main__':
-    gettext.install('swauth', unicode=1)
-    parser = OptionParser(usage='''
-Usage: %prog [options] <account> <service> <name> <value>
-
-Sets a service URL for an account. Can only be set by a reseller admin.
-
-Example: %prog -K swauthkey test storage local http://127.0.0.1:8080/v1/AUTH_018c3946-23f8-4efb-a8fb-b67aae8e4162
-'''.strip())
+    gettext.install('gswauth', unicode=1)
+    parser = OptionParser(usage='Usage: %prog [options] <account> <user>')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
-        'subsystem (default: http://127.0.0.1:8080/auth/)')
+        'subsystem (default: http://127.0.0.1:8080/auth/')
     parser.add_option('-U', '--admin-user', dest='admin_user',
         default='.super_admin', help='The user with admin rights to add users '
         '(default: .super_admin).')
@@ -48,9 +38,9 @@ Example: %prog -K swauthkey test storage local http://127.0.0.1:8080/v1/AUTH_018
     if not args:
         args.append('-h')
     (options, args) = parser.parse_args(args)
-    if len(args) != 4:
+    if len(args) != 2:
         parser.parse_args(['-h'])
-    account, service, name, url = args
+    account, user = args
     parsed = urlparse(options.admin_url)
     if parsed.scheme not in ('http', 'https'):
         raise Exception('Cannot handle protocol scheme %s for url %s' %
@@ -60,14 +50,11 @@ Example: %prog -K swauthkey test storage local http://127.0.0.1:8080/v1/AUTH_018
         parsed_path = '/'
     elif parsed_path[-1] != '/':
         parsed_path += '/'
-    path = '%sv2/%s/.services' % (parsed_path, account)
-    body = json.dumps({service: {name: url}})
-    headers = {'Content-Length': str(len(body)),
-               'X-Auth-Admin-User': options.admin_user,
+    path = '%sv2/%s/%s' % (parsed_path, account, user)
+    headers = {'X-Auth-Admin-User': options.admin_user,
                'X-Auth-Admin-Key': options.admin_key}
-    conn = http_connect(parsed.hostname, parsed.port, 'POST', path, headers,
+    conn = http_connect(parsed.hostname, parsed.port, 'DELETE', path, headers,
                         ssl=(parsed.scheme == 'https'))
-    conn.send(body)
     resp = conn.getresponse()
     if resp.status // 100 != 2:
-        exit('Service set failed: %s %s' % (resp.status, resp.reason))
+        exit('User deletion failed: %s %s' % (resp.status, resp.reason))

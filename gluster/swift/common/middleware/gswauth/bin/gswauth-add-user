@@ -24,7 +24,7 @@ from swift.common.utils import urlparse
 
 
 if __name__ == '__main__':
-    gettext.install('swauth', unicode=1)
+    gettext.install('gswauth', unicode=1)
     parser = OptionParser(
         usage='Usage: %prog [options] <account> <user> <password>')
     parser.add_option('-a', '--admin', dest='admin', action='store_true',
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         'storage account name (default: <randomly-generated-uuid4>) Note: If '
         'the account already exists, this will have no effect on existing '
         'service URLs. Those will need to be updated with '
-        'swauth-set-account-service')
+        'gswauth-set-account-service')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/')

@@ -44,15 +44,15 @@ setup(
     scripts=[
         'bin/gluster-swift-gen-builders',
         'bin/gluster-swift-print-metadata',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-add-account',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-add-user',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-cleanup-tokens',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-delete-account',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-delete-user',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-list',
-        'gluster/swift/common/middleware/gswauth/bin/swauth-prep',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-add-account',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-add-user',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-cleanup-tokens',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-delete-account',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-delete-user',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-list',
+        'gluster/swift/common/middleware/gswauth/bin/gswauth-prep',
         'gluster/swift/common/middleware/gswauth/bin/'
-        'swauth-set-account-service',
+        'gswauth-set-account-service',
 
     ],
     entry_points={

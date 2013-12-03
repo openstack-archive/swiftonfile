@@ -27,35 +27,35 @@ class Utils:
 
     @classmethod
     def addAccount(self,account_name,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-add-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
+        return commands.getstatusoutput('gswauth-add-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
 
     @classmethod
     def deleteAccount(self,account_name,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-delete-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
+        return commands.getstatusoutput('gswauth-delete-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
 
     @classmethod
     def listAccounts(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-list -A %s -U %s -K %s' % (authurl, user, key))
+        return commands.getstatusoutput('gswauth-list -A %s -U %s -K %s' % (authurl, user, key))
 
     @classmethod
     def swauthPrep(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-prep -A %s -U %s -K %s' % (authurl, user, key))
+        return commands.getstatusoutput('gswauth-prep -A %s -U %s -K %s' % (authurl, user, key))
 
     @classmethod
     def addAdminUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-add-user -a %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
+        return commands.getstatusoutput('gswauth-add-user -a %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
 
     @classmethod
     def addUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-add-user %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
+        return commands.getstatusoutput('gswauth-add-user %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
 
     @classmethod
     def addResellerAdminUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-add-user -r %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
+        return commands.getstatusoutput('gswauth-add-user -r %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
 
     @classmethod
     def deleteUser(self,account_name,username,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('swauth-delete-user %s %s -A %s -U %s -K %s'% (account_name, username, authurl, user, key))
+        return commands.getstatusoutput('gswauth-delete-user %s %s -A %s -U %s -K %s'% (account_name, username, authurl, user, key))
 
     @classmethod
     def cleanAll(self):
@@ -74,7 +74,7 @@ class TestSwauthPrep(unittest.TestCase):
 
     def testSwauthPrep(self):
         (status,output)=Utils.swauthPrep()
-        self.assertEqual(status, 0, 'swuath prep failed with valid credentials'+output)
+        self.assertEqual(status, 0, 'swauth prep failed with valid credentials'+output)
 
         (status,output)=Utils.swauthPrep(key='')
         self.assertEqual('Usage' in output,True, 'Invalid swauth-prep request accepted(no key provided): '+output)
