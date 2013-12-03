@@ -14,10 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
 import gettext
 from optparse import OptionParser
 from os.path import basename
@@ -26,31 +22,10 @@ from sys import argv, exit
 from swift.common.bufferedhttp import http_connect_raw as http_connect
 from swift.common.utils import urlparse
 
-from prettytable import PrettyTable
 
 if __name__ == '__main__':
-    gettext.install('swauth', unicode=1)
-    parser = OptionParser(usage='''
-Usage: %prog [options] [account] [user]
-
-If [account] and [user] are omitted, a list of accounts will be output.
-
-If [account] is included but not [user], a list of users within the account
-will be output.
-
-If [account] and [user] are included, a list of groups the user belongs to
-will be ouptput.
-
-If the [user] is '.groups', the active groups for the account will be listed.
-'''.strip())
-    parser.add_option('-p', '--plain-text', dest='plain_text',
-        action='store_true', default=False, help='Changes the output from '
-        'JSON to plain text. This will cause an account to list only the '
-        'users and a user to list only the groups.')
-    parser.add_option('-j', '--json', dest='json_format',
-        action='store_true', default=False, help='Output in JSON format. '
-        'This will print all information about given account or user, '
-        'including stored password.')
+    gettext.install('gswauth', unicode=1)
+    parser = OptionParser(usage='Usage: %prog [options]')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/')
@@ -63,7 +38,7 @@ If the [user] is '.groups', the active groups for the account will be listed.
     if not args:
         args.append('-h')
     (options, args) = parser.parse_args(args)
-    if len(args) > 2:
+    if args:
         parser.parse_args(['-h'])
     parsed = urlparse(options.admin_url)
     if parsed.scheme not in ('http', 'https'):
@@ -74,32 +49,16 @@ If the [user] is '.groups', the active groups for the account will be listed.
         parsed_path = '/'
     elif parsed_path[-1] != '/':
         parsed_path += '/'
-    path = '%sv2/%s' % (parsed_path, '/'.join(args))
+    path = '%sv2/.prep' % parsed_path
     headers = {'X-Auth-Admin-User': options.admin_user,
                'X-Auth-Admin-Key': options.admin_key}
-    conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
+    conn = http_connect(parsed.hostname, parsed.port, 'POST', path, headers,
                         ssl=(parsed.scheme == 'https'))
     resp = conn.getresponse()
-    body = resp.read()
     if resp.status // 100 != 2:
         if resp.status == 401:
-            exit('List failed: %s %s: Invalid user/key provided' %
-                (resp.status, resp.reason))
-        elif resp.status == 403:
-            exit('List failed: %s %s: Insufficient priveleges' %
+            exit('gswauth preparation failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         else:
-            exit('List failed: %s %s' % (resp.status, resp.reason))
-    if options.plain_text:
-        info = json.loads(body)
-        for group in info[['accounts', 'users', 'groups'][len(args)]]:
-            print group['name']
-    elif options.json_format:
-        print body
-    else:
-        info = json.loads(body)
-        h = ['accounts', 'users', 'groups'][len(args)]
-        table = PrettyTable([h.title()])
-        for group in info[h]:
-            table.add_row([group['name']])
-        print table
+            exit('gswauth preparation failed: %s %s' %
+                (resp.status, resp.reason))

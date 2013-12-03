@@ -28,7 +28,7 @@ from time import sleep, time
 from swiftclient.client import Connection, ClientException
 
 if __name__ == '__main__':
-    gettext.install('swauth', unicode=1)
+    gettext.install('gswauth', unicode=1)
     parser = OptionParser(usage='Usage: %prog [options]')
     parser.add_option('-t', '--token-life', dest='token_life',
         default='86400', help='The expected life of tokens; token objects '
@@ -105,7 +105,7 @@ if __name__ == '__main__':
                 objs = conn.get_container(container, marker=marker)[1]
             except ClientException, e:
                 if e.http_status == 404:
-                    exit('Container %s not found. swauth-prep needs to be '
+                    exit('Container %s not found. gswauth-prep needs to be '
                         'rerun' % (container))
                 elif e.http_status == 401:
                     exit('Cleanup tokens failed: 401 Unauthorized: Invalid user/key provided')

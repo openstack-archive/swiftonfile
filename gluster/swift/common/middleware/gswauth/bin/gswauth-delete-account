@@ -24,17 +24,11 @@ from swift.common.utils import urlparse
 
 
 if __name__ == '__main__':
-    gettext.install('swauth', unicode=1)
+    gettext.install('gswauth', unicode=1)
     parser = OptionParser(usage='Usage: %prog [options] <account>')
-    parser.add_option('-s', '--suffix', dest='suffix',
-        default='', help='The suffix to use with the reseller prefix as the '
-        'storage account name (default: <randomly-generated-uuid4>) Note: If '
-        'the account already exists, this will have no effect on existing '
-        'service URLs. Those will need to be updated with '
-        'swauth-set-account-service')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
-        'subsystem (default: http://127.0.0.1:8080/auth/)')
+        'subsystem (default: http://127.0.0.1:8080/auth/')
     parser.add_option('-U', '--admin-user', dest='admin_user',
         default='.super_admin', help='The user with admin rights to add users '
         '(default: .super_admin).')
@@ -58,20 +52,22 @@ if __name__ == '__main__':
         parsed_path += '/'
     path = '%sv2/%s' % (parsed_path, account)
     headers = {'X-Auth-Admin-User': options.admin_user,
-               'X-Auth-Admin-Key': options.admin_key,
-               'Content-Length': '0'}
-    if options.suffix:
-        headers['X-Account-Suffix'] = options.suffix
-    conn = http_connect(parsed.hostname, parsed.port, 'PUT', path, headers,
+               'X-Auth-Admin-Key': options.admin_key}
+    conn = http_connect(parsed.hostname, parsed.port, 'DELETE', path, headers,
                         ssl=(parsed.scheme == 'https'))
     resp = conn.getresponse()
     if resp.status // 100 != 2:
         if resp.status == 401:
-            exit('Account creation failed: %s %s: Invalid user/key provided' %
+            exit('Delete account failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         elif resp.status == 403:
-            exit('Account creation failed: %s %s: Insufficient priveleges' %
+            exit('Delete account failed: %s %s: Insufficient priveleges' %
                 (resp.status, resp.reason))
+        elif resp.status == 404:
+            exit('Delete account failed: %s %s: Account %s does not exist' %
+                (resp.status, resp.reason, account))
+        elif resp.status == 409:
+            exit('Delete account failed: %s %s: Account %s contains active users. '
+                 'Delete all users first.' % (resp.status, resp.reason, account))
         else:
-            exit('Account creation failed: %s %s' %
-                (resp.status, resp.reason))
+            exit('Delete account failed: %s %s' % (resp.status, resp.reason))

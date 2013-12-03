@@ -80,11 +80,10 @@ sudo service memcached start || fail "Unable to start memcached"
 sudo_env swift-init main start || fail "Unable to start swift"
 
 #swauth-prep
-sudo_env swauth-prep -K gswauthkey || fail "Unable to prep gswauth"
-sudo_env swauth-prep -K gswauthkey || fail "Unable to prep gswauth"
-sudo_env swauth-add-user -K gswauthkey -a test tester testing || fail "Unable to add user test"
-sudo_env swauth-add-user -K gswauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
-sudo_env swauth-add-user -K gswauthkey test tester3 testing3 || fail "Unable to add user test3"
+sudo_env gswauth-prep -K gswauthkey || fail "Unable to prep gswauth"
+sudo_env gswauth-add-user -K gswauthkey -a test tester testing || fail "Unable to add user test"
+sudo_env gswauth-add-user -K gswauthkey -a test2 tester2 testing2 || fail "Unable to add user test2"
+sudo_env gswauth-add-user -K gswauthkey test tester3 testing3 || fail "Unable to add user test3"
 
 # open the shell to the user
 bash --norc -i
