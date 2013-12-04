@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import gettext
+import socket
+
 from optparse import OptionParser
-from os.path import basename
 from sys import argv, exit
 
 from swift.common.bufferedhttp import http_connect_raw as http_connect
@@ -62,6 +63,7 @@ if __name__ == '__main__':
         parsed_path = '/'
     elif parsed_path[-1] != '/':
         parsed_path += '/'
+
     # Check if user is changing his own password. This is carried out by
     # making sure that the user changing the password and the user whose
     # password is being changed are the same.
@@ -71,19 +73,27 @@ if __name__ == '__main__':
         path = '%sv2/%s' % (parsed_path, account)
         headers = {'X-Auth-Admin-User': options.admin_user,
                    'X-Auth-Admin-Key': options.admin_key}
-        conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
-                            ssl=(parsed.scheme == 'https'))
-        resp = conn.getresponse()
-        if resp.status // 100 != 2:
-            # If the GET operation fails, it means the account does not exist.
-            # Now we create the account by sending a PUT request.
-            headers['Content-Length'] = '0'
-            conn = http_connect(parsed.hostname, parsed.port, 'PUT', path,
-                                headers, ssl=(parsed.scheme == 'https'))
+        try:
+            conn = http_connect(parsed.hostname, parsed.port, 'GET', path,
+                   headers, ssl=(parsed.scheme == 'https'))
             resp = conn.getresponse()
             if resp.status // 100 != 2:
-                print 'Account creation failed: %s %s' % \
-                    (resp.status, resp.reason)
+                # If the GET operation fails, it means the account does not
+                # exist. Now we create the account by sending a PUT request.
+                headers['Content-Length'] = '0'
+                conn = http_connect(parsed.hostname, parsed.port, 'PUT', path,
+                                    headers, ssl=(parsed.scheme == 'https'))
+                resp = conn.getresponse()
+                if resp.status // 100 != 2:
+                    print 'Account creation failed: %s %s' % \
+                        (resp.status, resp.reason)
+        except socket.gaierror, err:
+            exit('User creation failed: %s. ' \
+                 'Check that the admin_url is valid' % err)
+        except socket.error, (errno, msg):
+            exit('User creation failed: %s. ' \
+                 'Check that the admin_url is valid' % msg)
+
     # Add the user
     path = '%sv2/%s/%s' % (parsed_path, account, user)
     headers = {'X-Auth-Admin-User': options.admin_user,
@@ -94,9 +104,17 @@ if __name__ == '__main__':
         headers['X-Auth-User-Admin'] = 'true'
     if options.reseller_admin:
         headers['X-Auth-User-Reseller-Admin'] = 'true'
-    conn = http_connect(parsed.hostname, parsed.port, 'PUT', path, headers,
-                        ssl=(parsed.scheme == 'https'))
-    resp = conn.getresponse()
+    try:
+        conn = http_connect(parsed.hostname, parsed.port, 'PUT', path, headers,
+                            ssl=(parsed.scheme == 'https'))
+        resp = conn.getresponse()
+    except socket.gaierror, err:
+        exit('User creation failed: %s. ' \
+             'Check that the admin_url is valid' % err)
+    except socket.error, (errno, msg):
+        exit('User creation failed: %s. ' \
+             'Check that the admin_url is valid' % msg)
+
     if resp.status // 100 != 2:
         if resp.status == 401:
             exit('User creation failed: %s %s: Invalid user/key provided' %

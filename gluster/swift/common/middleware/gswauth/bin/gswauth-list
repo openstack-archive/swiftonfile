@@ -19,8 +19,10 @@ try:
 except ImportError:
     import json
 import gettext
+import socket
+import types
+
 from optparse import OptionParser
-from os.path import basename
 from sys import argv, exit
 
 from swift.common.bufferedhttp import http_connect_raw as http_connect
@@ -79,9 +81,17 @@ If the [user] is '.groups', the active groups for the account will be listed.
     path = '%sv2/%s' % (parsed_path, '/'.join(args))
     headers = {'X-Auth-Admin-User': options.admin_user,
                'X-Auth-Admin-Key': options.admin_key}
-    conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
-                        ssl=(parsed.scheme == 'https'))
-    resp = conn.getresponse()
+    try:
+        conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
+                            ssl=(parsed.scheme == 'https'))
+        resp = conn.getresponse()
+    except socket.gaierror, err:
+        exit('List failed: %s. ' \
+             'Check that the admin_url is valid' % err)
+    except socket.error, (errno, msg):
+        exit('List failed: %s. ' \
+             'Check that the admin_url is valid' % msg)
+
     body = resp.read()
     if resp.status // 100 != 2:
         if resp.status == 401:
