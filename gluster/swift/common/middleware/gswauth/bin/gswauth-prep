@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import gettext
+import socket
+
 from optparse import OptionParser
-from os.path import basename
 from sys import argv, exit
 
 from swift.common.bufferedhttp import http_connect_raw as http_connect
@@ -54,9 +55,17 @@ if __name__ == '__main__':
     path = '%sv2/.prep' % parsed_path
     headers = {'X-Auth-Admin-User': options.admin_user,
                'X-Auth-Admin-Key': options.admin_key}
-    conn = http_connect(parsed.hostname, parsed.port, 'POST', path, headers,
-                        ssl=(parsed.scheme == 'https'))
-    resp = conn.getresponse()
+    try:
+        conn = http_connect(parsed.hostname, parsed.port, 'POST', path, headers,
+                            ssl=(parsed.scheme == 'https'))
+        resp = conn.getresponse()
+    except socket.gaierror, err:
+        exit('gswauth preparation failed: %s. ' \
+             'Check that the admin_url is valid' % err)
+    except socket.error, (errno, msg):
+        exit('gswauth preparation failed: %s. ' \
+             'Check that the admin_url is valid' % msg)
+
     if resp.status // 100 != 2:
         if resp.status == 401:
             exit('gswauth preparation failed: %s %s: Invalid user/key provided' %
