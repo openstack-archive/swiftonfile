@@ -843,11 +843,11 @@ class TestFsUtils(unittest.TestCase):
 
     def test_get_filename_from_fd_err(self):
         result = fs.get_filename_from_fd("blah")
-        self.assertIsNone(result)
+        self.assertEqual(result,None)
         result = fs.get_filename_from_fd(-1000)
-        self.assertIsNone(result)
+        self.assertEqual(result,None)
         result = fs.get_filename_from_fd("blah", True)
-        self.assertIsNone(result)
+        self.assertEqual(result,None)
 
     def test_static_var(self):
         @fs.static_var("counter", 0)
