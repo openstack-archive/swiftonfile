@@ -132,7 +132,7 @@ class TestAccount(unittest.TestCase):
 
         (status,output) = Utils.addUser('test','tester','testing')
         (status,output)=Utils.addAccount('test2',user='test:tester',key='testing')
-        self.assertEqual('Account creation failed: 403 Forbidden: Insufficient priveleges' in output,True, 'Invalid account creation request accepted: '+output)
+        self.assertEqual('Account creation failed: 403 Forbidden: Insufficient privileges' in output,True, 'Invalid account creation request accepted: '+output)
         #TODO:more cases?
 
     def testDeleteAccount(self):
@@ -160,7 +160,7 @@ class TestAccount(unittest.TestCase):
 
         (status,output) = Utils.addUser('test','tester','testing')
         (status,output) = Utils.deleteAccount('test2',user='test:tester',key='testing')
-        self.assertEqual('Delete account failed: 403 Forbidden: Insufficient priveleges' in output,True, 'account deletion failed for test2 account'+output)
+        self.assertEqual('Delete account failed: 403 Forbidden: Insufficient privileges' in output,True, 'account deletion failed for test2 account'+output)
 
         (status,output) = Utils.deleteAccount('test2',key='invalidkey')
         self.assertEqual('Delete account failed: 401 Unauthorized: Invalid user/key provided' in output,True, 'account deletion failed for test2 account'+output)
@@ -239,7 +239,7 @@ class TestUser(unittest.TestCase):
         self.assertEqual(status, 0, 'Invalid user creation request accepted,accountdoesnotexist: '+output)
 
         (status,output) = Utils.addUser('test','testuser2','testuser2',user='test:testuser',key='testuser')
-        self.assertEqual('User creation failed: 403 Forbidden: Insufficient priveleges' in output, True, 'user addition failed'+output)
+        self.assertEqual('User creation failed: 403 Forbidden: Insufficient privileges' in output, True, 'user addition failed'+output)
 
         (status,output) = Utils.addUser('test','testuser2','testuser2',user='test:testadminuser',key='invalidkey')
         self.assertEqual('User creation failed: 401 Unauthorized: Invalid user/key provided' in output, True, 'user addition failed'+output)
@@ -250,7 +250,7 @@ class TestUser(unittest.TestCase):
         self.setTestDeleteUserEnv()
 
         (status,output) = Utils.deleteUser('test','testadminuser',user='test:testuser',key='testuser')
-        self.assertEqual('Delete user failed: 403 Forbidden: Insufficient priveleges' in output, True, 'user deletion failed'+output)
+        self.assertEqual('Delete user failed: 403 Forbidden: Insufficient privileges' in output, True, 'user deletion failed'+output)
 
         (status,output) = Utils.deleteUser('test','testuser',key='invalidkey')
         self.assertEqual('Delete user failed: 401 Unauthorized: Invalid user/key provided' in output, True, 'user deletion failed'+output)

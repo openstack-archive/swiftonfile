@@ -61,7 +61,7 @@ if __name__ == '__main__':
             exit('Delete account failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         elif resp.status == 403:
-            exit('Delete account failed: %s %s: Insufficient priveleges' %
+            exit('Delete account failed: %s %s: Insufficient privileges' %
                 (resp.status, resp.reason))
         elif resp.status == 404:
             exit('Delete account failed: %s %s: Account %s does not exist' %

@@ -74,7 +74,7 @@ Example: %prog -K gswauthkey test storage local http://127.0.0.1:8080/v1/AUTH_01
             exit('Service set failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         elif resp.status == 403:
-            exit('Service set failed: %s %s: Insufficient priveleges' %
+            exit('Service set failed: %s %s: Insufficient privileges' %
                 (resp.status, resp.reason))
         else:
             exit('Service set failed: %s %s' % (resp.status, resp.reason))

@@ -70,7 +70,7 @@ if __name__ == '__main__':
             exit('Account creation failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         elif resp.status == 403:
-            exit('Account creation failed: %s %s: Insufficient priveleges' %
+            exit('Account creation failed: %s %s: Insufficient privileges' %
                 (resp.status, resp.reason))
         else:
             exit('Account creation failed: %s %s' %

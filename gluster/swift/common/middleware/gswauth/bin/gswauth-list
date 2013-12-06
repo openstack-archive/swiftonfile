@@ -86,7 +86,7 @@ If the [user] is '.groups', the active groups for the account will be listed.
             exit('List failed: %s %s: Invalid user/key provided' %
                 (resp.status, resp.reason))
         elif resp.status == 403:
-            exit('List failed: %s %s: Insufficient priveleges' %
+            exit('List failed: %s %s: Insufficient privileges' %
                 (resp.status, resp.reason))
         else:
             exit('List failed: %s %s' % (resp.status, resp.reason))

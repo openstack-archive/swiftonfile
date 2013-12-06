@@ -1420,6 +1420,13 @@ class Swauth(object):
         Returns True if the admin specified in the request represents a
         .reseller_admin.
 
+        The variable req.credentials_valid is set to True if the credentials
+        match. This is used to distinguish between HTTPUnauthorized and
+        HTTPForbidden cases in denied_response method. HTTPUnauthorized is
+        returned when the credentials(username and key) do not match. A
+        HTTPForbidden is returned when the credentials match, but the user does
+        not have necessary permission to perform the requested action.
+
         :param req: The swob.Request to check.
         :param admin_detail: The previously retrieved dict from
                              :func:`get_admin_detail` or None for this function
@@ -1441,6 +1448,13 @@ class Swauth(object):
         """
         Returns True if the admin specified in the request represents a .admin
         for the account specified.
+
+        The variable req.credentials_valid is set to True if the credentials
+        match. This is used to distinguish between HTTPUnauthorized and
+        HTTPForbidden cases in denied_response method. HTTPUnauthorized is
+        returned when the credentials(username and key) do not match. A
+        HTTPForbidden is returned when the credentials match, but the user does
+        not have necessary permission to perform the requested action.
 
         :param req: The swob.Request to check.
         :param account: The account to check for .admin against.

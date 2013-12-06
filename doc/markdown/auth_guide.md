@@ -87,10 +87,12 @@ See <http://gholt.github.com/swauth/> for more information on Swauth.
 1. Initialize the GSwauth backing store in Gluster-Swift
     ``swauth-prep -K swauthkey``
 
-1. Add an account/user. The account name must match the Glusterfs volume name
+2. Add an account/user. The account name must match the Glusterfs volume name
    the user will be given access to. In this example we use the volume ``test``
     ``swauth-add-user -A http://127.0.0.1:8080/auth/ -K swauthkey -a test user1 password1``
 
-1. Ensure it works
+3. Ensure it works
     ``swift -A http://127.0.0.1:8080/auth/v1.0 -U test:user1 -K password1 stat``
+
+4. Ensure the following fails when an incorrect password is used
     ``swift -A http://127.0.0.1:8080/auth/v1.0 -U test:user1 -K wrongpassword stat``
