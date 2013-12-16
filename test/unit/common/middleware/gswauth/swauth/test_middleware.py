@@ -3543,6 +3543,9 @@ class TestAuth(unittest.TestCase):
 
     def test_delete_user_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:adm"},
+             {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"})),
             # GET of user object (account admin, but wrong
             # account)
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:adm"},
@@ -3557,9 +3560,11 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'key'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
-        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 2)
 
         self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # GET of user object (regular user)
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
              {"name": "test"}], "auth": "plaintext:key"}))]))
@@ -3572,7 +3577,54 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'key'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
+        self.assertEquals(self.test_auth.app.calls, 2)
+
+    def test_delete_reseller_admin_user_fail(self):
+        self.test_auth.app = FakeApp(iter([
+            # is user being deleted a reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:re_adm"},
+             {"name": "act2"}, {"name": ".admin"},
+                {"name": ".reseller_admin"}], "auth": "plaintext:key"})),
+            # GET of user object
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:adm"},
+             {"name": "act2"}, {"name": ".admin"}],
+                "auth": "plaintext:key"}))]))
+
+        resp = Request.blank('/auth/v2/act2/re_adm',
+                             environ={
+                                 'REQUEST_METHOD': 'DELETE'},
+                             headers={
+                                 'X-Auth-Admin-User':
+                                 'act2:adm',
+                                 'X-Auth-Admin-Key': 'key'}
+                             ).get_response(self.test_auth)
+        self.assertEquals(resp.status_int, 403)
         self.assertEquals(self.test_auth.app.calls, 1)
+
+    def test_delete_reseller_admin_user_success(self):
+        self.test_auth.app = FakeApp(iter([
+            # is user being deleted a reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:re_adm"},
+             {"name": "act2"}, {"name": ".admin"},
+                {"name": ".reseller_admin"}], "auth": "plaintext:key"})),
+            # HEAD of user object
+            ('200 Ok',
+             {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
+            # DELETE of token
+            ('204 No Content', {}, ''),
+            # DELETE of user object
+            ('204 No Content', {}, '')]))
+
+        resp = Request.blank('/auth/v2/act2/re_adm',
+                             environ={
+                                 'REQUEST_METHOD': 'DELETE'},
+                             headers={
+                                 'X-Auth-Admin-User':
+                                 '.super_admin',
+                                 'X-Auth-Admin-Key': 'supertest'}
+                             ).get_response(self.test_auth)
+        self.assertEquals(resp.status_int, 204)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_user_invalid_account(self):
         resp = Request.blank('/auth/v2/.invalid/usr',
@@ -3628,6 +3680,9 @@ class TestAuth(unittest.TestCase):
 
     def test_delete_user_fail_delete_token(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok',
              {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
@@ -3642,10 +3697,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(self.test_auth.app.calls, 2)
+        self.assertEquals(self.test_auth.app.calls, 3)
 
     def test_delete_user_fail_delete_user(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok',
              {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
@@ -3662,10 +3720,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 500)
-        self.assertEquals(self.test_auth.app.calls, 3)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_user_success(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok',
              {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
@@ -3682,10 +3743,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
-        self.assertEquals(self.test_auth.app.calls, 3)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_user_success_missing_user_at_end(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok',
              {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
@@ -3702,10 +3766,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
-        self.assertEquals(self.test_auth.app.calls, 3)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_user_success_missing_token(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok',
              {'X-Object-Meta-Auth-Token': 'AUTH_tk'}, ''),
@@ -3722,10 +3789,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
-        self.assertEquals(self.test_auth.app.calls, 3)
+        self.assertEquals(self.test_auth.app.calls, 4)
 
     def test_delete_user_success_no_token(self):
         self.test_auth.app = FakeApp(iter([
+            # is user reseller_admin
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # HEAD of user object
             ('200 Ok', {}, ''),
             # DELETE of user object
@@ -3739,7 +3809,7 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-Admin-Key': 'supertest'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 204)
-        self.assertEquals(self.test_auth.app.calls, 2)
+        self.assertEquals(self.test_auth.app.calls, 3)
 
     def test_validate_token_bad_prefix(self):
         resp = Request.blank('/auth/v2/.token/BAD_token'
@@ -3934,7 +4004,7 @@ class TestAuth(unittest.TestCase):
                               headers={'X-Auth-Admin-User': 'act:usr'}))
         except Exception as err:
             exc = err
-        self.assertEquals(str(exc), 'Could not get admin user object: '
+        self.assertEquals(str(exc), 'Could not get user object: '
                           '/v1/AUTH_gsmetadata/act/usr 503 Service Unavailable')
         self.assertEquals(self.test_auth.app.calls, 1)
 
@@ -3953,6 +4023,80 @@ class TestAuth(unittest.TestCase):
                      'auth': 'plaintext:key',
                      'groups': [{'name': 'act:usr'}, {'name': 'act'},
                                 {'name': '.admin'}]})
+
+    def test_get_user_detail_success(self):
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {},
+             json.dumps({"auth": "plaintext:key",
+                         "groups": [{'name': "act:usr"}, {'name': "act"},
+                                    {'name': ".admin"}]}))]))
+        detail = self.test_auth.get_user_detail(
+            Request.blank('/',
+                          headers={'X-Auth-Admin-User': 'act:usr'}),
+                          'act', 'usr')
+        self.assertEquals(self.test_auth.app.calls, 1)
+        detail_json = json.loads(detail)
+        self.assertEquals("plaintext:key", detail_json['auth'])
+
+    def test_get_user_detail_fail_user_doesnt_exist(self):
+        self.test_auth.app = FakeApp(
+            iter([('404 Not Found', {}, '')]))
+        detail = self.test_auth.get_user_detail(
+            Request.blank('/',
+                          headers={'X-Auth-Admin-User': 'act:usr'}),
+                          'act', 'usr')
+        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(detail, None)
+
+    def test_get_user_detail_fail_exception(self):
+        self.test_auth.app = FakeApp(iter([
+            ('503 Service Unavailable', {}, '')]))
+        exc = None
+        try:
+            detail = self.test_auth.get_user_detail(
+                Request.blank('/',
+                              headers={'X-Auth-Admin-User': 'act:usr'}),
+                              'act', 'usr')
+        except Exception as err:
+            exc = err
+        self.assertEquals(str(exc), 'Could not get user object: '
+                          '/v1/AUTH_gsmetadata/act/usr 503 Service Unavailable')
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+    def test_is_user_reseller_admin_success(self):
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {},
+             json.dumps({"auth": "plaintext:key",
+                         "groups": [{'name': "act:usr"}, {'name': "act"},
+                                    {'name': ".reseller_admin"}]}))]))
+        result = self.test_auth.is_user_reseller_admin(
+            Request.blank('/',
+                          headers={'X-Auth-Admin-User': 'act:usr'}),
+                          'act', 'usr')
+        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertTrue(result)
+
+    def test_is_user_reseller_admin_fail(self):
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {},
+             json.dumps({"auth": "plaintext:key",
+                         "groups": [{'name': "act:usr"}, {'name': "act"},
+                                    {'name': ".admin"}]}))]))
+        result = self.test_auth.is_user_reseller_admin(
+            Request.blank('/',
+                          headers={'X-Auth-Admin-User': 'act:usr'}),
+                          'act', 'usr')
+        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertFalse(result)
+
+    def test_is_user_reseller_admin_fail_user_doesnt_exist(self):
+        self.test_auth.app = FakeApp(
+            iter([('404 Not Found', {}, '')]))
+        req = Request.blank('/', headers={'X-Auth-Admin-User': 'act:usr'})
+        result = self.test_auth.is_user_reseller_admin(req, 'act', 'usr')
+        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertFalse(result)
+        self.assertFalse(req.credentials_valid)
 
     def test_credentials_match_success(self):
         self.assert_(self.test_auth.credentials_match(
