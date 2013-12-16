@@ -492,12 +492,12 @@ class TestUser(unittest.TestCase):
         self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with re_admin user of other account: '+output)
         '''
         Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers2', 'testing')
-        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers2',user='test:admin',key='testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotheraccountusers2',user='test:admin',key='testing')
         self.assertNotEqual(status, 0, 're_admin deletion succeeded with admin user of other account: '+output)
         self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with admin user of other account: '+output)
 
         Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers3', 'testing')
-        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers3',user='test:tester',key='testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotheraccountusers3',user='test:tester',key='testing')
         self.assertNotEqual(status, 0, 're_admin deletion succeeded with regular user of other account: '+output)
         self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with user of other account: '+output)
 

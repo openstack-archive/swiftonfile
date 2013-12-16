@@ -908,6 +908,10 @@ class Swauth(object):
             return HTTPBadRequest(request=req)
         if not self.is_account_admin(req, account):
             return self.denied_response(req)
+
+        # get information for each user for the specified
+        # account and create a list of all groups that the users
+        # are part of
         if user == '.groups':
             # TODO: This could be very slow for accounts with a really large
             # number of users. Speed could be improved by concurrently
@@ -932,28 +936,25 @@ class Swauth(object):
                     break
                 for obj in sublisting:
                     if obj['name'][0] != '.':
-                        path = quote('/v1/%s/%s/%s' % (self.auth_account,
-                                                       account, obj['name']))
-                        resp = self.make_pre_authed_request(
-                            req.environ, 'GET', path).get_response(self.app)
-                        if resp.status_int // 100 != 2:
+
+                        # get list of groups for each user
+                        user_json = self.get_user_detail(req, account,
+                                                         obj['name'])
+                        if user_json is None:
                             raise Exception('Could not retrieve user object: '
-                                            '%s %s' % (path, resp.status))
+                                            '%s:%s %s' % (account, user, 404))
                         groups.update(
-                            g['name'] for g in json.loads(resp.body)['groups'])
+                            g['name'] for g in json.loads(user_json)['groups'])
                 marker = sublisting[-1]['name'].encode('utf-8')
             body = json.dumps(
                 {'groups': [{'name': g} for g in sorted(groups)]})
         else:
-            path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
-            resp = self.make_pre_authed_request(
-                req.environ, 'GET', path).get_response(self.app)
-            if resp.status_int == 404:
+            # get information for specific user,
+            # if user doesn't exist, return HTTPNotFound
+            body = self.get_user_detail(req, account, user)
+            if body is None:
                 return HTTPNotFound(request=req)
-            if resp.status_int // 100 != 2:
-                raise Exception('Could not retrieve user object: %s %s' %
-                                (path, resp.status))
-            body = resp.body
+
             display_groups = [g['name'] for g in json.loads(body)['groups']]
             if ('.admin' in display_groups and
                 not self.is_reseller_admin(req)) or \
@@ -1054,8 +1055,19 @@ class Swauth(object):
         if req.path_info or not account or account[0] == '.' or not user or \
                 user[0] == '.':
             return HTTPBadRequest(request=req)
+
+        # if user to be deleted is reseller_admin, then requesting
+        # user must also be a reseller_admin
+        is_reseller_admin = self.is_user_reseller_admin(req, account, user)
+        if not is_reseller_admin and not req.credentials_valid:
+            # if user to be deleted can't be found, return 404
+            return HTTPNotFound(request=req)
+        elif is_reseller_admin and not self.is_super_admin(req):
+            return HTTPForbidden(request=req)
+
         if not self.is_account_admin(req, account):
             return self.denied_response(req)
+
         # Delete the user's existing token, if any.
         path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
         resp = self.make_pre_authed_request(
@@ -1083,6 +1095,26 @@ class Swauth(object):
             raise Exception('Could not delete the user object: %s %s' %
                             (path, resp.status))
         return HTTPNoContent(request=req)
+
+    def is_user_reseller_admin(self, req, account, user):
+        """
+        Returns True if the user is a .reseller_admin.
+
+        :param account: account user is part of
+        :param user: the user
+        :returns: True if user .reseller_admin, False
+                  if user is not a reseller_admin and None if the user
+                  doesn't exist.
+        """
+        req.credentials_valid = True
+        user_json = self.get_user_detail(req, account, user)
+        if user_json is None:
+            req.credentials_valid = False
+            return False
+
+        user_detail = json.loads(user_json)
+
+        return '.reseller_admin' in (g['name'] for g in user_detail['groups'])
 
     def handle_get_token(self, req):
         """
@@ -1391,18 +1423,34 @@ class Swauth(object):
             return None
         admin_account, admin_user = \
             req.headers.get('x-auth-admin-user').split(':', 1)
-        path = quote('/v1/%s/%s/%s' % (self.auth_account, admin_account,
-                                       admin_user))
+        user_json = self.get_user_detail(req, admin_account, admin_user)
+        if user_json is None:
+            return None
+        admin_detail = json.loads(user_json)
+        admin_detail['account'] = admin_account
+        return admin_detail
+
+    def get_user_detail(self, req, account, user):
+        """
+        Returns the response body of a GET request for the specified user
+        The body is in JSON format and contains all user information.
+
+        :param req: The swob request
+        :param account: the account the user is a member of
+        :param user: the user
+
+        :returns: A JSON response with the user detail information, None
+                  if the user doesn't exist
+        """
+        path = quote('/v1/%s/%s/%s' % (self.auth_account, account, user))
         resp = self.make_pre_authed_request(
             req.environ, 'GET', path).get_response(self.app)
         if resp.status_int == 404:
             return None
         if resp.status_int // 100 != 2:
-            raise Exception('Could not get admin user object: %s %s' %
+            raise Exception('Could not get user object: %s %s' %
                             (path, resp.status))
-        admin_detail = json.loads(resp.body)
-        admin_detail['account'] = admin_account
-        return admin_detail
+        return resp.body
 
     def credentials_match(self, user_detail, key):
         """
