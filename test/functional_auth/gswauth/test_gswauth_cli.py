@@ -26,40 +26,81 @@ config = get_config('func_test')
 class Utils:
 
     @classmethod
-    def addAccount(self,account_name,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-add-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
-
-    @classmethod
-    def deleteAccount(self,account_name,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-delete-account %s -A %s -U %s -K %s' % (account_name,authurl, user, key))
-
-    @classmethod
-    def listAccounts(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-list -A %s -U %s -K %s' % (authurl, user, key))
-
-    @classmethod
     def swauthPrep(self,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
         return commands.getstatusoutput('gswauth-prep -A %s -U %s -K %s' % (authurl, user, key))
 
     @classmethod
-    def addAdminUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-add-user -a %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
+    def addAccount(self,account_name,suffix=None, authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if suffix is not None:
+            return commands.getstatusoutput('gswauth-add-account %s -s %s -A %s -U %s -K %s' % (account_name, suffix, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-add-account %s -A %s -U %s -K %s' % (account_name, authurl, user, key))
 
     @classmethod
-    def addUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-add-user %s %s %s -A %s -U %s -K %s'% (account_name,username,password,authurl, user, key))
+    def deleteAccount(self,account_name,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        return commands.getstatusoutput('gswauth-delete-account %s -A %s -U %s -K %s' % (account_name, authurl, user, key))
 
     @classmethod
-    def addResellerAdminUser(self,account_name,username,password,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
-        return commands.getstatusoutput('gswauth-add-user -r %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
+    def listAccounts(self,listtype=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if listtype is not None:
+            return commands.getstatusoutput('gswauth-list %s -A %s -U %s -K %s' % (listtype, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-list -A %s -U %s -K %s' % (authurl, user, key))
+
+    @classmethod
+    def listUsers(self,account_name,listtype=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if listtype is not None:
+            return commands.getstatusoutput('gswauth-list %s %s -A %s -U %s -K %s'% (account_name, listtype, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-list %s -A %s -U %s -K %s'% (account_name, authurl, user, key))
+
+    @classmethod
+    def addAdminUser(self,account_name,username,password,suffix=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if suffix is not None:
+            return commands.getstatusoutput('gswauth-add-user -a %s %s %s -s %s -A %s -U %s -K %s'% (account_name, username, password, suffix, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-add-user -a %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
+
+    @classmethod
+    def addUser(self,account_name,username,password,suffix=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if suffix is not None:
+            return commands.getstatusoutput('gswauth-add-user %s %s %s -s %s -A %s -U %s -K %s'% (account_name, username, password, suffix, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-add-user %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
+
+    @classmethod
+    def addResellerAdminUser(self,account_name,username,password,suffix=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if suffix is not None:
+            return commands.getstatusoutput('gswauth-add-user -r %s %s %s -s %s -A %s -U %s -K %s'% (account_name, username, password, suffix, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-add-user -r %s %s %s -A %s -U %s -K %s'% (account_name, username, password, authurl, user, key))
 
     @classmethod
     def deleteUser(self,account_name,username,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
         return commands.getstatusoutput('gswauth-delete-user %s %s -A %s -U %s -K %s'% (account_name, username, authurl, user, key))
 
     @classmethod
+    def listUserGroups(self,account_name,username,listtype=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if listtype is not None:
+            return commands.getstatusoutput('gswauth-list %s %s %s -A %s -U %s -K %s'% (account_name, username, listtype, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-list %s %s %s -A %s -U %s -K %s'% (account_name, username, listtype, authurl, user, key))
+
+    @classmethod
+    def cleanToken(self,option=None,value=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        if option is None and value is None:
+            return commands.getstatusoutput('gswauth-cleanup-tokens -A %s -U %s -K %s'% (authurl, user, key))
+        elif option is not None and value is None:
+            return commands.getstatusoutput('gswauth-cleanup-tokens %s -A %s -U %s -K %s'% (option, authurl, user, key))
+        else:
+            return commands.getstatusoutput('gswauth-cleanup-tokens %s %s -A %s -U %s -K %s'% (option, value, authurl, user, key))
+
+    @classmethod
+    def setAccountService(self, account, service, name, value, authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+        return commands.getstatusoutput('gswauth-set-account-service %s %s %s %s -A %s -U %s -K %s'% (account, service, name, value, authurl, user, key))
+
+    @classmethod
     def cleanAll(self):
-        #TODO:It's a dirty hack,any suggestions?
         commands.getstatusoutput('sudo rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '*'))
         return commands.getstatusoutput('sudo rm -rf '+os.path.join(config['devices'], config['gsmetadata_volume'], '.*'))
 
@@ -81,9 +122,17 @@ class TestSwauthPrep(unittest.TestCase):
 
         (status,output)=Utils.swauthPrep(key='notavalidkey')
         self.assertNotEqual(status, 0, 'Invalid swauth-prep request accepted(wrong key provided):'+output)
-        self.assertEqual('gswauth preparation failed: 401 Unauthorized: Invalid user/key provided' in output,True, 'Invalid\
-         swauth-prep request accepted: '+output)
+        self.assertEqual('gswauth preparation failed: 401 Unauthorized: Invalid user/key provided' \
+                         in output,True, 'Invalid swauth-prep request accepted: '+output)
         #TODO:More cases for invalid url and admin user
+
+    def testAddAccountWithoutSwauthPrep(self):
+        #Try to add account without running gswauth-prep
+        Utils.cleanAll()
+        (status,output)=Utils.addAccount('test')
+        self.assertNotEqual(status, 0, 'account added without running gswauth-prep '+output)
+        self.assertEqual('Account creation failed: 500 Server Error' \
+                         in output,True, 'account added without running gswauth-prep '+output)
 
 
 class TestAccount(unittest.TestCase):
@@ -95,48 +144,64 @@ class TestAccount(unittest.TestCase):
     def tearDown(self):
         Utils.cleanAll()
 
-    def setTestDeleteAccountEnv(self):
-        #add some account
+    def setTestAccUserEnv(self):
         (status,output)=Utils.addAccount('test')
-        self.assertEqual(status, 0, 'setTestDeleteAccountEnv failed'+output)
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test','re_admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test','admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test','tester','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
 
+    def setTest2AccUserEnv(self):
         (status,output)=Utils.addAccount('test2')
-        self.assertEqual(status, 0, 'setTestDeleteAccountEnv failed'+output)
-
-        #add some user to this account
-        (status,output) = Utils.addAdminUser('test2','tester','testing')
-        self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
-
-        (status,output) = Utils.addUser('test2','tester2','testing2')
-        self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
-
-        (status,output) = Utils.addResellerAdminUser('test2','tester3','testing3')
-        self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test2','re_admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test2','admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test2','tester','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
 
     def testAddAccount(self):
         (status,output)=Utils.addAccount('test')
         self.assertEqual(status, 0, 'account creation failed'+output)
 
         (status,output)=Utils.addAccount('accountvolumedoesnotexist')
-        #TODO:decide on expected behavior,currently it creates it
         self.assertEqual(status, 0, 'account creation failed std err was: '+output)
 
         (status,output)=Utils.addAccount('testnokey',key='')
-        #self.assertEqual(status, 0, 'account creation failed std err was: '+output)
         self.assertEqual('Usage:' in output, True, 'Invalid account creation request accepted : '+output)
 
         (status,output)=Utils.addAccount('testinvalidkey',key='invalidkey')
-        #self.assertEqual(status, 0, 'account creation failed std err was: '+output)
-        #assert for better error message 403 Forbidden, Invalid user/key would be good to have
-        self.assertEqual('Account creation failed: 401 Unauthorized: Invalid user/key provided' in output,True, 'Invalid account creation request accepted: '+output)
-
-        (status,output) = Utils.addUser('test','tester','testing')
-        (status,output)=Utils.addAccount('test2',user='test:tester',key='testing')
-        self.assertEqual('Account creation failed: 403 Forbidden: Insufficient privileges' in output,True, 'Invalid account creation request accepted: '+output)
+        self.assertEqual('Account creation failed: 401 Unauthorized: Invalid user/key provided' \
+                         in output,True, 'Invalid account creation request accepted: '+output)
         #TODO:more cases?
 
+    def testAddAccountNonSuperAdminUsers(self):
+        #set test account with all types of user
+        self.setTestAccUserEnv()
+        #try to add another account with all type of users
+        (status,output)=Utils.addAccount('accbyreselleradmin',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'account creation failed with re_admin user: '+output)
+
+        (status,output)=Utils.addAccount('accbyadmin',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 'account creation success with admin user: '+output)
+        self.assertEqual('Account creation failed: 403 Forbidden: Insufficient privileges' in output,True, 'account creation success with admin user: '+output)
+
+        (status,output)=Utils.addAccount('accbyuser',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'account creation success with regular user: '+output)
+        self.assertEqual('Account creation failed: 403 Forbidden: Insufficient privileges' \
+                         in output,True, 'account creation success with regular user: '+output)
+
     def testDeleteAccount(self):
-        self.setTestDeleteAccountEnv()
+        #add test account with no users
+        (status,output)=Utils.addAccount('test')
+        self.assertEqual(status, 0, 'account creation failed for test account'+output)
+
+        #set test2 account with all type of users
+        self.setTest2AccUserEnv()
 
         #valid request to delete an account with no users
         (status,output)=Utils.deleteAccount('test')
@@ -144,35 +209,51 @@ class TestAccount(unittest.TestCase):
 
         #Invalid request to delete an account with users
         (status,output)=Utils.deleteAccount('test2')
-        self.assertNotEqual(status, 0, 'account deletion failed for test2 account'+output)
-        self.assertEqual('Delete account failed: 409 Conflict: Account test2 contains active users. Delete all users first.' in output,True,
-        'account deletion failed for test account'+output)
+        self.assertNotEqual(status, 0, 'account deletion succeeded for acc with active users'+output)
+        self.assertEqual('Delete account failed: 409 Conflict: Account test2 contains active users. Delete all users first.' \
+                         in output,True, 'account deletion failed for test account'+output)
 
         #delete all users in above account and then try again
         (status,output) = Utils.deleteUser('test2','tester')
         self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
 
-        (status,output) = Utils.deleteUser('test2','tester2')
+        (status,output) = Utils.deleteUser('test2','admin')
         self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
 
-        (status,output) = Utils.deleteUser('test2','tester3')
+        (status,output) = Utils.deleteUser('test2','re_admin')
         self.assertEqual(status, 0, 'setTestDeleteAccountEnv'+output)
-
-        (status,output) = Utils.addUser('test','tester','testing')
-        (status,output) = Utils.deleteAccount('test2',user='test:tester',key='testing')
-        self.assertEqual('Delete account failed: 403 Forbidden: Insufficient privileges' in output,True, 'account deletion failed for test2 account'+output)
-
-        (status,output) = Utils.deleteAccount('test2',key='invalidkey')
-        self.assertEqual('Delete account failed: 401 Unauthorized: Invalid user/key provided' in output,True, 'account deletion failed for test2 account'+output)
 
         (status,output)=Utils.deleteAccount('test2')
         self.assertEqual(status, 0, 'account deletion failed for test2 account'+output)
 
         (status,output)=Utils.deleteAccount('accountdoesnotexist')
         self.assertNotEqual(status, 0, 'account deletion failed for accountdoesnotexist'+output)
-        self.assertEqual('Delete account failed: 404 Not Found: Account accountdoesnotexist does not exist' in output,True, 'account deletion failed for test\
-         account'+output)
+        self.assertEqual('Delete account failed: 404 Not Found: Account accountdoesnotexist does not exist' in output,True, 'account deletion failed for test account'+output)
         #TODO:more cases
+
+    def testDeleteAccountNonSuperAdminUsers(self):
+        #set test account with all types of user
+        self.setTestAccUserEnv()
+
+        #try to add another account with all type of users
+        Utils.addAccount('accbysuperadminforreadmin')
+        (status,output)=Utils.deleteAccount('accbysuperadminforreadmin',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'account deletion failed with re_admin user: '+output)
+
+        #TODO:uncomment following case when fix is there
+        '''
+        Utils.addAccount('accbysuperadminforadmin')
+        (status,output)=Utils.deleteAccount('accbysuperadminforadmin',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 'account deletion success with admin user: '+output)
+        self.assertEqual('Delete account failed: 403 Forbidden: Insufficient privileges' \
+                         in output,True, 'account deletion success with admin user: '+output)
+        '''
+
+        Utils.addAccount('accbysuperadminforuser')
+        (status,output)=Utils.deleteAccount('accbysuperadminforuser',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'account creation success with regular user: '+output)
+        self.assertEqual('Delete account failed: 403 Forbidden: Insufficient privileges' \
+                         in output,True, 'account deletion success with regular user: '+output)
 
     def testListAcounts(self):
         (status,output)=Utils.addAccount('test')
@@ -182,6 +263,35 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(output,
             '+----------+\n| Accounts |\n+----------+\n|   test   |\n+----------+',
             'swauth-list failed:\n%s' % output)
+
+        (status,output)=Utils.listAccounts('-j')
+        self.assertEqual(output,
+            '{"accounts": [{"name": "test"}]}',
+            'swauth-list failed for json option:\n%s' % output)
+
+        (status,output)=Utils.listAccounts('-p')
+        self.assertEqual(output,
+            'test',
+            'swauth-list failed for plain-text option:\n%s' % output)
+
+    def testListAcountsNonSuperAdminUsers(self):
+        #set test acc with all type of users
+        self.setTestAccUserEnv()
+
+        (status,output)=Utils.listAccounts(user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'account listing failed with re_admin user: '+output)
+        self.assertEqual(output,
+            '+----------+\n| Accounts |\n+----------+\n|   test   |\n+----------+',
+            'swauth-list failed:\n%s' % output)
+
+        (status,output)=Utils.listAccounts(user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 'account listing success with admin user: '+output)
+        self.assertEqual('List failed: 403 Forbidden: Insufficient privileges' \
+                         in output,True, 'account listing success with admin user: '+output)
+
+        (status,output)=Utils.listAccounts(user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'account listing success with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'account listing success with regular user: '+output)
 
 
 class TestUser(unittest.TestCase):
@@ -193,28 +303,30 @@ class TestUser(unittest.TestCase):
     def tearDown(self):
         Utils.cleanAll()
 
-    def setTestaddAdminUserEnv(self):
-        #add test account
+    def setTestAccUserEnv(self):
+        (status,output)=Utils.addAccount('test')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test','re_admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test','admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test','tester','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+
+    def setTest2AccUserEnv(self):
+        (status,output)=Utils.addAccount('test2')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test2','re_admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test2','admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test2','tester','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+
+    def testaddUser(self):
+        #add test acc
         (status,output)=Utils.addAccount('test')
         self.assertEqual(status, 0, 'setTestaddAdminUserEnv (add test account) failed'+output)
-
-    def setTestDeleteUserEnv(self):
-        #add test account
-        (status,output)=Utils.addAccount('test')
-        self.assertEqual(status, 0, 'setTestaddAdminUserEnv (add test account) failed'+output)
-
-        (status,output) = Utils.addAdminUser('test','testadminuser','testadminuser')
-        self.assertEqual(status, 0, 'user addition failed'+output)
-
-        (status,output) = Utils.addUser('test','testuser','testuser')
-        self.assertEqual(status, 0, 'user addition failed'+output)
-
-        (status,output) = Utils.addResellerAdminUser('test','testreselleradminuser','testreselleradminuser')
-        self.assertEqual(status, 0, 'user addition failed'+output)
-
-    def testaddAdminUser(self):
-        #set the env for test
-        self.setTestaddAdminUserEnv()
 
         (status,output) = Utils.addAdminUser('test','testadminuser','testadminuser')
         self.assertEqual(status, 0, 'user addition failed'+output)
@@ -235,33 +347,113 @@ class TestUser(unittest.TestCase):
         self.assertEqual('Usage:' in output, True, 'Invalid user creation request accepted'+output)
 
         (status,output) = Utils.addAdminUser('accountdoesnotexist', 'testcli', 'testcli')
-        #TODO: decide on behavior,below is just place holder, right now it accepts this request and create both user and account
-        self.assertEqual(status, 0, 'Invalid user creation request accepted,accountdoesnotexist: '+output)
-
-        (status,output) = Utils.addUser('test','testuser2','testuser2',user='test:testuser',key='testuser')
-        self.assertEqual('User creation failed: 403 Forbidden: Insufficient privileges' in output, True, 'user addition failed'+output)
-
-        (status,output) = Utils.addUser('test','testuser2','testuser2',user='test:testadminuser',key='invalidkey')
-        self.assertEqual('User creation failed: 401 Unauthorized: Invalid user/key provided' in output, True, 'user addition failed'+output)
+        self.assertEqual(status, 0, 'User creation request failed, where accountdoesnotexist: '+output)
         #TODO: more test cases?
 
+    def testAddUserNonSuperAdminUsers (self):
+        #setup test,testr accounts with all user types
+        self.setTestAccUserEnv()
+        self.setTest2AccUserEnv()
+
+        #try to add another reseller_admin users with all type of users
+        #TODO:Uncomment Following,Possible Bug:403 should be return instead of current 401
+        '''
+        (status,output)=Utils.addResellerAdminUser('test', 're_adminwithreadmin', 'testing', user='test:re_admin', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with re_admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with re_admin user: '+output)
+
+        (status,output)=Utils.addResellerAdminUser('test', 're_adminwithadmin', 'testing', user='test:admin', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with admin user: '+output)
+
+        (status,output)=Utils.addResellerAdminUser('test', 're_adminwithuser', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with regular user: '+output)
+
+        (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithreadmin', 'testing', user='test:re_admin', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with re_admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with re_admin user: '+output)
+
+        (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithadmin', 'testing', user='test:admin', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with admin user: '+output)
+
+        (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithuser', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 're_admin creation succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with regular user: '+output)
+
+        #update the password with own credential
+        (status,output)=Utils.addResellerAdminUser('test', 're_adminwithreadmin', 'testingupdated', user='test:re_admin', key='testing')
+        self.assertNotEqual(status, 0, 're_admin update password succeeded with own credentials: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin update password succeeded with own credentials: '+output)
+        '''
+        #try to add another admin users with all type of users
+        (status,output)=Utils.addAdminUser('test', 'adminwithreadmin', 'testing', user='test:re_admin', key='testing')
+        self.assertEqual(status, 0, 'admin creation failed with re_admin user: '+output)
+
+        (status,output)=Utils.addAdminUser('test', 'adminwithreadmin', 'testing', user='test:admin', key='testing')
+        self.assertEqual(status, 0, 'admin creation failed with admin user: '+output)
+
+        (status,output)=Utils.addAdminUser('test', 'adminwithuser', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'admin creation succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin creation succeeded with regular user: '+output)
+
+        (status,output)=Utils.addAdminUser('test2', 'adminwithreadminofotheraccount', 'testing', user='test:re_admin', key='testing')
+        self.assertEqual(status, 0, 'admin creation failed with re_admin user of other account: '+output)
+
+        (status,output)=Utils.addAdminUser('test2', 'adminwithadminofotheraccount', 'testing', user='test:admin', key='testing')
+        self.assertNotEqual(status, 0, 'admin creation succeeded with admin user of other acc: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin creation succeeded with admin user of other acc: '+output)
+
+        (status,output)=Utils.addAdminUser('test2', 'adminwithuserfotheraccount', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'admin creation succeeded with user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin creation succeeded with user of other account: '+output)
+
+        #update password of own admin account
+        (status,output)=Utils.addAdminUser('test', 'admin', 'testingupdated', user='test:admin', key='testing')
+        self.assertEqual(status, 0, 'admin password update failed with own credentials: '+output)
+        #undo above password change
+        (status,output)=Utils.addAdminUser('test', 'admin', 'testing', user='test:admin', key='testingupdated')
+        self.assertEqual(status, 0, 'admin password update failed with own credentials: '+output)
+
+        #try to add another regular users with all type of users
+        (status,output)=Utils.addUser('test', 'adduserwithre_admin', 'testing', user='test:re_admin', key='testing')
+        self.assertEqual(status, 0, 'regular user creation with re_admin credentials failed: '+output)
+
+        (status,output)=Utils.addUser('test', 'adduserwithadmin', 'testing', user='test:admin', key='testing')
+        self.assertEqual(status, 0, 'regular user creation with admin credentials failed: '+output)
+
+        (status,output)=Utils.addUser('test', 'adduserwithuser', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'regular user creation with regular user credentials succeded: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'regular user creation with regular user credentials succeded: '+output)
+
+        (status,output)=Utils.addUser('test2', 'adduserwithreadminofotheraccount', 'testing', user='test:re_admin', key='testing')
+        self.assertEqual(status, 0, 'user creation failed with re_admin user of other account: '+output)
+
+        (status,output)=Utils.addUser('test2', 'adduserwithadminofotheraccount', 'testing', user='test:admin', key='testing')
+        self.assertNotEqual(status, 0, 'user creation succeeded with admin user of other acc: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'user creation succeeded with admin user of other acc: '+output)
+
+        (status,output)=Utils.addUser('test2', 'adminwithuserfotheraccount', 'testing', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'user creation succeeded with user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'user creation succeeded with user of other account: '+output)
+
+        #update password of own regular user
+        (status,output)=Utils.addUser('test', 'tester', 'testingupdated', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'regular user update password succeeded with own credentials: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'regular user update password succeeded with own credentials: '+output)
+
     def testDeleteUser(self):
-        #set the env for test
-        self.setTestDeleteUserEnv()
+        #set test acc
+        self.setTestAccUserEnv()
 
-        (status,output) = Utils.deleteUser('test','testadminuser',user='test:testuser',key='testuser')
-        self.assertEqual('Delete user failed: 403 Forbidden: Insufficient privileges' in output, True, 'user deletion failed'+output)
-
-        (status,output) = Utils.deleteUser('test','testuser',key='invalidkey')
-        self.assertEqual('Delete user failed: 401 Unauthorized: Invalid user/key provided' in output, True, 'user deletion failed'+output)
-
-        (status,output) = Utils.deleteUser('test','testadminuser')
+        (status,output) = Utils.deleteUser('test','admin')
         self.assertEqual(status, 0, 'valid user deletion failed:'+output)
 
-        (status,output) = Utils.deleteUser('test','testuser')
+        (status,output) = Utils.deleteUser('test','tester')
         self.assertEqual(status, 0, 'valid user deletion failed:'+output)
 
-        (status,output) = Utils.deleteUser('test','testreselleradminuser')
+        (status,output) = Utils.deleteUser('test','re_admin')
         self.assertEqual(status, 0, 'valid user deletion failed:'+output)
 
         (status,output) = Utils.deleteUser('test', '')
@@ -271,11 +463,117 @@ class TestUser(unittest.TestCase):
         self.assertEqual('Usage:' in output, True, 'Invalid user deletion request accepted : '+output)
 
         (status,output) = Utils.deleteUser('test', 'userdoesnotexist')
-        self.assertEqual('Delete user failed: 404 Not Found: User userdoesnotexist does not exist' in output, True, 'user deletion failed'+output)
+        self.assertNotEqual(status, 0, 'Invalid user deletion request accepted,userdoesnotexist:'+output)
 
         (status,output) = Utils.deleteUser('accountisnothere', 'testcli')
-        self.assertEqual('Delete user failed: 404 Not Found: User testcli does not exist' in output, True, 'user deletion failed'+output)
-
+        self.assertNotEqual(status, 0, 'Invalid user deletion request accepted, accountdoesnotexist:'+output)
         #TODO:more testcases?
 
+    def testDeleteUserNonSuperAdminUsers(self):
+        #set test, test2 acc with all type of users
+        self.setTestAccUserEnv()
+        self.setTest2AccUserEnv()
+        #try to delete reseller_admin users with all type of users
+        #TODO:uncomment following: https://bugs.launchpad.net/gluster-swift/+bug/1260239
+        '''
+        Utils.addResellerAdminUser('test', 're_admintobedeletedbyotherusers1', 'testing')
+        (status,output) = Utils.deleteUser('test', 're_admintobedeletedbyotherusers1',user='test:re_admin',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with re_admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with re_admin user: '+output)
+
+        Utils.addResellerAdminUser('test', 're_admintobedeletedbyotherusers2', 'testing')
+        (status,output) = Utils.deleteUser('test', 're_admintobedeletedbyotherusers2',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with admin user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with admin user: '+output)
+
+        Utils.addResellerAdminUser('test', 're_admintobedeletedbyotherusers3', 'testing')
+        (status,output) = Utils.deleteUser('test', 're_admintobedeletedbyotherusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with user: '+output)
+
+        Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers1', 'testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers1',user='test:re_admin',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with re_admin user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with re_admin user of other account: '+output)
+        '''
+        Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers2', 'testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers2',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with admin user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with admin user of other account: '+output)
+
+        Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers3', 'testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 're_admin deletion succeeded with regular user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with user of other account: '+output)
+
+        #delete/de-active own re_admin account
+        Utils.addAdminUser('test', 're_admintobedeletedbyitself', 'testing')
+        (status,output) = Utils.deleteUser('test', 're_admintobedeletedbyitself',user='test:re_admintobedeletedbyitself',key='testing')
+        self.assertEqual(status, 0, 're_admin deletion failed with own credentials : '+output)
+
+        #try to delete admin users with all type of users
+        Utils.addAdminUser('test', 'admintobedeletedbyotherusers1', 'testing')
+        (status,output) = Utils.deleteUser('test', 'admintobedeletedbyotherusers1',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'admin deletion failed with re_admin user: '+output)
+
+        Utils.addAdminUser('test', 'admintobedeletedbyotherusers2', 'testing')
+        (status,output) = Utils.deleteUser('test', 'admintobedeletedbyotherusers2',user='test:admin',key='testing')
+        self.assertEqual(status, 0, 'admin deletion failed with admin user: '+output)
+
+        Utils.addAdminUser('test', 'admintobedeletedbyotherusers3', 'testing')
+        (status,output) = Utils.deleteUser('test', 'admintobedeletedbyotherusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'admin deletion succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin deletion succeeded with regular user: '+output)
+
+        Utils.addAdminUser('test2', 'admintobedeletedbyotheraccountusers1', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'admintobedeletedbyotheraccountusers1',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'admin deletion failed with re_admin user of other account: '+output)
+
+        Utils.addAdminUser('test2', 'admintobedeletedbyotheraccountusers2', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'admintobedeletedbyotheraccountusers2',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 'admin deletion succeeded with admin user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin deletion succeeded with admin user of other account: '+output)
+
+        Utils.addAdminUser('test2', 'admintobedeletedbyotheraccountusers3', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'admintobedeletedbyotheraccountusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'admin deletion succeeded with regular user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'admin deletion succeeded with regular user of other account: '+output)
+
+        #delete/de-active own admin account
+        Utils.addAdminUser('test', 'admintobedeletedbyitself', 'testing')
+        (status,output) = Utils.deleteUser('test', 'admintobedeletedbyitself',user='test:admintobedeletedbyitself',key='testing')
+        self.assertEqual(status, 0, 'admin deletion failed with own credentials : '+output)
+
+        #try to delete another regular users with all type of users
+        Utils.addUser('test', 'usertobedeletedbyotherusers1', 'testing')
+        (status,output) = Utils.deleteUser('test', 'usertobedeletedbyotherusers1',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'user deletion failed with re_admin user: '+output)
+
+        Utils.addUser('test', 'usertobedeletedbyotherusers2', 'testing')
+        (status,output) = Utils.deleteUser('test', 'usertobedeletedbyotherusers2',user='test:admin',key='testing')
+        self.assertEqual(status, 0, 'user deletion failed with admin user: '+output)
+
+        Utils.addUser('test', 'usertobedeletedbyotherusers3', 'testing')
+        (status,output) = Utils.deleteUser('test', 'usertobedeletedbyotherusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'user deletion succeeded with regular user: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'user deletion succeeded with regular user: '+output)
+
+        Utils.addUser('test2', 'usertobedeletedbyotheraccountusers1', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'usertobedeletedbyotheraccountusers1',user='test:re_admin',key='testing')
+        self.assertEqual(status, 0, 'user deletion failed with re_admin user of other account: '+output)
+
+        Utils.addUser('test2', 'usertobedeletedbyotheraccountusers2', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'usertobedeletedbyotheraccountusers2',user='test:admin',key='testing')
+        self.assertNotEqual(status, 0, 'user deletion succeeded with admin user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'user deletion succeeded with admin user of other account: '+output)
+
+        Utils.addUser('test2', 'usertobedeletedbyotheraccountusers3', 'testing')
+        (status,output) = Utils.deleteUser('test2', 'usertobedeletedbyotheraccountusers3',user='test:tester',key='testing')
+        self.assertNotEqual(status, 0, 'user deletion succeeded with regular user of other account: '+output)
+        self.assertEqual('403 Forbidden' in output,True, 'user deletion succeeded with regular user of other account: '+output)
+
+        #delete/de-active own admin account
+        Utils.addAdminUser('test', 'usertobedeletedbyitself', 'testing')
+        (status,output) = Utils.deleteUser('test', 'usertobedeletedbyitself',user='test:usertobedeletedbyitself',key='testing')
+        self.assertEqual(status, 0, 'user deletion failed with own credentials : '+output)
 
