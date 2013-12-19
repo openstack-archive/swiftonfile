@@ -26,12 +26,6 @@ from swift.common.utils import urlparse
 if __name__ == '__main__':
     gettext.install('gswauth', unicode=1)
     parser = OptionParser(usage='Usage: %prog [options] <account>')
-    parser.add_option('-s', '--suffix', dest='suffix',
-        default='', help='The suffix to use with the reseller prefix as the '
-        'storage account name (default: <randomly-generated-uuid4>) Note: If '
-        'the account already exists, this will have no effect on existing '
-        'service URLs. Those will need to be updated with '
-        'gswauth-set-account-service')
     parser.add_option('-A', '--admin-url', dest='admin_url',
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/)')
@@ -60,8 +54,6 @@ if __name__ == '__main__':
     headers = {'X-Auth-Admin-User': options.admin_user,
                'X-Auth-Admin-Key': options.admin_key,
                'Content-Length': '0'}
-    if options.suffix:
-        headers['X-Account-Suffix'] = options.suffix
     conn = http_connect(parsed.hostname, parsed.port, 'PUT', path, headers,
                         ssl=(parsed.scheme == 'https'))
     resp = conn.getresponse()
