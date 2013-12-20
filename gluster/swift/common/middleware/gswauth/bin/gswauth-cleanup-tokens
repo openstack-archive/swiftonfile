@@ -44,7 +44,7 @@ if __name__ == '__main__':
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/)')
     parser.add_option('-K', '--admin-key', dest='admin_key',
-        help='The key for .super_admin.')
+        help='The key for .super_admin is required.')
     parser.add_option('', '--purge', dest='purge_account', help='Purges all '
         'tokens for a given account whether the tokens have expired or not.')
     parser.add_option('', '--purge-all', dest='purge_all', action='store_true',
@@ -55,6 +55,8 @@ if __name__ == '__main__':
         args.append('-h')
     (options, args) = parser.parse_args(args)
     if len(args) != 0:
+        parser.parse_args(['-h'])
+    if options.admin_key is None:
         parser.parse_args(['-h'])
     options.admin_url = options.admin_url.rstrip('/')
     if not options.admin_url.endswith('/v1.0'):
