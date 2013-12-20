@@ -40,15 +40,17 @@ Example: %prog -K gswauthkey test storage local http://127.0.0.1:8080/v1/AUTH_01
         default='http://127.0.0.1:8080/auth/', help='The URL to the auth '
         'subsystem (default: http://127.0.0.1:8080/auth/)')
     parser.add_option('-U', '--admin-user', dest='admin_user',
-        default='.super_admin', help='The user with admin rights to add users '
+        default='.super_admin', help='The user with admin rights '
         '(default: .super_admin).')
     parser.add_option('-K', '--admin-key', dest='admin_key',
-        help='The key for the user with admin rights to add users.')
+            help='The key for the user with admin rights is required.')
     args = argv[1:]
     if not args:
         args.append('-h')
     (options, args) = parser.parse_args(args)
     if len(args) != 4:
+        parser.parse_args(['-h'])
+    if options.admin_key is None:
         parser.parse_args(['-h'])
     account, service, name, url = args
     parsed = urlparse(options.admin_url)
