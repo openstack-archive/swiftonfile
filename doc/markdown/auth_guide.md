@@ -2,21 +2,22 @@
 
 ## Contents
 * [Keystone](#keystone)
-* [Swiftkerbauth](#swiftkerbauth)
 * [GSwauth](#gswauth)
     * [Overview](#gswauth_overview)
     * [Installing GSwauth](#gswauth_install)
     * [User roles](#gswauth_user_roles)
     * [GSwauth Tools](#gswauth_tools)
     * [Authenticating a user](#gswauth_authenticate)
+* [Swiftkerbauth](#swiftkerbauth)
+    * [Architecture](swiftkerbauth/architecture.md)
+    * [RHEL IPA Server Guide](swiftkerbauth/ipa_server.md)
+    * [RHEL IPA Client Guide](swiftkerbauth/ipa_client.md)
+    * [Windows AD Server Guide](swiftkerbauth/AD_server.md)
+    * [Windows AD Client Guide](swiftkerbauth/AD_client.md)
+    * [Swiftkerbauth Guide](swiftkerbauth/swiftkerbauth_guide.md)
 
 ## <a name="keystone" />Keystone ##
 The Standard Openstack authentication service
-
-TBD
-
-## <a name="swiftkerbauth" />Swiftkerbauth ##
-Kerberos authentication filter for Swift
 
 TBD
 
@@ -278,3 +279,12 @@ bash-4.2$
 bash-4.2$ swift --os-auth-token=AUTH_tk7e68ef4698f14c7f95af07ab7b298610 --os-storage-url=http://127.0.0.1:8080/v1/AUTH_test list container1
 README.md
 ~~~
+
+## <a name="swiftkerbauth" />Swiftkerbauth ##
+Kerberos authentication filter
+
+Carsten Clasohm implemented a new authentication filter for swift
+that uses Kerberos tickets for single sign on authentication, and
+grants administrator permissions based on the users group membership
+in a directory service like Red Hat Enterprise Linux Identity Management
+or Microsoft Active Directory.

@@ -1,0 +1,70 @@
+#!/usr/bin/python
+
+# Copyright (c) 2013 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Requires the following command to be run:
+#   setsebool -P httpd_can_network_connect 1
+#   setsebool -P httpd_can_network_memcache 1
+
+import os
+import cgi
+from swift.common.memcached import MemcacheRing
+from time import time, ctime
+from swiftkerbauth import MEMCACHE_SERVERS, TOKEN_LIFE, DEBUG_HEADERS
+from swiftkerbauth.kerbauth_utils import get_remote_user, get_auth_data, \
+    generate_token, set_auth_data, get_groups
+
+
+def main():
+    try:
+        username = get_remote_user(os.environ)
+    except RuntimeError:
+        print "Status: 401 Unauthorized\n"
+        print "Malformed REMOTE_USER"
+        return
+
+    if not MEMCACHE_SERVERS:
+        print "Status: 500 Internal Server Error\n"
+        print "Memcache not configured in /etc/swift/proxy-server.conf"
+        return
+
+    mc_servers = [s.strip() for s in MEMCACHE_SERVERS.split(',') if s.strip()]
+    mc = MemcacheRing(mc_servers)
+
+    token, expires, groups = get_auth_data(mc, username)
+
+    if not token:
+        token = generate_token()
+        expires = time() + TOKEN_LIFE
+        groups = get_groups(username)
+        set_auth_data(mc, username, token, expires, groups)
+
+    print "X-Auth-Token: %s" % token
+    print "X-Storage-Token: %s" % token
+
+    # For debugging.
+    if DEBUG_HEADERS:
+        print "X-Debug-Remote-User: %s" % username
+        print "X-Debug-Groups: %s" % groups
+        print "X-Debug-Token-Life: %ss" % TOKEN_LIFE
+        print "X-Debug-Token-Expires: %s" % ctime(expires)
+
+    print ""
+
+try:
+    print("Content-Type: text/html")
+    main()
+except:
+    cgi.print_exception()
