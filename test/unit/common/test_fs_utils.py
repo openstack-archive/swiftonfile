@@ -517,6 +517,15 @@ class TestFsUtils(unittest.TestCase):
         finally:
             os.remove(tmpfile)
 
+    def test_do_close_err_ENOSPC(self):
+
+        def _mock_os_close_enospc(fd):
+            raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+        fd, tmpfile = mkstemp()
+        with patch('os.close', _mock_os_close_enospc):
+            self.assertRaises(DiskFileNoSpace, fs.do_close, fd)
+
     def test_do_unlink(self):
         fd, tmpfile = mkstemp()
         try:

@@ -226,8 +226,14 @@ def do_close(fd):
     try:
         os.close(fd)
     except OSError as err:
-        raise GlusterFileSystemOSError(
-            err.errno, '%s, os.close(%s)' % (err.strerror, fd))
+        if err.errno in (errno.ENOSPC, errno.EDQUOT):
+            filename = get_filename_from_fd(fd)
+            do_log_rl("do_close(%d) failed: %s : %s",
+                      fd, err, filename)
+            raise DiskFileNoSpace()
+        else:
+            raise GlusterFileSystemOSError(
+                err.errno, '%s, os.close(%s)' % (err.strerror, fd))
 
 
 def do_unlink(path, log=True):
