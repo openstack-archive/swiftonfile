@@ -3242,6 +3242,10 @@ class TestAuth(unittest.TestCase):
 
     def test_put_user_reseller_admin_fail_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
+            # Checking if user is changing his own key. This is called.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:rdm"},
+             {"name": "test"}, {"name": ".admin"},
+             {"name": ".reseller_admin"}], "auth": "plaintext:key"})),
             # GET of user object (reseller admin)
             # This shouldn't actually get called, checked
             # below
@@ -3261,9 +3265,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Reseller-Admin': 'true'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 401)
-        self.assertEquals(self.test_auth.app.calls, 0)
+        self.assertEquals(self.test_auth.app.calls, 1)
 
         self.test_auth.app = FakeApp(iter([
+            # Checking if user is changing his own key. This is called.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
+             {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"})),
             # GET of user object (account admin, but not reseller admin)
             # This shouldn't actually get called, checked
             # below
@@ -3283,13 +3291,16 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Reseller-Admin': 'true'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 401)
-        self.assertEquals(self.test_auth.app.calls, 0)
+        self.assertEquals(self.test_auth.app.calls, 1)
 
         self.test_auth.app = FakeApp(iter([
+            # Checking if user is changing his own key. This is called.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
             # GET of user object (regular user)
             # This shouldn't actually get called, checked
             # below
-            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+           ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
              {"name": "test"}], "auth": "plaintext:key"}))]))
         resp = Request.blank('/auth/v2/act/usr',
                              environ={
@@ -3304,7 +3315,7 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Reseller-Admin': 'true'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 401)
-        self.assertEquals(self.test_auth.app.calls, 0)
+        self.assertEquals(self.test_auth.app.calls, 1)
 
     def test_put_user_account_admin_fail_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
@@ -3312,6 +3323,10 @@ class TestAuth(unittest.TestCase):
             # account)
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:adm"},
              {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"})),
+            # Checking if user is changing his own key.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
+             {"name": "test"}, {"name": ".admin"}],
                 "auth": "plaintext:key"}))]))
         resp = Request.blank('/auth/v2/act/usr',
                              environ={
@@ -3326,10 +3341,13 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Admin': 'true'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
-        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 2)
 
         self.test_auth.app = FakeApp(iter([
             # GET of user object (regular user)
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
+            # Checking if user is changing his own key.
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
              {"name": "test"}], "auth": "plaintext:key"}))]))
         resp = Request.blank('/auth/v2/act/usr',
@@ -3345,13 +3363,17 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Admin': 'true'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
-        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 2)
 
     def test_put_user_regular_fail_bad_creds(self):
         self.test_auth.app = FakeApp(iter([
             # GET of user object (account admin, but wrong
             # account)
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act2:adm"},
+             {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"})),
+            # Checking if user is changing his own key.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
              {"name": "test"}, {"name": ".admin"}],
                 "auth": "plaintext:key"}))]))
         resp = Request.blank('/auth/v2/act/usr',
@@ -3365,13 +3387,16 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Key': 'key'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
-        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 2)
 
         self.test_auth.app = FakeApp(iter([
             # GET of user object (regular user)
             ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"})),
+            # Checking if user is changing his own key.
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
              {"name": "test"}], "auth": "plaintext:key"}))]))
-        resp = Request.blank('/auth/v2/act/usr',
+        resp = Request.blank('/auth/v2/act2/usr',
                              environ={
                                  'REQUEST_METHOD': 'PUT'},
                              headers={
@@ -3382,7 +3407,7 @@ class TestAuth(unittest.TestCase):
                                  'X-Auth-User-Key': 'key'}
                              ).get_response(self.test_auth)
         self.assertEquals(resp.status_int, 403)
-        self.assertEquals(self.test_auth.app.calls, 1)
+        self.assertEquals(self.test_auth.app.calls, 2)
 
     def test_put_user_regular_success(self):
         self.test_auth.app = FakeApp(iter([
@@ -3940,6 +3965,134 @@ class TestAuth(unittest.TestCase):
     def test_credentials_match_fail_plaintext(self):
         self.assert_(not self.test_auth.credentials_match(
             {'auth': 'plaintext:key'}, 'notkey'))
+
+    def test_is_user_changing_own_key_err(self):
+        # User does not exist
+        self.test_auth.app = FakeApp(
+            iter([('404 Not Found', {}, '')]))
+        req = Request.blank('/auth/v2/act/usr',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:usr',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'key'})
+        self.assert_(
+            not self.test_auth.is_user_changing_own_key(req, 'act:usr'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # user attempting to escalate himself as admin
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/usr',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:usr',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'key',
+                                'X-Auth-User-Admin': 'true'})
+        self.assert_(
+            not self.test_auth.is_user_changing_own_key(req, 'act:usr'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # admin attempting to escalate himself as reseller_admin
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
+             {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/adm',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:adm',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'key',
+                                'X-Auth-User-Reseller-Admin': 'true'})
+        self.assert_(
+            not self.test_auth.is_user_changing_own_key(req, 'act:adm'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # different user
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/usr2',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:usr',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'key'})
+        self.assert_(
+            not self.test_auth.is_user_changing_own_key(req, 'act:usr2'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # wrong key
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/usr',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:usr',
+                                'X-Auth-Admin-Key': 'wrongkey',
+                                'X-Auth-User-Key': 'newkey'})
+        self.assert_(
+            not self.test_auth.is_user_changing_own_key(req, 'act:usr'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+    def test_is_user_changing_own_key_sucess(self):
+        # regular user
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:usr"},
+             {"name": "test"}], "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/usr',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:usr',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'newkey'})
+        self.assert_(
+            self.test_auth.is_user_changing_own_key(req, 'act:usr'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # account admin
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
+             {"name": "test"}, {"name": ".admin"}],
+                "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/adm',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:adm',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'newkey',
+                                'X-Auth-User-Admin': 'true'})
+        self.assert_(
+            self.test_auth.is_user_changing_own_key(req, 'act:adm'))
+        self.assertEquals(self.test_auth.app.calls, 1)
+
+        # reseller admin
+        self.test_auth.app = FakeApp(iter([
+            ('200 Ok', {}, json.dumps({"groups": [{"name": "act:adm"},
+             {"name": "test"}, {"name": ".admin"},
+                {"name": ".reseller_admin"}], "auth": "plaintext:key"}))]))
+        req = Request.blank('/auth/v2/act/adm',
+                            environ={
+                                'REQUEST_METHOD': 'PUT'},
+                            headers={
+                                'X-Auth-Admin-User': 'act:adm',
+                                'X-Auth-Admin-Key': 'key',
+                                'X-Auth-User-Key': 'newkey',
+                                'X-Auth-User-Reseller-Admin': 'true'})
+        self.assert_(
+            self.test_auth.is_user_changing_own_key(req, 'act:adm'))
+        self.assertEquals(self.test_auth.app.calls, 1)
 
     def test_is_super_admin_success(self):
         self.assert_(

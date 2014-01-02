@@ -972,8 +972,18 @@ class Swauth(object):
         X-Auth-User-Reseller-Admin may be set to `true` to create a
         .reseller_admin.
 
+        Creating users
+        **************
         Can only be called by an account .admin unless the user is to be a
         .reseller_admin, in which case the request must be by .super_admin.
+
+        Changing password/key
+        *********************
+        1) reseller_admin key can be changed by super_admin and by himself.
+        2) admin key can be changed by any admin in same account,
+           reseller_admin, super_admin and himself.
+        3) Regular user key can be changed by any admin in his account,
+           reseller_admin, super_admin and himself.
 
         :param req: The swob.Request to process.
         :returns: swob.Response, 2xx on success.
@@ -990,11 +1000,14 @@ class Swauth(object):
         if req.path_info or not account or account[0] == '.' or not user or \
                 user[0] == '.' or not key:
             return HTTPBadRequest(request=req)
+        user_arg = account + ':' + user
         if reseller_admin:
-            if not self.is_super_admin(req):
-                return HTTPUnauthorized(request=req)
-        elif not self.is_account_admin(req, account):
-            return self.denied_response(req)
+            if not self.is_super_admin(req) and\
+                    not self.is_user_changing_own_key(req, user_arg):
+                        return HTTPUnauthorized(request=req)
+        elif not self.is_account_admin(req, account) and\
+                not self.is_user_changing_own_key(req, user_arg):
+                    return self.denied_response(req)
 
         path = quote('/v1/%s/%s' % (self.auth_account, account))
         resp = self.make_pre_authed_request(
@@ -1402,6 +1415,36 @@ class Swauth(object):
         """
         return user_detail and self.auth_encoder().match(
             key, user_detail.get('auth'))
+
+    def is_user_changing_own_key(self, req, user):
+        """
+        Check if the user is changing his own key.
+        :param req: The swob.Request to check. This contains x-auth-admin-user
+                    and x-auth-admin-key headers which are credentials of the
+                    user sending the request.
+        :param user: User whose password is to be changed.
+        :returns True if user is changing his own key, False if not.
+        """
+        admin_detail = self.get_admin_detail(req)
+        if not admin_detail:
+            # The user does not exist
+            return False
+
+        # If user is not admin/reseller_admin and x-auth-user-admin or
+        # x-auth-user-reseller-admin headers are present in request, he may be
+        # attempting to escalate himself as admin/reseller_admin!
+        if '.admin' not in (g['name'] for g in admin_detail['groups']):
+            if req.headers.get('x-auth-user-admin') == 'true' or \
+                    req.headers.get('x-auth-user-reseller-admin') == 'true':
+                        return False
+        if '.reseller_admin' not in \
+            (g['name'] for g in admin_detail['groups']) and \
+                req.headers.get('x-auth-user-reseller-admin') == 'true':
+                    return False
+
+        return req.headers.get('x-auth-admin-user') == user and \
+            self.credentials_match(admin_detail,
+                                   req.headers.get('x-auth-admin-key'))
 
     def is_super_admin(self, req):
         """

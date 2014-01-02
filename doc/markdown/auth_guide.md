@@ -144,6 +144,26 @@ Example:
 gswauth-add-user -K gswauthkey -a test ana anapwd
 ~~~
 
+**Change password examples**
+
+Command to update password/key of regular user:
+
+~~~
+gswauth-add-user -U account1:user1 -K old_pass account1 user1 new_pass
+~~~
+
+Command to update password/key of account admin:
+
+~~~
+gswauth-add-user -U account1:admin -K old_pass -a account1 admin new_pass
+~~~
+
+Command to update password/key of reseller_admin:
+
+~~~
+gswauth-add-user -U account1:radmin -K old_pass -r account1 radmin new_pass
+~~~
+
 #### gswauth-delete-account:
 Delete an account. An account cannot be deleted if it still contains users, an error will be returned.
 

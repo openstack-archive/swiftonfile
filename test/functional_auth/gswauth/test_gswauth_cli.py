@@ -278,4 +278,74 @@ class TestUser(unittest.TestCase):
 
         #TODO:more testcases?
 
+    def testChangeKey(self):
+        # Create account and users
+        (status, output) = Utils.addAccount('test')
+        self.assertEqual(status, 0, 'Account creation failed: ' + output)
 
+        (status, output) = Utils.addAdminUser('test', 'admin', 'password')
+        self.assertEqual(status, 0, 'User addition failed: ' + output)
+
+        (status, output) = Utils.addUser('test', 'user', 'password')
+        self.assertEqual(status, 0, 'User addition failed: ' + output)
+
+        (status, output) = Utils.addResellerAdminUser('test', 'radmin', 'password')
+        self.assertEqual(status, 0, 'User addition failed: ' + output)
+
+        # Change acccount admin password/key
+        (status, output) = Utils.addAdminUser('test', 'admin', 'new_password', user='test:admin', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Change regular user password/key
+        (status, output) = Utils.addUser('test', 'user', 'new_password', user='test:user', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Change reseller admin password/key
+        (status, output) = Utils.addResellerAdminUser('test', 'radmin', 'new_password', user='test:radmin', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # To verify that password was changed for real, re-run the above commands, but with the new password
+        # Change acccount admin password/key using the new password
+        (status, output) = Utils.addAdminUser('test', 'admin', 'password', user='test:admin', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Change regular user password/key using the new password
+        (status, output) = Utils.addUser('test', 'user', 'password', user='test:user', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Change reseller admin password/key using the new password
+        (status, output) = Utils.addResellerAdminUser('test', 'radmin', 'password', user='test:radmin', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Make sure that regular user cannot upgrade to admin
+        (status, output) = Utils.addAdminUser('test', 'user', 'password', user='test:user', key='password')
+        self.assertEqual('User creation failed' in output, True, 'Update key failed: ' + output)
+
+        # Make sure that regular user cannot upgrade to reseller_admin
+        (status, output) = Utils.addResellerAdminUser('test', 'user', 'password', user='test:user', key='password')
+        self.assertEqual('User creation failed' in output, True, 'Update key failed: ' + output)
+
+        # Make sure admin cannot update himself to reseller_admin
+        (status, output) = Utils.addResellerAdminUser('test', 'admin', 'password', user='test:admin', key='password')
+        self.assertEqual('User creation failed' in output, True, 'Update key failed: ' + output)
+
+        # Account admin changing regular user password/key
+        (status, output) = Utils.addUser('test', 'user', 'new_password', user='test:admin', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+        # Verify by running the command with new password
+        (status, output) = Utils.addUser('test', 'user', 'password', user='test:user', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Reseller admin changing regular user password/key
+        (status, output) = Utils.addUser('test', 'user', 'new_password', user='test:radmin', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+        # Verify by running the command with new password
+        (status, output) = Utils.addUser('test', 'user', 'password', user='test:user', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+        # Reseller admin changing account admin password/key
+        (status, output) = Utils.addAdminUser('test', 'admin', 'new_password', user='test:radmin', key='password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
+        # Verify by running the command with new password
+        (status, output) = Utils.addAdminUser('test', 'admin', 'password', user='test:admin', key='new_password')
+        self.assertEqual(status, 0, 'Update key failed: ' + output)
