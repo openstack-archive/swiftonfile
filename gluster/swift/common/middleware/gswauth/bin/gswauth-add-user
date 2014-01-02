@@ -60,20 +60,28 @@ if __name__ == '__main__':
         parsed_path = '/'
     elif parsed_path[-1] != '/':
         parsed_path += '/'
-    # Ensure the account exists
-    path = '%sv2/%s' % (parsed_path, account)
-    headers = {'X-Auth-Admin-User': options.admin_user,
-               'X-Auth-Admin-Key': options.admin_key}
-    conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
-                        ssl=(parsed.scheme == 'https'))
-    resp = conn.getresponse()
-    if resp.status // 100 != 2:
-        headers['Content-Length'] = '0'
-        conn = http_connect(parsed.hostname, parsed.port, 'PUT', path, headers,
+    # Check if user is changing his own password. This is carried out by
+    # making sure that the user changing the password and the user whose
+    # password is being changed are the same.
+    # If not, ensure that the account exists before creating new user.
+    if not options.admin_user == (account + ':' + user):
+        # GET the account
+        path = '%sv2/%s' % (parsed_path, account)
+        headers = {'X-Auth-Admin-User': options.admin_user,
+                   'X-Auth-Admin-Key': options.admin_key}
+        conn = http_connect(parsed.hostname, parsed.port, 'GET', path, headers,
                             ssl=(parsed.scheme == 'https'))
         resp = conn.getresponse()
         if resp.status // 100 != 2:
-            print 'Account creation failed: %s %s' % (resp.status, resp.reason)
+            # If the GET operation fails, it means the account does not exist.
+            # Now we create the account by sending a PUT request.
+            headers['Content-Length'] = '0'
+            conn = http_connect(parsed.hostname, parsed.port, 'PUT', path,
+                                headers, ssl=(parsed.scheme == 'https'))
+            resp = conn.getresponse()
+            if resp.status // 100 != 2:
+                print 'Account creation failed: %s %s' % \
+                    (resp.status, resp.reason)
     # Add the user
     path = '%sv2/%s/%s' % (parsed_path, account, user)
     headers = {'X-Auth-Admin-User': options.admin_user,

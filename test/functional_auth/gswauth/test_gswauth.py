@@ -227,15 +227,16 @@ class TestGSWauth(unittest.TestCase):
             # attempt to change password
             path = '%sv2/%s/%s' % (config['auth_prefix'], config['account'],
                     config['username'])
-            headers = self._get_admin_headers()
+            headers = {'X-Auth-Admin-User':
+                       config['account'] + ':' + config['username'],
+                       'X-Auth-Admin-Key': config['password']}
             headers.update({'X-Auth-User-Key': 'newpassword',
                             'Content-Length': '0',
-                            'X-Auth-Admin-Key': config['password'],
                             'X-Auth-User-Admin': 'true'})
             conn = http_connect(config['auth_host'], config['auth_port'], 'PUT',
                     path, headers)
             resp = conn.getresponse()
-            self.assertTrue(resp.status == 401)
+            self.assertTrue(resp.status == 201)
 
         finally:
             try:
