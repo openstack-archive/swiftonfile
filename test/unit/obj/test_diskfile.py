@@ -443,7 +443,7 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         md = {'Content-Type': 'application/octet-stream', 'a': 'b'}
         gdf.write_metadata(md.copy())
-        self.assertIsNone(gdf._metadata)
+        self.assertEqual(None, gdf._metadata)
         fmd = _metadata[_mapit(the_dir)]
         md.update({'X-Object-Type': 'file', 'X-Type': 'Object'})
         self.assertTrue(fmd['a'], md['a'])
