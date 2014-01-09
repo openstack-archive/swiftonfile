@@ -45,6 +45,6 @@ class PkgInfo(object):
 ###
 ### Change the Package version here
 ###
-_pkginfo = PkgInfo('1.10.0', '1', 'gluster_swift', False)
+_pkginfo = PkgInfo('1.10.0', '2', 'gluster_swift', False)
 __version__ = _pkginfo.pretty_version
 __canonical_version__ = _pkginfo.canonical_version
