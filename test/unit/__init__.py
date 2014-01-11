@@ -17,9 +17,9 @@
 
 import os
 import copy
-import errno
 import logging
-from sys import exc_info
+import errno
+import sys
 from contextlib import contextmanager
 from collections import defaultdict
 from tempfile import NamedTemporaryFile
@@ -28,7 +28,7 @@ from eventlet.green import socket
 from tempfile import mkdtemp
 from shutil import rmtree
 from test import get_config
-from swift.common.utils import config_true_value
+from swift.common.utils import config_true_value, LogAdapter
 from hashlib import md5
 from eventlet import sleep, Timeout
 import logging.handlers

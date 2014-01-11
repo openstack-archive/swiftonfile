@@ -18,11 +18,13 @@ from mock import patch
 from swift.proxy.controllers.base import headers_to_container_info, \
     headers_to_account_info, headers_to_object_info, get_container_info, \
     get_container_memcache_key, get_account_info, get_account_memcache_key, \
-    get_object_env_key, _get_cache_key, get_info, get_object_info, Controller
-from swift.common.swob import Request
+    get_object_env_key, _get_cache_key, get_info, get_object_info, \
+    Controller, GetOrHeadHandler
+from swift.common.swob import Request, HTTPException, HeaderKeyDict
 from swift.common.utils import split_path
 from test.unit import fake_http_connect, FakeRing, FakeMemcache
 from swift.proxy import server as proxy_server
+from swift.common.request_helpers import get_sys_meta_prefix
 
 
 FakeResponse_status_int = 201
@@ -88,7 +90,7 @@ class TestFuncs(unittest.TestCase):
 
     def test_GETorHEAD_base(self):
         base = Controller(self.app)
-        req = Request.blank('/a/c/o/with/slashes')
+        req = Request.blank('/v1/a/c/o/with/slashes')
         with patch('swift.proxy.controllers.base.'
                    'http_connect', fake_http_connect(200)):
             resp = base.GETorHEAD_base(req, 'object', FakeRing(), 'part',
@@ -96,14 +98,14 @@ class TestFuncs(unittest.TestCase):
         self.assertTrue('swift.object/a/c/o/with/slashes' in resp.environ)
         self.assertEqual(
             resp.environ['swift.object/a/c/o/with/slashes']['status'], 200)
-        req = Request.blank('/a/c/o')
+        req = Request.blank('/v1/a/c/o')
         with patch('swift.proxy.controllers.base.'
                    'http_connect', fake_http_connect(200)):
             resp = base.GETorHEAD_base(req, 'object', FakeRing(), 'part',
                                        '/a/c/o')
         self.assertTrue('swift.object/a/c/o' in resp.environ)
         self.assertEqual(resp.environ['swift.object/a/c/o']['status'], 200)
-        req = Request.blank('/a/c')
+        req = Request.blank('/v1/a/c')
         with patch('swift.proxy.controllers.base.'
                    'http_connect', fake_http_connect(200)):
             resp = base.GETorHEAD_base(req, 'container', FakeRing(), 'part',
@@ -111,7 +113,7 @@ class TestFuncs(unittest.TestCase):
         self.assertTrue('swift.container/a/c' in resp.environ)
         self.assertEqual(resp.environ['swift.container/a/c']['status'], 200)
 
-        req = Request.blank('/a')
+        req = Request.blank('/v1/a')
         with patch('swift.proxy.controllers.base.'
                    'http_connect', fake_http_connect(200)):
             resp = base.GETorHEAD_base(req, 'account', FakeRing(), 'part',
@@ -250,7 +252,9 @@ class TestFuncs(unittest.TestCase):
     def test_get_container_info_cache(self):
         cached = {'status': 404,
                   'bytes': 3333,
-                  'object_count': 10}
+                  'object_count': 10,
+                  # simplejson sometimes hands back strings, sometimes unicodes
+                  'versions': u"\u1F4A9"}
         req = Request.blank("/v1/account/cont",
                             environ={'swift.cache': FakeCache(cached)})
         with patch('swift.proxy.controllers.base.'
@@ -259,6 +263,7 @@ class TestFuncs(unittest.TestCase):
         self.assertEquals(resp['bytes'], 3333)
         self.assertEquals(resp['object_count'], 10)
         self.assertEquals(resp['status'], 404)
+        self.assertEquals(resp['versions'], "\xe1\xbd\x8a\x39")
 
     def test_get_container_info_env(self):
         cache_key = get_container_memcache_key("account", "cont")
@@ -361,6 +366,15 @@ class TestFuncs(unittest.TestCase):
         self.assertEquals(resp['meta']['whatevs'], 14)
         self.assertEquals(resp['meta']['somethingelse'], 0)
 
+    def test_headers_to_container_info_sys_meta(self):
+        prefix = get_sys_meta_prefix('container')
+        headers = {'%sWhatevs' % prefix: 14,
+                   '%ssomethingelse' % prefix: 0}
+        resp = headers_to_container_info(headers.items(), 200)
+        self.assertEquals(len(resp['sysmeta']), 2)
+        self.assertEquals(resp['sysmeta']['whatevs'], 14)
+        self.assertEquals(resp['sysmeta']['somethingelse'], 0)
+
     def test_headers_to_container_info_values(self):
         headers = {
             'x-container-read': 'readvalue',
@@ -391,6 +405,15 @@ class TestFuncs(unittest.TestCase):
         self.assertEquals(len(resp['meta']), 2)
         self.assertEquals(resp['meta']['whatevs'], 14)
         self.assertEquals(resp['meta']['somethingelse'], 0)
+
+    def test_headers_to_account_info_sys_meta(self):
+        prefix = get_sys_meta_prefix('account')
+        headers = {'%sWhatevs' % prefix: 14,
+                   '%ssomethingelse' % prefix: 0}
+        resp = headers_to_account_info(headers.items(), 200)
+        self.assertEquals(len(resp['sysmeta']), 2)
+        self.assertEquals(resp['sysmeta']['whatevs'], 14)
+        self.assertEquals(resp['sysmeta']['somethingelse'], 0)
 
     def test_headers_to_account_info_values(self):
         headers = {
@@ -433,3 +456,79 @@ class TestFuncs(unittest.TestCase):
         self.assertEquals(
             resp,
             headers_to_object_info(headers.items(), 200))
+
+    def test_have_quorum(self):
+        base = Controller(self.app)
+        # just throw a bunch of test cases at it
+        self.assertEqual(base.have_quorum([201, 404], 3), False)
+        self.assertEqual(base.have_quorum([201, 201], 4), False)
+        self.assertEqual(base.have_quorum([201, 201, 404, 404], 4), False)
+        self.assertEqual(base.have_quorum([201, 503, 503, 201], 4), False)
+        self.assertEqual(base.have_quorum([201, 201], 3), True)
+        self.assertEqual(base.have_quorum([404, 404], 3), True)
+        self.assertEqual(base.have_quorum([201, 201], 2), True)
+        self.assertEqual(base.have_quorum([404, 404], 2), True)
+        self.assertEqual(base.have_quorum([201, 404, 201, 201], 4), True)
+
+    def test_range_fast_forward(self):
+        req = Request.blank('/')
+        handler = GetOrHeadHandler(None, req, None, None, None, None, {})
+        handler.fast_forward(50)
+        self.assertEquals(handler.backend_headers['Range'], 'bytes=50-')
+
+        handler = GetOrHeadHandler(None, req, None, None, None, None,
+                                   {'Range': 'bytes=23-50'})
+        handler.fast_forward(20)
+        self.assertEquals(handler.backend_headers['Range'], 'bytes=43-50')
+        self.assertRaises(HTTPException,
+                          handler.fast_forward, 80)
+
+        handler = GetOrHeadHandler(None, req, None, None, None, None,
+                                   {'Range': 'bytes=23-'})
+        handler.fast_forward(20)
+        self.assertEquals(handler.backend_headers['Range'], 'bytes=43-')
+
+        handler = GetOrHeadHandler(None, req, None, None, None, None,
+                                   {'Range': 'bytes=-100'})
+        handler.fast_forward(20)
+        self.assertEquals(handler.backend_headers['Range'], 'bytes=-80')
+
+    def test_transfer_headers_with_sysmeta(self):
+        base = Controller(self.app)
+        good_hdrs = {'x-base-sysmeta-foo': 'ok',
+                     'X-Base-sysmeta-Bar': 'also ok'}
+        bad_hdrs = {'x-base-sysmeta-': 'too short'}
+        hdrs = dict(good_hdrs)
+        hdrs.update(bad_hdrs)
+        dst_hdrs = HeaderKeyDict()
+        base.transfer_headers(hdrs, dst_hdrs)
+        self.assertEqual(HeaderKeyDict(good_hdrs), dst_hdrs)
+
+    def test_generate_request_headers(self):
+        base = Controller(self.app)
+        src_headers = {'x-remove-base-meta-owner': 'x',
+                       'x-base-meta-size': '151M',
+                       'new-owner': 'Kun'}
+        req = Request.blank('/v1/a/c/o', headers=src_headers)
+        dst_headers = base.generate_request_headers(req, transfer=True)
+        expected_headers = {'x-base-meta-owner': '',
+                            'x-base-meta-size': '151M'}
+        for k, v in expected_headers.iteritems():
+            self.assertTrue(k in dst_headers)
+            self.assertEqual(v, dst_headers[k])
+        self.assertFalse('new-owner' in dst_headers)
+
+    def test_generate_request_headers_with_sysmeta(self):
+        base = Controller(self.app)
+        good_hdrs = {'x-base-sysmeta-foo': 'ok',
+                     'X-Base-sysmeta-Bar': 'also ok'}
+        bad_hdrs = {'x-base-sysmeta-': 'too short'}
+        hdrs = dict(good_hdrs)
+        hdrs.update(bad_hdrs)
+        req = Request.blank('/v1/a/c/o', headers=hdrs)
+        dst_headers = base.generate_request_headers(req, transfer=True)
+        for k, v in good_hdrs.iteritems():
+            self.assertTrue(k.lower() in dst_headers)
+            self.assertEqual(v, dst_headers[k.lower()])
+        for k, v in bad_hdrs.iteritems():
+            self.assertFalse(k.lower() in dst_headers)
