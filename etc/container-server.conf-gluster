@@ -1,4 +1,9 @@
 [DEFAULT]
+#
+# Default gluster mount point to be used for object store,can be changed by
+# setting the following value in {account,container,object}-server.conf files.
+# It is recommended to keep this value same for all the three services but can
+# be kept different if environment demands.
 devices = /mnt/gluster-object
 #
 # Once you are confident that your startup processes will always have your
