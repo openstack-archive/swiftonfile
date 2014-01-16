@@ -126,11 +126,11 @@ class TestSwauthPrep(unittest.TestCase):
                          in output,True, 'Invalid swauth-prep request accepted: '+output)
 
         (status,output)=Utils.swauthPrep(authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid swauth-prep request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.swauthPrep(authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid swauth-prep request accepted(wrong admin-url provided): %s' % output)
         #TODO:More cases for invalid url and admin user
 
@@ -187,11 +187,11 @@ class TestAccount(unittest.TestCase):
                                          in output,True, 'Invalid account creation request accepted: '+output)
 
         (status,output)=Utils.addAccount('test2', authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid account creation request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.addAccount('test2', authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid account creation request accepted(wrong admin-url provided): %s' % output)
 
     def testAddAccountNonSuperAdminUsers(self):
@@ -246,11 +246,11 @@ class TestAccount(unittest.TestCase):
         self.assertEqual('Delete account failed: 404 Not Found: Account accountdoesnotexist does not exist' in output,True, 'account deletion failed for test account'+output)
 
         (status,output)=Utils.deleteAccount('test3', authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid deletion request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.deleteAccount('test3', authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid deletion request accepted(wrong admin-url provided): %s' % output)
 
     def testDeleteAccountNonSuperAdminUsers(self):
@@ -287,11 +287,11 @@ class TestAccount(unittest.TestCase):
             'swauth-list failed:\n%s' % output)
 
         (status,output)=Utils.listAccounts(authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid list request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.listAccounts(authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid list request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.listAccounts('-j')
@@ -379,11 +379,11 @@ class TestUser(unittest.TestCase):
         self.assertEqual(status, 0, 'User creation request failed, where accountdoesnotexist: '+output)
 
         (status,output)=Utils.addAdminUser('test', 'admin2', 'adminpwd', authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid add user request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.addAdminUser('test', 'admin2', 'adminpwd', authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid add user request accepted(wrong admin-url provided): %s' % output)
 
     def testAddUserNonSuperAdminUsers (self):
@@ -500,11 +500,11 @@ class TestUser(unittest.TestCase):
         self.assertNotEqual(status, 0, 'Invalid user deletion request accepted, accountdoesnotexist:'+output)
         #TODO:more testcases?
         (status,output)=Utils.deleteUser('test', 'admin2', authurl='http://127.0.0.1:80/auth/')
-        self.assertEqual('ECONNREFUSED' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid delete user request accepted(wrong admin-url provided): %s' % output)
 
         (status,output)=Utils.deleteUser('test', 'admin2', authurl='http://127.0.1:80/auth/')
-        self.assertEqual('No address associated with hostname' in output, True,
+        self.assertEqual('Check that the admin_url is valid' in output, True,
             'Invalid delete user request accepted(wrong admin-url provided): %s' % output)
 
     def testDeleteUserNonSuperAdminUsers(self):
