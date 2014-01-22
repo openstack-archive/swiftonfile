@@ -87,13 +87,13 @@ class Utils:
             return commands.getstatusoutput('gswauth-list %s %s %s -A %s -U %s -K %s'% (account_name, username, listtype, authurl, user, key))
 
     @classmethod
-    def cleanToken(self,option=None,value=None,authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
+    def cleanToken(self,option=None,value=None,authurl='http://127.0.0.1:8080/auth/', key=config['admin_key']):
         if option is None and value is None:
-            return commands.getstatusoutput('gswauth-cleanup-tokens -A %s -U %s -K %s'% (authurl, user, key))
+            return commands.getstatusoutput('gswauth-cleanup-tokens -A %s -K %s'% (authurl, key))
         elif option is not None and value is None:
-            return commands.getstatusoutput('gswauth-cleanup-tokens %s -A %s -U %s -K %s'% (option, authurl, user, key))
+            return commands.getstatusoutput('gswauth-cleanup-tokens --%s -A %s -K %s'% (option, authurl, key))
         else:
-            return commands.getstatusoutput('gswauth-cleanup-tokens %s %s -A %s -U %s -K %s'% (option, value, authurl, user, key))
+            return commands.getstatusoutput('gswauth-cleanup-tokens --%s %s -A %s -K %s'% (option, value, authurl, key))
 
     @classmethod
     def setAccountService(self, account, service, name, value, authurl='http://127.0.0.1:8080/auth/',user=config['admin_user'],key=config['admin_key']):
@@ -512,8 +512,6 @@ class TestUser(unittest.TestCase):
         self.setTestAccUserEnv()
         self.setTest2AccUserEnv()
         #try to delete reseller_admin users with all type of users
-        #TODO:uncomment following: https://bugs.launchpad.net/gluster-swift/+bug/1260239
-        '''
         Utils.addResellerAdminUser('test', 're_admintobedeletedbyotherusers1', 'testing')
         (status,output) = Utils.deleteUser('test', 're_admintobedeletedbyotherusers1',user='test:re_admin',key='testing')
         self.assertNotEqual(status, 0, 're_admin deletion succeeded with re_admin user: '+output)
@@ -530,10 +528,10 @@ class TestUser(unittest.TestCase):
         self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with user: '+output)
 
         Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers1', 'testing')
-        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotherusers1',user='test:re_admin',key='testing')
+        (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotheraccountusers1',user='test:re_admin',key='testing')
         self.assertNotEqual(status, 0, 're_admin deletion succeeded with re_admin user of other account: '+output)
         self.assertEqual('403 Forbidden' in output,True, 're_admin deletion succeeded with re_admin user of other account: '+output)
-        '''
+
         Utils.addResellerAdminUser('test2', 're_admintobedeletedbyotheraccountusers2', 'testing')
         (status,output) = Utils.deleteUser('test2', 're_admintobedeletedbyotheraccountusers2',user='test:admin',key='testing')
         self.assertNotEqual(status, 0, 're_admin deletion succeeded with admin user of other account: '+output)
@@ -686,3 +684,149 @@ class TestUser(unittest.TestCase):
         # Verify by running the command with new password
         (status, output) = Utils.addAdminUser('test', 'admin', 'password', user='test:admin', key='new_password')
         self.assertEqual(status, 0, 'Update key failed: ' + output)
+
+
+class TestCleanUPToken(unittest.TestCase):
+
+    def setUp(self):
+        (status,output)=Utils.swauthPrep()
+        self.assertEqual(status, 0, 'setup swauth-prep failed'+output)
+
+    def tearDown(self):
+        Utils.cleanAll()
+
+    def setTestAccUserEnv(self):
+        (status,output)=Utils.addAccount('test')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test','re_admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test','admin','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test','tester','testing')
+        self.assertEqual(status, 0, 'test accUser creation failed env'+output)
+
+    def setTest2AccUserEnv(self):
+        (status,output)=Utils.addAccount('test2')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addResellerAdminUser('test2','re_admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addAdminUser('test2','admin','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+        (status,output)=Utils.addUser('test2','tester','testing')
+        self.assertEqual(status, 0, 'test2 accUser creation failed env'+output)
+
+    def testCleanUPToken(self):
+        self.setTestAccUserEnv()
+        self.setTest2AccUserEnv()
+
+        #cleanup various validation
+        (status,output)=Utils.cleanToken(key='')
+        self.assertNotEqual(status, 0, 'clean up success without key'+output)
+        self.assertEqual('Usage:' in output,True, 'clean up success without key: '+output)
+
+        #validate the admin-user option is not working here
+        (status,output)=Utils.cleanToken(option='admin-user', value='.super_admin')
+        self.assertNotEqual(status, 0, 'clean up success with a username'+output)
+        self.assertEqual('Usage:' in output,True, 'clean up success with a username: '+output)
+
+        (status,output)=Utils.cleanToken(key='noavalidsuperadminkey')
+        self.assertNotEqual(status, 0, 'clean up success with wrong super_admin key'+output)
+        self.assertEqual('401 Unauthorized' in output,True, 'clean up success with wrong super_admin key: '+output)
+
+        #cleanup token with no options
+        (status,output)=Utils.cleanToken()
+        self.assertEqual(status, 0, 'clean up failed with no option'+output)
+
+        #cleanup token with purge option
+        (status,output)=Utils.cleanToken(option='purge', value='test')
+        self.assertEqual(status, 0, 'clean up failed with purge option'+output)
+
+        #cleanup token with purge option no valid account name
+        #TODO:review following https://bugs.launchpad.net/gluster-swift/+bug/1271555
+        (status,output)=Utils.cleanToken(option='purge', value='accountnotvalid')
+        self.assertNotEqual(status, 0, 'clean up failed with purge option'+output)
+
+        #cleanup token with purge-all option
+        (status,output)=Utils.cleanToken(option='purge-all')
+        self.assertEqual(status, 0, 'clean up failed with purge-all option'+output)
+
+        #cleanup token with -v option
+        (status,output)=Utils.cleanToken(option='verbose')
+        self.assertEqual(status, 0, 'clean up failed with verbose option'+output)
+        self.assertEqual('GET .token_0' in output and 'GET .token_f' in output,True,\
+                          'clean up success without key: '+output)
+
+        #cleanup token with token-life option
+        (status,output)=Utils.cleanToken(option='token-life', value='500')
+        self.assertEqual(status, 0, 'clean up failed with token-life option'+output)
+
+        #cleanup token with sleep option
+        (status,output)=Utils.cleanToken(option='sleep', value='500')
+        self.assertEqual(status, 0, 'clean up failed with sleep option'+output)
+
+        #TODO:revisit below two cases after fix for
+        #https://bugs.launchpad.net/gluster-swift/+bug/1271550
+        #cleanup token with token-life option non numeric value
+        (status,output)=Utils.cleanToken(option='token-life', value='notanumaric')
+        self.assertNotEqual(status, 0, 'clean up success with token-life option token-life non numeric value'+output)
+        self.assertEqual('ValueError' in output,True, 'clean up \
+        success with token-life option non numeric value: '+output)
+
+        #cleanup token with sleep option non numeric value
+        (status,output)=Utils.cleanToken(option='sleep', value='notanumeric')
+        self.assertNotEqual(status, 0, 'clean up failed with sleep option non numeric value'+output)
+        self.assertEqual('ValueError' in output,True, 'clean up \
+        success with token-life option non numeric value: '+output)
+
+    def testSetAccountService(self):
+        self.setTestAccUserEnv()
+        self.setTest2AccUserEnv()
+
+        #set-account-service asset all valid value
+        (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test')
+        self.assertEqual(status, 0, 'set account service fails with valid input'+output)
+        (status,output)=Utils.listUsers('test', listtype='--json')
+        self.assertEqual('{"services": {"storage": {"default": "local", "local": "http://localhost:8080/v1/AUTH_test"}}' in output,True, \
+        'set account service success with valid input'+output)
+
+        #invalid account
+        (status,output)=Utils.setAccountService('accountdoesnotexist', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test')
+        self.assertNotEqual(status, 0, 'set account service success with invalid accountname'+output)
+        self.assertEqual('Service set failed: 404 Not Found' in output,True, 'set account service success with invalid accountname'+output)
+
+        #service name other than storage
+        (status,output)=Utils.setAccountService('test', 'st', 'local', 'http://localhost:8080/v1/AUTH_test')
+        self.assertEqual(status, 0, 'set account service success with service name other than storage'+output)
+        (status,output)=Utils.listUsers('test', listtype='--json')
+        self.assertEqual('"st": {"local": "http://localhost:8080/v1/AUTH_test"}}' in output,True, \
+        'set account service success with service name other than storage'+output)
+
+        #name other than local
+        (status,output)=Utils.setAccountService('test', 'storage', 'notlocal', 'http://localhost:8080/v1/AUTH_test')
+        self.assertEqual(status, 0, 'set account service with name other than local failed'+output)
+        (status,output)=Utils.listUsers('test', listtype='--json')
+        self.assertEqual(' "notlocal": "http://localhost:8080/v1/AUTH_test"}' in output,True, \
+        'set account service with name other than local failed'+output)
+
+        #set default to point notlocal
+        (status,output)=Utils.setAccountService('test', 'storage', 'default', 'notlocal')
+        self.assertEqual(status, 0, 'set account service set default to  local failed'+output)
+        (status,output)=Utils.listUsers('test', listtype='--json')
+        self.assertEqual(' {"default": "notlocal", "notlocal": "http://localhost:8080/v1/AUTH_test"' in output,True, \
+        'set account service set default to local failed'+output)
+
+        #try to set account service with users other than .super_admin
+        #reseller_admin
+        (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test', user='test:re_admin', key='testing')
+        self.assertEqual(status, 0, 'set account service fails re_admin user cred'+output)
+
+        #admin user
+        (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test', user='test:admin', key='testing')
+        self.assertNotEqual(status, 0, 'set account service success with admin user cred'+output)
+        #self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
+
+        #regular user
+        (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test', user='test:tester', key='testing')
+        self.assertNotEqual(status, 0, 'set account service success with regular user cred'+output)
+        #self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
+
