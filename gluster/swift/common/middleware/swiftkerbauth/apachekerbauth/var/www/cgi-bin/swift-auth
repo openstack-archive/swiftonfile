@@ -24,7 +24,7 @@ from swift.common.memcached import MemcacheRing
 from time import time, ctime
 from swiftkerbauth import MEMCACHE_SERVERS, TOKEN_LIFE, DEBUG_HEADERS
 from swiftkerbauth.kerbauth_utils import get_remote_user, get_auth_data, \
-    generate_token, set_auth_data, get_groups
+    generate_token, set_auth_data, get_groups_from_username
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
     if not token:
         token = generate_token()
         expires = time() + TOKEN_LIFE
-        groups = get_groups(username)
+        groups = get_groups_from_username(username)
         set_auth_data(mc, username, token, expires, groups)
 
     print "X-Auth-Token: %s" % token

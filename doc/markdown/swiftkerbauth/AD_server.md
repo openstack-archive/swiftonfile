@@ -98,6 +98,18 @@ On client:
 <a name="users-groups" />
 ###Adding users and groups
 
+The following convention is to be followed in creating group names:
+
+    <reseller-prefix>\_<volume-name>
+
+    <reseller-prefix>\_<account-name>
+
+As of now, account=volume=group
+
+For example:
+
+    AUTH\_test
+
 Adding groups and users to the Windows domain is easy task.
 
     - Start -> Administrative Tools -> Active Directory Users & Computers

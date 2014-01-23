@@ -107,6 +107,18 @@ Check if reverse resolution works :
 <a name="users-groups" />
 ## Adding users and groups
 
+The following convention is to be followed in creating group names:
+
+    <reseller-prefix>\_<volume-name>
+
+    <reseller-prefix>\_<account-name>
+
+As of now, account=volume=group
+
+For example:
+
+    AUTH\_test
+
 Create *auth_reseller_admin* user group
 > ipa group-add auth_reseller_admin --desc="Full access to all Swift accounts"
 

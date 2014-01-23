@@ -16,7 +16,8 @@
 import re
 import random
 import grp
-import subprocess
+import signal
+from subprocess import Popen, PIPE
 from time import time
 from gluster.swift.common.middleware.swiftkerbauth \
     import TOKEN_LIFE, RESELLER_PREFIX
@@ -82,13 +83,13 @@ def generate_token():
     return token
 
 
-def get_groups(username):
+def get_groups_from_username(username):
     """Return a set of groups to which the user belongs to."""
     # Retrieve the numerical group IDs. We cannot list the group names
     # because group names from Active Directory may contain spaces, and
     # we wouldn't be able to split the list of group names into its
     # elements.
-    p = subprocess.Popen(['id', '-G', username], stdout=subprocess.PIPE)
+    p = Popen(['id', '-G', username], stdout=PIPE)
     if p.wait() != 0:
         raise RuntimeError("Failure running id -G for %s" % username)
     (p_stdout, p_stderr) = p.communicate()
@@ -105,3 +106,32 @@ def get_groups(username):
     groups = [username] + groups
     groups = ','.join(groups)
     return groups
+
+
+def run_kinit(username, password):
+    """Runs kinit command as a child process and returns the status code."""
+    kinit = Popen(['kinit', username],
+                  stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    kinit.stdin.write('%s\n' % password)
+
+    # The following code handles a corner case where the Kerberos password
+    # has expired and a prompt is displayed to enter new password. Ideally,
+    # we would want to read from stdout but these are blocked reads. This is
+    # a hack to kill the process if it's taking too long!
+
+    class Alarm(Exception):
+        pass
+
+    def signal_handler(signum, frame):
+        raise Alarm
+    # Set the signal handler and a 1-second alarm
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(1)
+    try:
+        kinit.wait()  # Wait for the child to exit
+        signal.alarm(0)  # Reset the alarm
+        return kinit.returncode  # Exit status of child on graceful exit
+    except Alarm:
+        # Taking too long, kill and return error
+        kinit.kill()
+        return -1

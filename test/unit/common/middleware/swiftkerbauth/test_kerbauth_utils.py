@@ -17,7 +17,6 @@ import unittest
 import re
 from time import time
 from test.unit import FakeMemcache
-from gluster.swift.common.middleware.swiftkerbauth import kerbauth as auth
 from gluster.swift.common.middleware.swiftkerbauth import kerbauth_utils as ku
 
 
@@ -63,15 +62,15 @@ class TestKerbUtils(unittest.TestCase):
     def test_generate_token(self):
         token = ku.generate_token()
         matches = re.match('AUTH_tk[a-f0-9]{32}', token)
-        self.assertNotEqual(matches, None)
+        self.assertTrue(matches is not None)
 
-    def test_get_groups(self):
-        groups = ku.get_groups("root")
+    def test_get_groups_from_username(self):
+        groups = ku.get_groups_from_username("root")
         self.assertTrue("root" in groups)
 
-    def test_get_groups_err(self):
+    def test_get_groups_from_username_err(self):
         try:
-            ku.get_groups("Zroot")
+            ku.get_groups_from_username("Zroot")
         except RuntimeError as err:
             self.assertTrue(err.args[0].startswith("Failure running id -G"))
         else:
