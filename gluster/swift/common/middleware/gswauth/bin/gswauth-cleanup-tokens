@@ -60,19 +60,39 @@ if __name__ == '__main__':
         parser.parse_args(['-h'])
     if options.admin_key is None:
         parser.parse_args(['-h'])
+
     options.admin_url = options.admin_url.rstrip('/')
     if not options.admin_url.endswith('/v1.0'):
         options.admin_url += '/v1.0'
     options.admin_user = '.super_admin:.super_admin'
-    options.token_life = timedelta(0, float(options.token_life))
-    options.sleep = float(options.sleep)
+
+    try:
+        options.token_life = timedelta(0, float(options.token_life))
+        options.sleep = float(options.sleep)
+    except ValueError:
+        parser.parse_args(['-h'])
+
     conn = Connection(options.admin_url, options.admin_user, options.admin_key)
     if options.purge_account:
         marker = None
         while True:
             if options.verbose:
                 print 'GET %s?marker=%s' % (options.purge_account, marker)
-            objs = conn.get_container(options.purge_account, marker=marker)[1]
+            try:
+                objs = conn.get_container(options.purge_account,
+                                          marker=marker)[1]
+            except ClientException, e:
+                if e.http_status == 404:
+                    exit('Account %s not found.' % (options.purge_account))
+                elif e.http_status == 401:
+                    exit('Cleanup tokens failed: 401 Unauthorized: ' \
+                         'Invalid user/key provided')
+                else:
+                    exit('Purging %s failed with status '
+                        'code %d' % (options.purge_account, e.http_status))
+            except socket.error, (errno, msg):
+                exit('Token clean-up failed: %s. ' \
+                     'Check that the admin_url is valid' % msg)
             if objs:
                 marker = objs[-1]['name']
             else:
@@ -112,7 +132,8 @@ if __name__ == '__main__':
                     exit('Container %s not found. gswauth-prep needs to be '
                         'rerun' % (container))
                 elif e.http_status == 401:
-                    exit('Cleanup tokens failed: 401 Unauthorized: Invalid user/key provided')
+                    exit('Cleanup tokens failed: 401 Unauthorized: ' \
+                         'Invalid user/key provided')
                 else:
                     exit('Object listing on container %s failed with status '
                         'code %d' % (container, e.http_status))

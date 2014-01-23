@@ -766,15 +766,11 @@ class TestCleanUPToken(unittest.TestCase):
         #https://bugs.launchpad.net/gluster-swift/+bug/1271550
         #cleanup token with token-life option non numeric value
         (status,output)=Utils.cleanToken(option='token-life', value='notanumaric')
-        self.assertNotEqual(status, 0, 'clean up success with token-life option token-life non numeric value'+output)
-        self.assertEqual('ValueError' in output,True, 'clean up \
-        success with token-life option non numeric value: '+output)
+        self.assertEqual('Usage:' in output, True, 'clean up success with token-life option non numeric value'+output)
 
         #cleanup token with sleep option non numeric value
         (status,output)=Utils.cleanToken(option='sleep', value='notanumeric')
-        self.assertNotEqual(status, 0, 'clean up failed with sleep option non numeric value'+output)
-        self.assertEqual('ValueError' in output,True, 'clean up \
-        success with token-life option non numeric value: '+output)
+        self.assertEqual('Usage:' in output, True, 'clean up success with sleep option non numeric value'+output)
 
     def testSetAccountService(self):
         self.setTestAccUserEnv()
