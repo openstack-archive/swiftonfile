@@ -262,14 +262,11 @@ class TestAccount(unittest.TestCase):
         (status,output)=Utils.deleteAccount('accbysuperadminforreadmin',user='test:re_admin',key='testing')
         self.assertEqual(status, 0, 'account deletion failed with re_admin user: '+output)
 
-        #TODO:uncomment following case when fix is there
-        '''
         Utils.addAccount('accbysuperadminforadmin')
         (status,output)=Utils.deleteAccount('accbysuperadminforadmin',user='test:admin',key='testing')
         self.assertNotEqual(status, 0, 'account deletion success with admin user: '+output)
         self.assertEqual('Delete account failed: 403 Forbidden: Insufficient privileges' \
                          in output,True, 'account deletion success with admin user: '+output)
-        '''
 
         Utils.addAccount('accbysuperadminforuser')
         (status,output)=Utils.deleteAccount('accbysuperadminforuser',user='test:tester',key='testing')
@@ -392,37 +389,38 @@ class TestUser(unittest.TestCase):
         self.setTest2AccUserEnv()
 
         #try to add another reseller_admin users with all type of users
-        #TODO:Uncomment Following,Possible Bug:403 should be return instead of current 401
-        '''
+        #decision has been made to return 401 in place of 403 due to
+        #performance related reasons, in scenarios tested below
+
         (status,output)=Utils.addResellerAdminUser('test', 're_adminwithreadmin', 'testing', user='test:re_admin', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with re_admin user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with re_admin user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with re_admin user: '+output)
 
         (status,output)=Utils.addResellerAdminUser('test', 're_adminwithadmin', 'testing', user='test:admin', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with admin user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with admin user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with admin user: '+output)
 
         (status,output)=Utils.addResellerAdminUser('test', 're_adminwithuser', 'testing', user='test:tester', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with regular user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with regular user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with regular user: '+output)
 
         (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithreadmin', 'testing', user='test:re_admin', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with re_admin user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with re_admin user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with re_admin user: '+output)
 
         (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithadmin', 'testing', user='test:admin', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with admin user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with admin user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with admin user: '+output)
 
         (status,output)=Utils.addResellerAdminUser('test2', 're_adminwithuser', 'testing', user='test:tester', key='testing')
         self.assertNotEqual(status, 0, 're_admin creation succeeded with regular user: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin creation succeeded with regular user: '+output)
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin creation succeeded with regular user: '+output)
 
         #update the password with own credential
         (status,output)=Utils.addResellerAdminUser('test', 're_adminwithreadmin', 'testingupdated', user='test:re_admin', key='testing')
         self.assertNotEqual(status, 0, 're_admin update password succeeded with own credentials: '+output)
-        self.assertEqual('403 Forbidden' in output,True, 're_admin update password succeeded with own credentials: '+output)
-        '''
+        self.assertEqual('401 Unauthorized' in output,True, 're_admin update password succeeded with own credentials: '+output)
+
         #try to add another admin users with all type of users
         (status,output)=Utils.addAdminUser('test', 'adminwithreadmin', 'testing', user='test:re_admin', key='testing')
         self.assertEqual(status, 0, 'admin creation failed with re_admin user: '+output)
@@ -823,10 +821,10 @@ class TestCleanUPToken(unittest.TestCase):
         #admin user
         (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test', user='test:admin', key='testing')
         self.assertNotEqual(status, 0, 'set account service success with admin user cred'+output)
-        #self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
+        self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
 
         #regular user
         (status,output)=Utils.setAccountService('test', 'storage', 'local', 'http://localhost:8080/v1/AUTH_test', user='test:tester', key='testing')
         self.assertNotEqual(status, 0, 'set account service success with regular user cred'+output)
-        #self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
+        self.assertEqual('403 Forbidden' in output,True, 'set account service success with admin user cred'+output)
 
