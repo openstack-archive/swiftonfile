@@ -16,6 +16,10 @@ log_level = WARN
 # or delete an account. So leave this off.
 allow_account_management = false
 account_autocreate = true
+# The following parameters are used by object-expirer and needs to be same
+# across all conf files!
+auto_create_account_prefix = gs
+expiring_objects_account_name = expiring
 # Ensure the proxy server uses fast-POSTs since we don't need to make a copy
 # of the entire object given that all metadata is stored in the object
 # extended attributes (no .meta file used after creation) and no container

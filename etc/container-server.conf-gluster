@@ -28,6 +28,9 @@ use = egg:gluster_swift#container
 user = root
 log_facility = LOG_LOCAL2
 log_level = WARN
+# The following parameters is used by object-expirer and needs to be same
+# across all conf files!
+auto_create_account_prefix = gs
 #
 # After ensuring things are running in a stable manner, you can turn off
 # normal request logging for the container server to unclutter the log

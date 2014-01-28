@@ -23,6 +23,7 @@ try:
 except ImportError:
     import random
 import logging
+import time
 from collections import defaultdict
 from socket import gethostname
 from hashlib import md5
@@ -33,7 +34,8 @@ from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
-    DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen
+    DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
+    DiskFileExpired
 from swift.common.swob import multi_range_iterator
 
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
@@ -701,6 +703,7 @@ class DiskFile(object):
             the object representation does not exist.
 
         :raises DiskFileNotExist: if the object does not exist
+        :raises DiskFileExpired: if the object has expired
         :returns: itself for use as a context manager
         """
         # Writes are always performed to a temporary file
@@ -731,10 +734,27 @@ class DiskFile(object):
             obj_size = 0
             self._fd = -1
         else:
+            if self._is_object_expired(self._metadata):
+                raise DiskFileExpired(metadata=self._metadata)
             self._fd = fd
 
         self._obj_size = obj_size
         return self
+
+    def _is_object_expired(self, metadata):
+        try:
+            x_delete_at = int(metadata['X-Delete-At'])
+        except KeyError:
+            pass
+        except ValueError:
+            # x-delete-at key is present but not an integer.
+            # TODO: Openstack Swift "quarrantines" the object.
+            # We just let it pass
+            pass
+        else:
+            if x_delete_at <= time.time():
+                return True
+        return False
 
     def _filter_metadata(self):
         if X_TYPE in self._metadata:

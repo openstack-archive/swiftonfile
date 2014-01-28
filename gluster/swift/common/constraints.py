@@ -23,7 +23,7 @@ import swift.common.ring as _ring
 from gluster.swift.common import Glusterfs, ring
 
 MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
-UNSUPPORTED_HEADERS = ['x-delete-at', 'x-delete-after']
+UNSUPPORTED_HEADERS = []
 
 
 def set_object_name_component_length(len=None):

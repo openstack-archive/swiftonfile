@@ -59,6 +59,10 @@ class TestFile(Base):
         self.assertEquals(data,data_read)
 
     def testInvalidHeadersPUT(self):
+        #TODO: Although we now support x-delete-at and x-delete-after,
+        #retained this test case as we may add some other header to
+        #unsupported list in future
+        raise SkipTest()
         file = self.env.container.file(Utils.create_name())
         self.assertRaises(ResponseError,
                           file.write_random,
@@ -72,6 +76,10 @@ class TestFile(Base):
         self.assert_status(400)
 
     def testInvalidHeadersPOST(self):
+        #TODO: Although we now support x-delete-at and x-delete-after,
+        #retained this test case as we may add some other header to
+        #unsupported list in future
+        raise SkipTest()
         file = self.env.container.file(Utils.create_name())
         file.write_random(self.env.file_size)
         headers = file.make_headers(cfg={})

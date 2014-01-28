@@ -81,6 +81,10 @@ class TestConstraints(unittest.TestCase):
         self.assertEqual(cnt.validate_headers(req), '')
         req.headers = ['x-some-header']
         self.assertEqual(cnt.validate_headers(req), '')
+        #TODO: Although we now support x-delete-at and x-delete-after,
+        #retained this test case as we may add some other header to
+        #unsupported list in future
+        raise SkipTest
         req.headers = ['x-delete-at', 'x-some-header']
         self.assertNotEqual(cnt.validate_headers(req), '')
         req.headers = ['x-delete-after', 'x-some-header']
@@ -96,6 +100,10 @@ class TestConstraints(unittest.TestCase):
             self.assertEqual(cnt.validate_headers(req), '')
             req.headers = ['x-some-header']
             self.assertEqual(cnt.validate_headers(req), '')
+            #TODO: Although we now support x-delete-at and x-delete-after,
+            #retained this test case as we may add some other header to
+            #unsupported list in future
+            raise SkipTest
             req.headers = ['x-delete-at', 'x-some-header']
             self.assertEqual(cnt.validate_headers(req), '')
             req.headers = ['x-delete-after', 'x-some-header']
@@ -115,6 +123,10 @@ class TestConstraints(unittest.TestCase):
             self.assertTrue(1, mock_check_metadata.call_count)
             req.headers = ['x-some-header']
             self.assertEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
+            #TODO: Although we now support x-delete-at and x-delete-after,
+            #retained this test case as we may add some other header to
+            #unsupported list in future
+            raise SkipTest
             req.headers = ['x-delete-at', 'x-some-header']
             self.assertNotEqual(cnt.gluster_check_metadata(req, 'object', POST=False), None)
             req.headers = ['x-delete-after', 'x-some-header']
@@ -135,5 +147,9 @@ class TestConstraints(unittest.TestCase):
             req = Mock()
             req.headers = []
             self.assertTrue(cnt.gluster_check_object_creation(req, 'dir/.'))
+            #TODO: Although we now support x-delete-at and x-delete-after,
+            #retained this test case as we may add some other header to
+            #unsupported list in future
+            raise SkipTest
             req.headers = ['x-delete-at']
             self.assertTrue(cnt.gluster_check_object_creation(req, 'dir/z'))

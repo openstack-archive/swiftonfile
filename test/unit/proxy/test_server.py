@@ -3461,7 +3461,6 @@ class TestObjectController(unittest.TestCase):
         self.assert_(called[0])
 
     def test_POST_converts_delete_after_to_delete_at(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3498,7 +3497,6 @@ class TestObjectController(unittest.TestCase):
                 time.time = orig_time
 
     def test_POST_non_int_delete_after(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3513,7 +3511,6 @@ class TestObjectController(unittest.TestCase):
             self.assertTrue('Non-integer X-Delete-After' in res.body)
 
     def test_POST_negative_delete_after(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3528,7 +3525,6 @@ class TestObjectController(unittest.TestCase):
             self.assertTrue('X-Delete-At in past' in res.body)
 
     def test_POST_delete_at(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             given_headers = {}
 
@@ -3573,7 +3569,6 @@ class TestObjectController(unittest.TestCase):
             self.assertTrue('X-Delete-At in past' in resp.body)
 
     def test_PUT_converts_delete_after_to_delete_at(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3596,7 +3591,6 @@ class TestObjectController(unittest.TestCase):
                 time.time = orig_time
 
     def test_PUT_non_int_delete_after(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3612,7 +3606,6 @@ class TestObjectController(unittest.TestCase):
             self.assertTrue('Non-integer X-Delete-After' in res.body)
 
     def test_PUT_negative_delete_after(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             controller = proxy_server.ObjectController(self.app, 'account',
                                                        'container', 'object')
@@ -3628,7 +3621,6 @@ class TestObjectController(unittest.TestCase):
             self.assertTrue('X-Delete-At in past' in res.body)
 
     def test_PUT_delete_at(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         with save_globals():
             given_headers = {}
 
@@ -4023,7 +4015,6 @@ class TestObjectController(unittest.TestCase):
 
     @mock.patch('time.time', new=lambda: STATIC_TIME)
     def test_PUT_x_delete_at_with_fewer_container_replicas(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         self.app.container_ring.set_replicas(2)
 
         delete_at_timestamp = int(time.time()) + 100000
@@ -4059,7 +4050,6 @@ class TestObjectController(unittest.TestCase):
 
     @mock.patch('time.time', new=lambda: STATIC_TIME)
     def test_PUT_x_delete_at_with_more_container_replicas(self):
-        raise SkipTest("X-Delete-At and X-Delete-After are not supported")
         self.app.container_ring.set_replicas(4)
         self.app.expiring_objects_account = 'expires'
         self.app.expiring_objects_container_divisor = 60
