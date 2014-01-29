@@ -76,7 +76,10 @@ super_admin_key = gswauthkey
 metadata_volume = gsmetadata
 auth_type = sha1
 auth_type_salt = swauthsalt
+token_life = 86400
+max_token_life = 86400
 ~~~
+
 1. Restart your proxy server ``swift-init proxy reload``
 
 ##### Advanced options for GSwauth WSGI filter:
@@ -93,6 +96,15 @@ There are only three user roles in GSwauth:
 * A regular user has basically no rights. He needs to be given both read/write priviliges to any container. 
 * The `admin` user is a super-user at the account level. This user can create and delete users for the account they are members and have both write and read priviliges to all stored objects in that account.
 * The `reseller admin` user is a super-user at the cluster level. This user can create and delete accounts and users and has read/write priviliges to all accounts under that cluster.
+
+
+| Role/Group | get list of accounts | get Acccount Details (users, etc)| Create Account | Delete Account | Get User Details | Create admin user | Create reseller-admin user | Create regular user | Delete admin user | Delete reseller-admin user | Delete regular user | Set Service Endpoints | Get Account Groups | Modify User |
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| .super_admin (username) |x|x|x|x|x|x|x|x|x|x|x|x|x|x|
+| .reseller_admin (group) |x|x|x|x|x|x| |x|x| |x|x|x|x|
+| .admin (group)          | |x| | |x|x| |x|x| |x| |x|x|
+| regular user (type)     | | | | | | | | | | | | | | |
+
 
 ### <a name="gswauth_tools" />GSwauth Tools
 GSwauth provides cli tools to facilitate managing accounts and users. All tools have some options in common:
@@ -256,8 +268,14 @@ Example:
 gswauth-cleanup-tokens -K gswauthkey --purge test
 ~~~
 
-### <a name="gswauth_authenticate" />Authenticating a user
-Accessing data through swift is a two-step process, first users must authenticate with a username and password to get a token and the storage URL. Then, users can make the object requests to the storage URL with the given token. 
+### <a name="gswauth_authenticate" />Authenticating a user with swift client
+There are two methods of accessing data using the swift client. The first (and most simple one) is by providing the user name and password everytime. The swift client takes care of acquiring the token from gswauth. See example below:
+
+~~~
+swift -A http://127.0.0.1:8080/auth/v1.0 -U test:ana -K anapwd upload container1 README.md
+~~~
+
+The second method is a two-step process, but it allows users to only provide their username and password once. First users must authenticate with a username and password to get a token and the storage URL. Then, users can make the object requests to the storage URL with the given token.
 
 It is important to remember that tokens expires, so the authentication process needs to be repeated every so often.
 
@@ -279,6 +297,7 @@ bash-4.2$
 bash-4.2$ swift --os-auth-token=AUTH_tk7e68ef4698f14c7f95af07ab7b298610 --os-storage-url=http://127.0.0.1:8080/v1/AUTH_test list container1
 README.md
 ~~~
+**Note:** Reseller admins must always use the second method to acquire a token, in order to be given access to other accounts different than his own. The first method of using the username and password will give them access only to their own accounts.
 
 ## <a name="swiftkerbauth" />Swiftkerbauth ##
 Kerberos authentication filter
