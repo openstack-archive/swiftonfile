@@ -1,10 +1,11 @@
 #swiftkerbauth
 
-* [Installing Kerberos module for Apache on IPA client] (#httpd-kerb-install)
-* [Creating HTTP Service Principal on IPA server] (#http-principal)
-* [Installing and configuring swiftkerbauth on IPA client] (#install-swiftkerbauth)
+* [Installing Kerberos module for Apache] (#httpd-kerb-install)
+* [Creating HTTP Service Principal] (#http-principal)
+* [Installing and configuring swiftkerbauth] (#install-swiftkerbauth)
 * [Using swiftkerbauth] (#use-swiftkerbauth)
 * [Configurable Parameters] (#config-swiftkerbauth)
+* [Functional tests] (#swfunctest)
 
 <a name="httpd-kerb-install" />
 ## Installing Kerberos module for Apache on IPA client
@@ -487,5 +488,30 @@ Default value: passive
 
 #### realm_name
 This is applicable only when the auth_method=passive. This option specifies
-realm name if RHS server belongs to more than one realm and realm name is not
+realm name if storage server belongs to more than one realm and realm name is not
 part of the username specified in X-Auth-User header.
+
+<a name="swfunctest" />
+##Functional tests for SwiftkerbAuth
+
+Functional tests to be run on the storage node after SwiftKerbAuth is setup using
+either IPA server or Windows AD. The gluster-swift/doc/markdown/swiftkerbauth
+directory contains the SwiftkerbAuth setup documents. There are two modes of
+working with SwiftKerbAuth. 'PASSIVE' mode indicates the client is outside the
+domain configured using SwiftKerbAuth. Client provides the 'Username' and
+'Password' while invoking a command. SwiftKerbAuth auth filter code then
+would get the ticket granting ticket from AD server or IPA server.
+In 'ACTIVE' mode of SwiftKerbAuth, User is already logged into storage node using
+its kerberos credentials. That user is authenticated across AD/IPA server.
+
+In PASSIVE mode all the generic functional tests are run. ACTIVE mode has a
+different way of acquiring Ticket Granting Ticket. And hence the different
+framework of functional tests there.
+
+The accounts, users, passwords must be prepared on AD/IPA server as per
+mentioned in test/functional_auth/swiftkerbauth/conf/test.conf
+
+Command to invoke SwiftKerbAuth functional tests is
+> $tox -e swfunctest
+
+This would run both ACTIVE and PASSIVE mode functional test cases.

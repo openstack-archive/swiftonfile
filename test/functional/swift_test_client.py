@@ -144,7 +144,6 @@ class Connection(object):
         auth_scheme = 'https://' if self.auth_ssl else 'http://'
         auth_netloc = "%s:%d" % (self.auth_host, self.auth_port)
         auth_url = auth_scheme + auth_netloc + auth_path
-
         (storage_url, storage_token) = get_auth(
             auth_url, auth_user, self.password, snet=False,
             tenant_name=self.account, auth_version=self.auth_version,
