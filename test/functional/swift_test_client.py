@@ -302,6 +302,7 @@ class Connection(object):
             self.connection.send('0\r\n\r\n')
 
         self.response = self.connection.getresponse()
+        self.response.read()
         self.connection.close()
         return self.response.status
 
