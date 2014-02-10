@@ -2,6 +2,10 @@
 
 ## Contents
 * [Keystone](#keystone)
+    * [Overview](#keystone_overview)
+    * [Creation of swift accounts](#keystone_swift_accounts)
+    * [Configuration](#keystone_configuration)
+    * [Configuring keystone endpoint](#keystone_endpoint)
 * [GSwauth](#gswauth)
     * [Overview](#gswauth_overview)
     * [Installing GSwauth](#gswauth_install)
@@ -19,7 +23,173 @@
 ## <a name="keystone" />Keystone ##
 The Standard Openstack authentication service
 
-TBD
+### <a name="keystone_overview" />Overview ###
+[Keystone](https://wiki.openstack.org/wiki/Keystone) is the identity
+service for OpenStack, used for authentication and authorization when
+interacting with OpenStack services.
+
+Configuring gluster-swift to authenticate against keystone is thus
+very useful because allows users to access a gluster-swift storage
+using the same credentials used for all other OpenStack services.
+
+Currently, gluster-swift has a strict mapping of one account to a
+GlusterFS volume, and this volume has to be named after the **tenant
+id** (aka **project id**) of the user accessing it.
+
+### <a name="keystone_installation" />Installation ###
+
+Keystone authentication is performed using the
+[swift.common.middleware.keystone](http://docs.openstack.org/developer/swift/middleware.html#module-swift.common.middleware.keystoneauth)
+which is part of swift itself. It depends on keystone python APIs,
+contained in the package `python-keystoneclient`.
+
+You can install `python-keystoneclient` from the packages of your
+distribution running:
+
+  * on Ubuntu:
+
+        sudo apt-get install python-keystoneclient
+
+  * on Fedora:
+
+        sudo yum install python-keystoneclient
+
+otherwise you can install it via pip:
+
+    sudo pip install python-keystoneclient
+
+### <a name="keystone_swift_accounts />Creation of swift accounts ###
+
+Due to current limitations of gluster-swift, you *must* create one
+volume for each Keystone tenant (project), and its name *must* match
+the *tenant id* of the tenant.
+
+You can get the tenant id from the output of the command `keystone
+tenant-get`, for example:
+
+    # keystone tenant-get demo
+    +-------------+----------------------------------+
+    |   Property  |              Value               |
+    +-------------+----------------------------------+
+    | description |                                  |
+    |   enabled   |               True               |
+    |      id     | a9b091f85e04499eb2282733ff7d183e |
+    |     name    |               demo               |
+    +-------------+----------------------------------+
+
+will get the tenant id of the tenant `demo`.
+
+Create the volume as usual
+
+    gluster volume create <tenant_id> <hostname>:<brick> ...
+    gluster volume start <tenant_id>
+
+Once you have created all the volumes you need you must re-generate
+the swift ring:
+
+    gluster-swift-gen-builders <tenant_id> [<tenant_id> ...]
+
+After generation of swift rings you always have to restart the object,
+account and container servers.
+
+### <a name="keystone_configuration" />Configuration of the proxy-server ###
+
+You only need to configure the proxy-server in order to enable
+keystone authentication. The configuration is no different from what
+is done for a standard swift installation (cfr. for instance the
+related
+[swift documentation](http://docs.openstack.org/developer/swift/overview_auth.html#keystone-auth)),
+however we report it for completeness.
+
+In the configuration file of the proxy server (usually
+`/etc/swift/proxy-server.conf`) you must modify the main pipeline and
+add `authtoken` and `keystoneauth`:
+
+    Was:
+~~~
+[pipeline:main]
+pipeline = catch_errors healthcheck cache ratelimit tempauth proxy-server
+~~~
+    Change To:
+~~~
+[pipeline:main]
+pipeline = catch_errors healthcheck cache ratelimit authtoken keystoneauth proxy-server
+~~~
+
+(note that we also removed `tempauth`, although this is not necessary)
+
+Add configuration for the `authtoken` middleware by adding the following section:
+
+    [filter:authtoken]
+    paste.filter_factory = keystone.middleware.auth_token:filter_factory
+    auth_host = KEYSTONE_HOSTNAME
+    auth_port = 35357
+    auth_protocol = http
+    auth_uri = http://KEYSTONE_HOSTNAME:5000/
+    admin_tenant_name = TENANT_NAME
+    admin_user = SWIFT_USERNAME
+    admin_password = SWIFT_PASSWORD
+    include_service_catalog = False
+
+`SWIFT_USERNAME`, `SWIFT_PASSWORD` and `TENANT_NAME` will be used by
+swift to get an admin token from `KEYSTONE_HOSTNAME`, used to
+authorize user tokens so they must match an user in keystone with
+administrative privileges.
+
+Add configuration for the `keystoneauth` middleware:
+
+    [filter:keystoneauth]
+    use = egg:swift#keystoneauth
+    # Operator roles is the role which user would be allowed to manage a
+    # tenant and be able to create container or give ACL to others.
+    operator_roles = Member, admin
+
+Restart the `proxy-server` service.
+
+### <a name="keystone_endpoint" />Configuring keystone endpoint ###
+
+In order to be able to use the `swift` command line you also need to
+configure keystone by adding a service and its relative endpoint. Up
+to date documentation can be found in the OpenStack documentation, but
+we report it here for completeness:
+
+First of all create the swift service of type `object-store`:
+
+    $ keystone service-create --name=swift \
+        --type=object-store --description="Swift Service"
+    +-------------+---------------------------------+
+    |   Property  |              Value               |
+    +-------------+----------------------------------+
+    | description | Swift Service                    |
+    | id          | 272efad2d1234376cbb911c1e5a5a6ed |
+    | name        | swift                            |
+    | type        | object-store                     |
+    +-------------+----------------------------------+
+
+and use the `id` of the service you just created to create the
+corresponding endpoint:
+
+    $ keystone endpoint-create \
+       --region RegionOne \
+       --service-id=<service_id> \
+       --publicurl 'http://<swift-host>:8080/v1/AUTH_$(tenant_id)s' \
+       --internalurl 'http://<swift-host>:8080/v1/AUTH_$(tenant_id)s' \
+       --adminurl 'http://<swift-host>:8080/v1'
+
+Now you should be able to use the swift command line to list the containers of your account with:
+
+    $ swift --os-auth-url http://<keystone-host>:5000/v2.0 \
+        -U <tenant-name>:<username> -K <password> list
+
+to create a container
+
+    $ swift --os-auth-url http://<keystone-host>:5000/v2.0 \
+        -U <tenant-name>:<username> -K <password> post mycontainer
+
+and upload a file
+
+    $ swift --os-auth-url http://<keystone-host>:5000/v2.0 \
+        -U <tenant-name>:<username> -K <password> upload <filename>
 
 ## <a name="gswauth" />GSwauth ##
 
