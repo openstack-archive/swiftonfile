@@ -268,5 +268,5 @@ For more information, please visit the following links:
 [Jenkins]: http://jenkins-ci.org
 [Authentication Services Start Guide]: auth_guide.md
 [EPEL]: https://fedoraproject.org/wiki/EPEL
-[launchpad.net downloads]: http://launchpad.net/gluster-swift/havana/1.10.0-1
+[launchpad.net downloads]: http://launchpad.net/gluster-swift/havana/1.10.0-2
 
