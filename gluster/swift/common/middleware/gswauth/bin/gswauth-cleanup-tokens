@@ -48,10 +48,14 @@ if __name__ == '__main__':
     parser.add_option('-K', '--admin-key', dest='admin_key',
         help='The key for .super_admin is required.')
     parser.add_option('', '--purge', dest='purge_account', help='Purges all '
-        'tokens for a given account whether the tokens have expired or not.')
+        'tokens for a given account whether the tokens have expired or not.'
+        ' Memcached restart is recommended. Old tokens may still persist in'
+        ' memcached.')
     parser.add_option('', '--purge-all', dest='purge_all', action='store_true',
         default=False, help='Purges all tokens for all accounts and users '
-        'whether the tokens have expired or not.')
+        'whether the tokens have expired or not.'
+        ' Memcached restart is recommended. Old tokens may still persist in'
+        ' memcached.')
     args = argv[1:]
     if not args:
         args.append('-h')
@@ -194,3 +198,5 @@ if __name__ == '__main__':
                 sleep(options.sleep)
     if options.verbose:
         print 'Done.'
+    print 'Recommended to restart memcached as old invalid tokens may' \
+          ' still persist in memcached.'
