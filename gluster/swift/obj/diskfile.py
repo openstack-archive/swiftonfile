@@ -29,6 +29,8 @@ from hashlib import md5
 from eventlet import sleep
 from greenlet import getcurrent
 from contextlib import contextmanager
+from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
+    AlreadyExistsAsDir
 from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen
@@ -166,17 +168,19 @@ def _make_directory_unlocked(full_path, uid, gid, metadata=None):
                 if not is_dir:
                     # FIXME: Ideally we'd want to return an appropriate error
                     # message and code in the PUT Object REST API response.
-                    raise DiskFileError("_make_directory_unlocked: os.mkdir"
-                                        " failed on path %s because it already"
-                                        " exists but not as a directory" % (
-                                            full_path))
+                    raise AlreadyExistsAsFile("_make_directory_unlocked:"
+                                              " os.mkdir failed on path %s"
+                                              " because it already exists"
+                                              " but not as a directory"
+                                              % (full_path))
             return True, metadata
         elif err.errno == errno.ENOTDIR:
             # FIXME: Ideally we'd want to return an appropriate error
             # message and code in the PUT Object REST API response.
-            raise DiskFileError("_make_directory_unlocked: os.mkdir failed"
-                                " because some part of path %s is not in fact"
-                                " a directory" % (full_path))
+            raise AlreadyExistsAsFile("_make_directory_unlocked:"
+                                      " os.mkdir failed because some "
+                                      "part of path %s is not in fact"
+                                      " a directory" % (full_path))
         elif err.errno == errno.EIO:
             # Sometimes Fuse will return an EIO error when it does not know
             # how to handle an unexpected, but transient situation. It is
@@ -482,6 +486,8 @@ class DiskFileWriter(object):
         written to the temp file.
 
         :param metadata: dictionary of metadata to be written
+        :raises AlreadyExistsAsDir : If there exists a directory of the same
+                                     name
         """
         assert self._tmppath is not None
         metadata = _adjust_metadata(metadata)
@@ -497,9 +503,9 @@ class DiskFileWriter(object):
             # system, perhaps gratuitously created when another
             # object was created, or created externally to Swift
             # REST API servicing (UFO use case).
-            raise DiskFileError('DiskFile.put(): file creation failed since'
-                                ' the target, %s, already exists as a'
-                                ' directory' % df._data_file)
+            raise AlreadyExistsAsDir('DiskFile.put(): file creation failed'
+                                     ' since the target, %s, already exists'
+                                     ' as a directory' % df._data_file)
 
         df._threadpool.force_run_in_thread(self._finalize_put, metadata)
 
@@ -897,6 +903,8 @@ class DiskFile(object):
         :param size: optional initial size of file to explicitly allocate on
                      disk
         :raises DiskFileNoSpace: if a size is specified and allocation fails
+        :raises AlreadyExistsAsFile: if path or part of a path is not a \
+                                     directory
         """
         data_file = os.path.join(self._put_datadir, self._obj)
 
@@ -917,6 +925,12 @@ class DiskFile(object):
                     # Raise DiskFileNoSpace to be handled by upper layers when
                     # there is no space on disk OR when quota is exceeded
                     raise DiskFileNoSpace()
+                if gerr.errno == errno.ENOTDIR:
+                    raise AlreadyExistsAsFile('do_open(): failed on %s,'
+                                              '  path or part of a'
+                                              ' path is not a directory'
+                                              % (tmppath))
+
                 if gerr.errno not in (errno.ENOENT, errno.EEXIST, errno.EIO):
                     # FIXME: Other cases we should handle?
                     raise

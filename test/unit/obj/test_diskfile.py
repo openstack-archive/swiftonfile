@@ -26,7 +26,8 @@ from eventlet import tpool
 from mock import Mock, patch
 from hashlib import md5
 from copy import deepcopy
-
+from gluster.swift.common.exceptions import AlreadyExistsAsDir, \
+    AlreadyExistsAsFile
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileNotOpen
 from swift.common.utils import ThreadPool
@@ -409,7 +410,7 @@ class TestDiskFile(unittest.TestCase):
         dc = gluster.swift.obj.diskfile.do_chown
         gluster.swift.obj.diskfile.do_chown = _mock_do_chown
         self.assertRaises(
-            DiskFileError, gdf._create_dir_object, the_dir)
+            AlreadyExistsAsFile, gdf._create_dir_object, the_dir)
         gluster.swift.obj.diskfile.do_chown = dc
         self.assertFalse(os.path.isdir(the_dir))
         self.assertFalse(_mapit(the_dir) in _metadata)
@@ -431,7 +432,7 @@ class TestDiskFile(unittest.TestCase):
         dc = gluster.swift.obj.diskfile.do_chown
         gluster.swift.obj.diskfile.do_chown = _mock_do_chown
         self.assertRaises(
-            DiskFileError, gdf._create_dir_object, the_dir)
+            AlreadyExistsAsFile, gdf._create_dir_object, the_dir)
         gluster.swift.obj.diskfile.do_chown = dc
         self.assertFalse(os.path.isdir(the_dir))
         self.assertFalse(_mapit(the_dir) in _metadata)
@@ -622,7 +623,7 @@ class TestDiskFile(unittest.TestCase):
                 # directory.
                 dw.write('12345\n')
                 dw.put(newmd)
-            except DiskFileError:
+            except AlreadyExistsAsDir:
                 pass
             else:
                 self.fail("Expected to encounter"

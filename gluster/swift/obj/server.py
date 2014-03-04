@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2013 Red Hat, Inc.
+# Copyright (c) 2012-2014 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,11 @@
 # Simply importing this monkey patches the constraint handling to fit our
 # needs
 import gluster.swift.common.constraints    # noqa
+from swift.common.swob import HTTPConflict
+from swift.common.utils import public, timing_stats
+from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
+    AlreadyExistsAsDir
+from swift.common.request_helpers import split_and_validate_path
 
 from swift.obj import server
 
@@ -79,6 +84,16 @@ class ObjectController(server.ObjectController):
         FIXME: Gluster currently does not support delete_at headers.
         """
         return
+
+    @public
+    @timing_stats()
+    def PUT(self, request):
+        try:
+            return server.ObjectController.PUT(self, request)
+        except (AlreadyExistsAsFile, AlreadyExistsAsDir):
+            device = \
+                split_and_validate_path(request, 1, 5, True)
+            return HTTPConflict(drive=device, request=request)
 
 
 def app_factory(global_conf, **local_conf):
