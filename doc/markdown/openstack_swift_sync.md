@@ -14,7 +14,8 @@ $ python setup.py sdist
 $ ls dist
 ```
 
-* Take the file in the `dist` directory and upload it to the new release we created it on launchpad.net
+* Take the file in the `dist` directory and upload it to the new release we created it on launchpad.net.
+* Alternatively, if we are syncing with a Swift version which is already released, we can get the tar.gz file from Swift launchpad page and upload the same to gluster-swift launchpad.
 
 ## Setup Tox
 Now that the swift source is availabe on launchpad.net, copy its link location and update tox.ini in gluster-swift with the new link.
@@ -22,7 +23,11 @@ Now that the swift source is availabe on launchpad.net, copy its link location a
 ## Update tests
 This part is a little more complicated and now we need to *merge* the latest tests with ours.
 
-I suggest using a tool called `meld` to make this work easier.
+[meld](http://meldmerge.org/) is a great tool to make this work easier. The 3-way comparison feature of meld comes handy to compare 3 version of same file from:
+
+* Latest swift (say v1.13)
+* Previous swift (say v1.12)
+* gluster-swift (v1.12)
 
 Files that need to be merged:
 
