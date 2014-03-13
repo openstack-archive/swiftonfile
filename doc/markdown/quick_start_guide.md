@@ -118,7 +118,7 @@ mount -a
 ~~~
 
 ### Create a GlusterFS Volume
-You now need to create a GlusterFS volume
+You now need to create a GlusterFS volume (make sure your hostname is in /etc/hosts or is DNS-resolvable)
 
 ~~~
 mkdir /export/brick/b1
