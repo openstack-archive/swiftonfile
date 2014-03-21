@@ -789,7 +789,7 @@ class DiskFile(object):
         self._metadata = None
         if self._fd is not None:
             fd, self._fd = self._fd, None
-            if self._fd > -1:
+            if fd > -1:
                 do_close(fd)
 
     def get_metadata(self):

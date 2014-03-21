@@ -204,6 +204,16 @@ class TestDiskFile(unittest.TestCase):
         self.assertRaises(DiskFileNotOpen, gdf.reader)
         self.assertRaises(DiskFileNotOpen, gdf.__enter__)
 
+    def test_open_and_close(self):
+        mock_close = Mock()
+
+        with mock.patch("gluster.swift.obj.diskfile.do_close", mock_close):
+            gdf = self._create_and_get_diskfile("vol0", "p57", "ufo47",
+                                                "bar", "z")
+            with gdf.open():
+                assert gdf._fd is not None
+            self.assertTrue(mock_close.called)
+
     def test_open_existing_metadata(self):
         the_path = os.path.join(self.td, "vol0", "bar")
         the_file = os.path.join(the_path, "z")
