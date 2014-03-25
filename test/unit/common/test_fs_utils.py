@@ -18,25 +18,27 @@ import shutil
 import random
 import errno
 import unittest
-import eventlet
 from nose import SkipTest
 from mock import patch, Mock
 from time import sleep
 from tempfile import mkdtemp, mkstemp
 from gluster.swift.common import fs_utils as fs
 from gluster.swift.common.exceptions import NotDirectoryError, \
-    FileOrDirNotFoundError, GlusterFileSystemOSError, \
-    GlusterFileSystemIOError
+    FileOrDirNotFoundError, GlusterFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
+
 
 def mock_os_fsync(fd):
     return True
 
+
 def mock_os_fdatasync(fd):
     return True
 
+
 def mock_os_mkdir_makedirs_enospc(path):
     raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
 
 def mock_os_mkdir_makedirs_edquot(path):
     raise OSError(errno.EDQUOT, os.strerror(errno.EDQUOT))
@@ -52,9 +54,10 @@ class TestFsUtils(unittest.TestCase):
             tmpdirs = []
             tmpfiles = []
             for i in range(5):
-                tmpdirs.append(mkdtemp(dir=tmpparent).rsplit(os.path.sep, 1)[1])
-                tmpfiles.append(mkstemp(dir=tmpparent)[1].rsplit(os.path.sep, \
-                                                                     1)[1])
+                tmpdirs.append(
+                    mkdtemp(dir=tmpparent).rsplit(os.path.sep, 1)[1])
+                tmpfiles.append(
+                    mkstemp(dir=tmpparent)[1].rsplit(os.path.sep, 1)[1])
 
                 for path, dirnames, filenames in fs.do_walk(tmpparent):
                     assert path == tmpparent
@@ -88,7 +91,7 @@ class TestFsUtils(unittest.TestCase):
             with patch("os.lstat", _mock_os_lstat):
                 try:
                     fs.do_ismount(tmpdir)
-                except GlusterFileSystemOSError as err:
+                except GlusterFileSystemOSError:
                     pass
                 else:
                     self.fail("Expected GlusterFileSystemOSError")
@@ -122,7 +125,7 @@ class TestFsUtils(unittest.TestCase):
             with patch("os.lstat", _mock_os_lstat):
                 try:
                     fs.do_ismount(tmpdir)
-                except GlusterFileSystemOSError as err:
+                except GlusterFileSystemOSError:
                     pass
                 else:
                     self.fail("Expected GlusterFileSystemOSError")
@@ -152,7 +155,7 @@ class TestFsUtils(unittest.TestCase):
             with patch("os.lstat", _mock_os_lstat):
                 try:
                     fs.do_ismount(tmpdir)
-                except GlusterFileSystemOSError as err:
+                except GlusterFileSystemOSError:
                     self.fail("Unexpected exception")
                 else:
                     pass
@@ -184,7 +187,7 @@ class TestFsUtils(unittest.TestCase):
             with patch("os.lstat", _mock_os_lstat):
                 try:
                     fs.do_ismount(tmpdir)
-                except GlusterFileSystemOSError as err:
+                except GlusterFileSystemOSError:
                     self.fail("Unexpected exception")
                 else:
                     pass
@@ -197,7 +200,7 @@ class TestFsUtils(unittest.TestCase):
             fd = fs.do_open(tmpfile, os.O_RDONLY)
             try:
                 os.write(fd, 'test')
-            except OSError as err:
+            except OSError:
                 pass
             else:
                 self.fail("OSError expected")
@@ -238,7 +241,7 @@ class TestFsUtils(unittest.TestCase):
             finally:
                 os.close(fd1)
         except GlusterFileSystemOSError as ose:
-            self.fail("Open failed with %s" %ose.strerror)
+            self.fail("Open failed with %s" % ose.strerror)
         finally:
             os.close(fd)
             os.remove(tmpfile)
@@ -273,7 +276,6 @@ class TestFsUtils(unittest.TestCase):
             path = os.path.join(subdir, str(random.random()))
             fs.mkdirs(path)
             assert os.path.exists(path)
-            assert fs.mkdirs(path)
         finally:
             shutil.rmtree(subdir)
 
@@ -282,17 +284,6 @@ class TestFsUtils(unittest.TestCase):
         try:
             fs.mkdirs(tmpdir)
         except (GlusterFileSystemOSError, OSError):
-            self.fail("Unexpected exception")
-        else:
-            pass
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_mkdirs(self):
-        tmpdir = mkdtemp()
-        try:
-            fs.mkdirs(os.path.join(tmpdir, "a", "b", "c"))
-        except OSError:
             self.fail("Unexpected exception")
         else:
             pass
@@ -342,7 +333,6 @@ class TestFsUtils(unittest.TestCase):
                 pass
             else:
                 self.fail("Expected DiskFileNoSpace exception")
-
 
     def test_do_mkdir(self):
         try:
@@ -419,7 +409,6 @@ class TestFsUtils(unittest.TestCase):
             pass
         else:
             self.fail("Expected GlusterFileSystemOSError")
-
 
     def test_do_stat(self):
         tmpdir = mkdtemp()
@@ -733,12 +722,12 @@ class TestFsUtils(unittest.TestCase):
                 with patch('os.fsync', mock_os_fsync):
                     assert fs.do_fsync(fd) is None
             except GlusterFileSystemOSError as ose:
-                self.fail('Opening a temporary file failed with %s' %ose.strerror)
+                self.fail('Opening a temporary file failed with %s' %
+                          ose.strerror)
             else:
                 os.close(fd)
         finally:
             shutil.rmtree(tmpdir)
-
 
     def test_do_fsync_err(self):
         tmpdir = mkdtemp()
@@ -766,12 +755,12 @@ class TestFsUtils(unittest.TestCase):
                 with patch('os.fdatasync', mock_os_fdatasync):
                     assert fs.do_fdatasync(fd) is None
             except GlusterFileSystemOSError as ose:
-                self.fail('Opening a temporary file failed with %s' %ose.strerror)
+                self.fail('Opening a temporary file failed with %s' %
+                          ose.strerror)
             else:
                 os.close(fd)
         finally:
             shutil.rmtree(tmpdir)
-
 
     def test_do_fdatasync_err(self):
         tmpdir = mkdtemp()
@@ -803,11 +792,11 @@ class TestFsUtils(unittest.TestCase):
 
     def test_get_filename_from_fd_err(self):
         result = fs.get_filename_from_fd("blah")
-        self.assertEqual(result,None)
+        self.assertEqual(result, None)
         result = fs.get_filename_from_fd(-1000)
-        self.assertEqual(result,None)
+        self.assertEqual(result, None)
         result = fs.get_filename_from_fd("blah", True)
-        self.assertEqual(result,None)
+        self.assertEqual(result, None)
 
     def test_static_var(self):
         @fs.static_var("counter", 0)

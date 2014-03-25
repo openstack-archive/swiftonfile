@@ -41,7 +41,7 @@ from gluster.swift.common.exceptions import GlusterFileSystemOSError
 from gluster.swift.common.Glusterfs import mount
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
-    do_fadvise64, do_rename, do_fdatasync, do_lseek
+    do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
     get_object_metadata
@@ -78,7 +78,7 @@ def make_directory(full_path, uid, gid, metadata=None):
     creating the object metadata if requested.
     """
     try:
-        os.mkdir(full_path)
+        do_mkdir(full_path)
     except OSError as err:
         if err.errno == errno.ENOENT:
             # Tell the caller some directory of the parent path does not
@@ -91,13 +91,13 @@ def make_directory(full_path, uid, gid, metadata=None):
             # FIXME: When we are confident, remove this stat() call as it is
             # not necessary.
             try:
-                stats = os.stat(full_path)
-            except OSError as serr:
+                stats = do_stat(full_path)
+            except GlusterFileSystemOSError as serr:
                 # FIXME: Ideally we'd want to return an appropriate error
                 # message and code in the PUT Object REST API response.
-                raise DiskFileError("_make_directory_unlocked: os.mkdir failed"
+                raise DiskFileError("make_directory: mkdir failed"
                                     " because path %s already exists, and"
-                                    " a subsequent os.stat on that same"
+                                    " a subsequent stat on that same"
                                     " path failed (%s)" % (full_path,
                                                            str(serr)))
             else:
@@ -105,8 +105,8 @@ def make_directory(full_path, uid, gid, metadata=None):
                 if not is_dir:
                     # FIXME: Ideally we'd want to return an appropriate error
                     # message and code in the PUT Object REST API response.
-                    raise AlreadyExistsAsFile("_make_directory_unlocked:"
-                                              " os.mkdir failed on path %s"
+                    raise AlreadyExistsAsFile("make_directory:"
+                                              " mkdir failed on path %s"
                                               " because it already exists"
                                               " but not as a directory"
                                               % (full_path))
@@ -114,8 +114,8 @@ def make_directory(full_path, uid, gid, metadata=None):
         elif err.errno == errno.ENOTDIR:
             # FIXME: Ideally we'd want to return an appropriate error
             # message and code in the PUT Object REST API response.
-            raise AlreadyExistsAsFile("_make_directory_unlocked:"
-                                      " os.mkdir failed because some "
+            raise AlreadyExistsAsFile("make_directory:"
+                                      " mkdir failed because some "
                                       "part of path %s is not in fact"
                                       " a directory" % (full_path))
         elif err.errno == errno.EIO:
@@ -125,42 +125,47 @@ def make_directory(full_path, uid, gid, metadata=None):
             # short period of time.
             _random_sleep()
             try:
-                stats = os.stat(full_path)
-            except OSError as serr:
+                stats = do_stat(full_path)
+            except GlusterFileSystemOSError as serr:
                 if serr.errno == errno.ENOENT:
-                    errmsg = "_make_directory_unlocked: os.mkdir failed on" \
-                             " path %s (EIO), and a subsequent os.stat on" \
+                    errmsg = "make_directory: mkdir failed on" \
+                             " path %s (EIO), and a subsequent stat on" \
                              " that same path did not find the file." % (
                                  full_path,)
                 else:
-                    errmsg = "_make_directory_unlocked: os.mkdir failed on" \
-                             " path %s (%s), and a subsequent os.stat on" \
+                    errmsg = "make_directory: mkdir failed on" \
+                             " path %s (%s), and a subsequent stat on" \
                              " that same path failed as well (%s)" % (
                                  full_path, str(err), str(serr))
                 raise DiskFileError(errmsg)
             else:
-                # The directory at least exists now
-                is_dir = stat.S_ISDIR(stats.st_mode)
-                if is_dir:
-                    # Dump the stats to the log with the original exception.
-                    logging.warn("_make_directory_unlocked: os.mkdir initially"
-                                 " failed on path %s (%s) but a stat()"
-                                 " following that succeeded: %r" % (full_path,
-                                                                    str(err),
-                                                                    stats))
-                    # Assume another entity took care of the proper setup.
-                    return True, metadata
+                if not stats:
+                    errmsg = "make_directory: mkdir failed on" \
+                             " path %s (EIO), and a subsequent stat on" \
+                             " that same path did not find the file." % (
+                                 full_path,)
+                    raise DiskFileError(errmsg)
                 else:
-                    raise DiskFileError("_make_directory_unlocked: os.mkdir"
-                                        " initially failed on path %s (%s) but"
-                                        " now we see that it exists but is not"
-                                        " a directory (%r)" % (full_path,
-                                                               str(err),
-                                                               stats))
+                    # The directory at least exists now
+                    is_dir = stat.S_ISDIR(stats.st_mode)
+                    if is_dir:
+                        # Dump the stats to the log with the original exception
+                        logging.warn("make_directory: mkdir initially"
+                                     " failed on path %s (%s) but a stat()"
+                                     " following that succeeded: %r" %
+                                     (full_path, str(err), stats))
+                        # Assume another entity took care of the proper setup.
+                        return True, metadata
+                    else:
+                        raise DiskFileError("make_directory: mkdir"
+                                            " initially failed on path %s (%s)"
+                                            " but now we see that it exists"
+                                            " but is not a directory (%r)" %
+                                            (full_path, str(err), stats))
         else:
             # Some other potentially rare exception occurred that does not
             # currently warrant a special log entry to help diagnose.
-            raise DiskFileError("_make_directory_unlocked: os.mkdir failed on"
+            raise DiskFileError("make_directory: mkdir failed on"
                                 " path %s (%s)" % (full_path, str(err)))
     else:
         if metadata:
@@ -393,7 +398,7 @@ class DiskFileWriter(object):
                             else:
                                 # Let's retry since everything looks okay
                                 logging.warn(
-                                    "DiskFile.put(): os.rename('%s','%s')"
+                                    "DiskFile.put(): rename('%s','%s')"
                                     " initially failed (%s) but a"
                                     " stat('%s') following that succeeded:"
                                     " %r" % (
@@ -403,7 +408,7 @@ class DiskFileWriter(object):
                                 continue
                 else:
                     raise GlusterFileSystemOSError(
-                        err.errno, "%s, os.rename('%s', '%s')" % (
+                        err.errno, "%s, rename('%s', '%s')" % (
                             err.strerror, self._tmppath, df._data_file))
             else:
                 # Success!

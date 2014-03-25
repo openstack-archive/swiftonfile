@@ -16,15 +16,16 @@
 import os
 import stat
 import errno
-import xattr
 import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
 from gluster.swift.common.exceptions import GlusterFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
-from gluster.swift.common.fs_utils import os_path, do_stat, do_listdir, \
-    do_walk, do_rmdir, do_fstat, do_log_rl, get_filename_from_fd
+from gluster.swift.common.fs_utils import do_getctime, do_getmtime, do_stat, \
+    do_listdir, do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
+    do_isdir, do_getsize, do_getxattr, do_setxattr, do_removexattr, do_read, \
+    do_close, do_dup, do_lseek, do_fstat
 from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -83,8 +84,8 @@ def read_metadata(path_or_fd):
     key = 0
     while metadata is None:
         try:
-            metadata_s += xattr.getxattr(path_or_fd,
-                                         '%s%s' % (METADATA_KEY, (key or '')))
+            metadata_s += do_getxattr(path_or_fd,
+                                      '%s%s' % (METADATA_KEY, (key or '')))
         except IOError as err:
             if err.errno == errno.ENODATA:
                 if key > 0:
@@ -103,7 +104,7 @@ def read_metadata(path_or_fd):
                 # Note that we don't touch the keys on errors fetching the
                 # data since it could be a transient state.
                 raise GlusterFileSystemIOError(
-                    err.errno, 'xattr.getxattr("%s", %s)' % (path_or_fd, key))
+                    err.errno, 'getxattr("%s", %s)' % (path_or_fd, key))
         else:
             try:
                 # If this key provides all or the remaining part of the pickle
@@ -134,9 +135,9 @@ def write_metadata(path_or_fd, metadata):
     key = 0
     while metastr:
         try:
-            xattr.setxattr(path_or_fd,
-                           '%s%s' % (METADATA_KEY, key or ''),
-                           metastr[:MAX_XATTR_SIZE])
+            do_setxattr(path_or_fd,
+                        '%s%s' % (METADATA_KEY, key or ''),
+                        metastr[:MAX_XATTR_SIZE])
         except IOError as err:
             if err.errno in (errno.ENOSPC, errno.EDQUOT):
                 if isinstance(path_or_fd, int):
@@ -150,7 +151,7 @@ def write_metadata(path_or_fd, metadata):
             else:
                 raise GlusterFileSystemIOError(
                     err.errno,
-                    'xattr.setxattr("%s", %s, metastr)' % (path_or_fd, key))
+                    'setxattr("%s", %s, metastr)' % (path_or_fd, key))
         metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
 
@@ -159,12 +160,12 @@ def clean_metadata(path_or_fd):
     key = 0
     while True:
         try:
-            xattr.removexattr(path_or_fd, '%s%s' % (METADATA_KEY, (key or '')))
+            do_removexattr(path_or_fd, '%s%s' % (METADATA_KEY, (key or '')))
         except IOError as err:
             if err.errno == errno.ENODATA:
                 break
             raise GlusterFileSystemIOError(
-                err.errno, 'xattr.removexattr("%s", %s)' % (path_or_fd, key))
+                err.errno, 'removexattr("%s", %s)' % (path_or_fd, key))
         key += 1
 
 
@@ -254,7 +255,7 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
         object_count += 1
 
         if reg_file and Glusterfs._do_getsize:
-            bytes_used += os_path.getsize(os.path.join(path, obj_name))
+            bytes_used += do_getsize(os.path.join(path, obj_name))
             sleep()
 
     return object_count, bytes_used
@@ -281,7 +282,7 @@ def get_container_details(cont_path):
     object_count = 0
     obj_list = []
 
-    if os_path.isdir(cont_path):
+    if do_isdir(cont_path):
         for (path, dirs, files) in do_walk(cont_path):
             object_count, bytes_used = update_list(path, cont_path, dirs,
                                                    files, object_count,
@@ -299,17 +300,14 @@ def get_account_details(acc_path):
     container_list = []
     container_count = 0
 
-    acc_stats = do_stat(acc_path)
-    if acc_stats:
-        is_dir = stat.S_ISDIR(acc_stats.st_mode)
-        if is_dir:
-            for name in do_listdir(acc_path):
-                if name.lower() == TEMP_DIR \
-                        or name.lower() == ASYNCDIR \
-                        or not os_path.isdir(os.path.join(acc_path, name)):
-                    continue
-                container_count += 1
-                container_list.append(name)
+    if do_isdir(acc_path):
+        for name in do_listdir(acc_path):
+            if name.lower() == TEMP_DIR \
+                    or name.lower() == ASYNCDIR \
+                    or not do_isdir(os.path.join(acc_path, name)):
+                continue
+            container_count += 1
+            container_list.append(name)
 
     return container_list, container_count
 
@@ -317,7 +315,7 @@ def get_account_details(acc_path):
 def _read_for_etag(fp):
     etag = md5()
     while True:
-        chunk = fp.read(CHUNK_SIZE)
+        chunk = do_read(fp, CHUNK_SIZE)
         if chunk:
             etag.update(chunk)
             if len(chunk) >= CHUNK_SIZE:
@@ -343,15 +341,16 @@ def _get_etag(path_or_fd):
         # We are given a file descriptor, so this is an invocation from the
         # DiskFile.open() method.
         fd = path_or_fd
-        with os.fdopen(os.dup(fd), 'rb') as fp:
-            etag = _read_for_etag(fp)
-        os.lseek(fd, 0, os.SEEK_SET)
+        etag = _read_for_etag(do_dup(fd))
+        do_lseek(fd, 0, os.SEEK_SET)
     else:
         # We are given a path to the object when the DiskDir.list_objects_iter
         # method invokes us.
         path = path_or_fd
-        with open(path, 'rb') as fp:
-            etag = _read_for_etag(fp)
+        fd = do_open(path, os.O_RDONLY)
+        etag = _read_for_etag(fd)
+        do_close(fd)
+
     return etag
 
 
@@ -367,6 +366,7 @@ def get_object_metadata(obj_path_or_fd):
         # We are given a path to the object when the DiskDir.list_objects_iter
         # method invokes us.
         stats = do_stat(obj_path_or_fd)
+
     if not stats:
         metadata = {}
     else:
@@ -401,9 +401,9 @@ def get_container_metadata(cont_path):
     objects, object_count, bytes_used = get_container_details(cont_path)
     metadata = {X_TYPE: CONTAINER,
                 X_TIMESTAMP: normalize_timestamp(
-                    os_path.getctime(cont_path)),
+                    do_getctime(cont_path)),
                 X_PUT_TIMESTAMP: normalize_timestamp(
-                    os_path.getmtime(cont_path)),
+                    do_getmtime(cont_path)),
                 X_OBJECTS_COUNT: object_count,
                 X_BYTES_USED: bytes_used}
     return _add_timestamp(metadata)
@@ -415,9 +415,9 @@ def get_account_metadata(acc_path):
     containers, container_count = get_account_details(acc_path)
     metadata = {X_TYPE: ACCOUNT,
                 X_TIMESTAMP: normalize_timestamp(
-                    os_path.getctime(acc_path)),
+                    do_getctime(acc_path)),
                 X_PUT_TIMESTAMP: normalize_timestamp(
-                    os_path.getmtime(acc_path)),
+                    do_getmtime(acc_path)),
                 X_OBJECTS_COUNT: 0,
                 X_BYTES_USED: 0,
                 X_CONTAINER_COUNT: container_count}

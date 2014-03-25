@@ -19,10 +19,10 @@ import errno
 import stat
 import random
 import time
+import xattr
 from collections import defaultdict
 from itertools import repeat
 import ctypes
-import os.path as _os_path
 from eventlet import sleep
 from swift.common.utils import load_libc_function
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
@@ -30,7 +30,41 @@ from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
 from swift.common.exceptions import DiskFileNoSpace
 
 
-os_path = _os_path
+def do_exists(path):
+    return os.path.exists(path)
+
+
+def do_touch(path):
+    with open(path, 'a'):
+        os.utime(path, None)
+
+
+def do_getctime(path):
+    return os.path.getctime(path)
+
+
+def do_getmtime(path):
+    return os.path.getmtime(path)
+
+
+def do_isdir(path):
+    return os.path.isdir(path)
+
+
+def do_getsize(path):
+    return os.path.getsize(path)
+
+
+def do_getxattr(path, key):
+    return xattr.getxattr(path, key)
+
+
+def do_setxattr(path, key, value):
+    xattr.setxattr(path, key, value)
+
+
+def do_removexattr(path, key):
+    xattr.removexattr(path, key)
 
 
 def do_walk(*args, **kwargs):
@@ -210,6 +244,10 @@ def do_open(path, flags, **kwargs):
             err.errno, '%s, os.open("%s", %x, %r)' % (
                 err.strerror, path, flags, kwargs))
     return fd
+
+
+def do_dup(fd):
+    return os.dup(fd)
 
 
 def do_close(fd):

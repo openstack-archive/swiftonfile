@@ -16,7 +16,8 @@
 import os
 import errno
 
-from gluster.swift.common.fs_utils import dir_empty, mkdirs, os_path, do_chown
+from gluster.swift.common.fs_utils import dir_empty, mkdirs, do_chown, \
+    do_exists, do_touch
 from gluster.swift.common.utils import validate_account, validate_container, \
     get_container_details, get_account_details, create_container_metadata, \
     create_account_metadata, DEFAULT_GID, get_container_metadata, \
@@ -158,8 +159,8 @@ class DiskCommon(object):
         global _db_file
         if not _db_file:
             _db_file = os.path.join(Glusterfs.RUN_DIR, 'db_file.db')
-            if not os.path.exists(_db_file):
-                file(_db_file, 'w+')
+            if not do_exists(_db_file):
+                do_touch(_db_file)
         self.db_file = _db_file
         self.metadata = {}
         self.pending_timeout = pending_timeout or 10
@@ -173,7 +174,7 @@ class DiskCommon(object):
         self._dir_exists = None
 
     def _dir_exists_read_metadata(self):
-        self._dir_exists = os_path.exists(self.datadir)
+        self._dir_exists = do_exists(self.datadir)
         if self._dir_exists:
             self.metadata = _read_metadata(self.datadir)
         return self._dir_exists
@@ -181,7 +182,7 @@ class DiskCommon(object):
     def is_deleted(self):
         # The intention of this method is to check the file system to see if
         # the directory actually exists.
-        return not os_path.exists(self.datadir)
+        return not do_exists(self.datadir)
 
     def empty(self):
         # If it does not exist, then it is empty.  A value of True is
@@ -464,7 +465,7 @@ class DiskDir(DiskCommon):
         If the container does exist, update the PUT timestamp only if it is
         later than the existing value.
         """
-        if not os_path.exists(self.datadir):
+        if not do_exists(self.datadir):
             self.initialize(timestamp)
         else:
             if timestamp > self.metadata[X_PUT_TIMESTAMP]:
