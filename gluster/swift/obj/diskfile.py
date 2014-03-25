@@ -15,7 +15,6 @@
 
 import os
 import stat
-import fcntl
 import errno
 try:
     from random import SystemRandom
@@ -73,71 +72,7 @@ def _random_sleep():
     sleep(random.uniform(0.5, 0.15))
 
 
-def _lock_parent(full_path):
-    parent_path, _ = full_path.rsplit(os.path.sep, 1)
-    try:
-        fd = os.open(parent_path, os.O_RDONLY | O_CLOEXEC)
-    except OSError as err:
-        if err.errno == errno.ENOENT:
-            # Cannot lock the parent because it does not exist, let the caller
-            # handle this situation.
-            return False
-        raise
-    else:
-        while True:
-            # Spin sleeping for 1/10th of a second until we get the lock.
-            # FIXME: Consider adding a final timeout just abort the operation.
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except IOError as err:
-                if err.errno == errno.EAGAIN:
-                    _random_sleep()
-                else:
-                    # Don't leak an open file on an exception
-                    os.close(fd)
-                    raise
-            except Exception:
-                # Don't leak an open file for any other exception
-                os.close(fd)
-                raise
-            else:
-                break
-        return fd
-
-
-def _make_directory_locked(full_path, uid, gid, metadata=None):
-    fd = _lock_parent(full_path)
-    if fd is False:
-        # Parent does not exist either, pass this situation on to the caller
-        # to handle.
-        return False, metadata
-    try:
-        # Check for directory existence
-        stats = do_stat(full_path)
-        if stats:
-            # It now exists, having acquired the lock of its parent directory,
-            # but verify it is actually a directory
-            is_dir = stat.S_ISDIR(stats.st_mode)
-            if not is_dir:
-                # It is not a directory!
-                raise DiskFileError("_make_directory_locked: non-directory"
-                                    " found at path %s when expecting a"
-                                    " directory", full_path)
-            return True, metadata
-
-        # We know the parent directory exists, and we have it locked, attempt
-        # the creation of the target directory.
-        return _make_directory_unlocked(full_path, uid, gid, metadata=metadata)
-    finally:
-        # We're done here, be sure to remove our lock and close our open FD.
-        try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        except:
-            pass
-        os.close(fd)
-
-
-def _make_directory_unlocked(full_path, uid, gid, metadata=None):
+def make_directory(full_path, uid, gid, metadata=None):
     """
     Make a directory and change the owner ship as specified, and potentially
     creating the object metadata if requested.
@@ -246,21 +181,17 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
         _mkdir_locking = _fs_conf.get('DEFAULT', 'mkdir_locking', "no") \
             in TRUE_VALUES
+        logging.warn("The option mkdir_locking has been deprecated and is"
+                     " no longer supported")
     except (NoSectionError, NoOptionError):
-        _mkdir_locking = False
+        pass
     try:
         _use_put_mount = _fs_conf.get('DEFAULT', 'use_put_mount', "no") \
             in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         _use_put_mount = False
 else:
-    _mkdir_locking = False
     _use_put_mount = False
-
-if _mkdir_locking:
-    make_directory = _make_directory_locked
-else:
-    make_directory = _make_directory_unlocked
 
 
 def _adjust_metadata(metadata):
