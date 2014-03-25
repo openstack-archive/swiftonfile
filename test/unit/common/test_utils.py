@@ -630,40 +630,6 @@ class TestUtils(unittest.TestCase):
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
-    def test_check_user_xattr_bad_path(self):
-        assert False == utils.check_user_xattr("/tmp/foo/bar/check/user/xattr")
-
-    def test_check_user_xattr_bad_set(self):
-        td = tempfile.mkdtemp()
-        xkey = _xkey(td, 'user.test.key1')
-        _xattr_set_err[xkey] = errno.EOPNOTSUPP
-        try:
-            assert False == utils.check_user_xattr(td)
-        except IOError:
-            pass
-        else:
-            self.fail("Expected IOError")
-        finally:
-            shutil.rmtree(td)
-
-    def test_check_user_xattr_bad_remove(self):
-        td = tempfile.mkdtemp()
-        xkey = _xkey(td, 'user.test.key1')
-        _xattr_rem_err[xkey] = errno.EOPNOTSUPP
-        try:
-            utils.check_user_xattr(td)
-        except IOError:
-            self.fail("Unexpected IOError")
-        finally:
-            shutil.rmtree(td)
-
-    def test_check_user_xattr(self):
-        td = tempfile.mkdtemp()
-        try:
-            assert utils.check_user_xattr(td)
-        finally:
-            shutil.rmtree(td)
-
     def test_validate_container_empty(self):
         ret = utils.validate_container({})
         assert not ret

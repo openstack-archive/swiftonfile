@@ -168,24 +168,6 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def check_user_xattr(path):
-    if not os_path.exists(path):
-        return False
-    try:
-        xattr.setxattr(path, 'user.test.key1', 'value1')
-    except IOError as err:
-        raise GlusterFileSystemIOError(
-            err.errno,
-            'xattr.setxattr("%s", "user.test.key1", "value1")' % (path,))
-    try:
-        xattr.removexattr(path, 'user.test.key1')
-    except IOError as err:
-        logging.exception("check_user_xattr: remove failed on %s err: %s",
-                          path, str(err))
-        #Remove xattr may fail in case of concurrent remove.
-    return True
-
-
 def validate_container(metadata):
     if not metadata:
         logging.warn('validate_container: No metadata')
