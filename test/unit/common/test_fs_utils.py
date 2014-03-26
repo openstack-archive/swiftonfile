@@ -348,36 +348,36 @@ class TestFsUtils(unittest.TestCase):
         try:
             path = os.path.join('/tmp', str(random.random()))
             fs.do_mkdir(path)
-            assert os.path.exists(path)
-            assert fs.do_mkdir(path) is None
+            self.assertTrue(os.path.exists(path))
+            self.assertRaises(OSError, fs.do_mkdir, path)
         finally:
             os.rmdir(path)
 
     def test_do_mkdir_err(self):
         try:
-            path = os.path.join('/tmp', str(random.random()), str(random.random()))
+            path = os.path.join('/tmp', str(random.random()),
+                                str(random.random()))
             fs.do_mkdir(path)
-        except GlusterFileSystemOSError:
-            pass
+        except OSError as err:
+            self.assertEqual(err.errno, errno.ENOENT)
         else:
-            self.fail("GlusterFileSystemOSError expected")
+            self.fail("OSError with errno.ENOENT expected")
 
         with patch('os.mkdir', mock_os_mkdir_makedirs_enospc):
             try:
                 fs.do_mkdir("blah")
-            except DiskFileNoSpace:
-                pass
+            except OSError as err:
+                self.assertEqual(err.errno, errno.ENOSPC)
             else:
-                self.fail("Expected DiskFileNoSpace exception")
+                self.fail("Expected OSError with errno.ENOSPC exception")
 
         with patch('os.mkdir', mock_os_mkdir_makedirs_edquot):
             try:
                 fs.do_mkdir("blah")
-            except DiskFileNoSpace:
-                pass
+            except OSError as err:
+                self.assertEqual(err.errno, errno.EDQUOT)
             else:
-                self.fail("Expected DiskFileNoSpace exception")
-
+                self.fail("Expected OSError with errno.EDQUOT exception")
 
     def test_do_listdir(self):
         tmpdir = mkdtemp()

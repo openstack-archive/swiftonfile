@@ -105,17 +105,7 @@ def do_ismount(path):
 
 
 def do_mkdir(path):
-    try:
-        os.mkdir(path)
-    except OSError as err:
-        if err.errno == errno.EEXIST:
-            logging.warn("fs_utils: os.mkdir - path %s already exists", path)
-        elif err.errno in (errno.ENOSPC, errno.EDQUOT):
-            do_log_rl("do_mkdir(%s) failed: %s", path, err)
-            raise DiskFileNoSpace()
-        else:
-            raise GlusterFileSystemOSError(
-                err.errno, '%s, os.mkdir("%s")' % (err.strerror, path))
+    os.mkdir(path)
 
 
 def do_listdir(path):
