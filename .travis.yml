@@ -8,5 +8,5 @@ install: "pip install tox nose"
 
 # command to run tests
 script: 
-  - tox -e py26
-  - tox -e py27
+  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then tox -e py26; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then tox -e py27; fi
