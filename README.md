@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/thiagol11/swiftonfile.svg?branch=master)](https://travis-ci.org/thiagol11/swiftonfile)
+
 # Gluster For Swift
 Integrating GlusterFS as the back-end to OpenStack Swift
 implementation.  This is a component of the Unified File and Object (UFO)
