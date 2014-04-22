@@ -7,4 +7,6 @@ python:
 install: "pip install tox nose"
 
 # command to run tests
-script: tox -e py27
+script: 
+  - tox -e py26
+  - tox -e py27
