@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/thiagol11/swiftonfile.svg?branch=master)](https://travis-ci.org/thiagol11/swiftonfile)
+[![Build Status](https://travis-ci.org/swiftonfile/swiftonfile.svg?branch=master)](https://travis-ci.org/swiftonfile/swiftonfile)
 
 # Gluster For Swift
 Integrating GlusterFS as the back-end to OpenStack Swift
