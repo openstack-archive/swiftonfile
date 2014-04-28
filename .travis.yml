@@ -10,3 +10,7 @@ install: "pip install tox nose"
 script: 
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then tox -e py26; fi
   - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then tox -e py27; fi
+  - if [[ $TRAVIS_PULL_REQUEST == 'false' ]]; then curl http://build.gluster.org/job/swiftonfile-builds/buildWithParameters?token=swiftonfile\&cause=http://github.com/swiftonfile/swiftonfile\&TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST
+  - if [[ $TRAVIS_PULL_REQUEST != 'false' ]]; then curl http://build.gluster.org/job/swiftonfile-builds/buildWithParameters?token=swiftonfile\&cause=http://github.com/swiftonfile/swiftonfile/pull/$TRAVIS_PULL_REQUEST\&TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST; fi
+
+
