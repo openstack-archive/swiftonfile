@@ -1,15 +1,11 @@
 # Developer Guide
 
 ## Development Environment Setup
-The workflow for Gluster-Swift is largely based upon the 
-[OpenStack Gerrit Workflow][].
+The workflow for SwiftOnFile is largely based upon the 
+Github WorkFlow.
 
 ### Account Setup
-Gluster for Swift uses [Gerrit][] as a code review system.  Create an
-account in [review.gluster.org][], then generate and upload
-an [SSH key][] to the website.  This will allow you to upload
-changes to Gerrit.  Follow the the information given
-at [GitHub Generating SSH Keys][] if you need help creating your key.
+You can create a free account on github.It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with github from any remote machine.Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key.You have to create a fork of [swiftonfile repo][] for your development work.You can create your fork from the github Web UI.
 
 ### Package Requirements
 Type the following to install the required packages:
@@ -37,67 +33,46 @@ git config --global user.name "Firstname Lastname"
 git config --global user.email "your_email@youremail.com"
 ~~~
 
-### Download the Source
-The source for Gluster for Swift is available in Github. To download
-type:
-
+### Clone your fork
+You can clone the fork you created using github Web UI.By convention it will be called 'origin'. 
 ~~~
-git clone https://github.com/gluster/gluster-swift.git
-cd gluster-swift
+git clone git@github.com:<username>/swiftonfile.git
+cd swiftonfile
 ~~~
 
-### Git Review
-Before installing pip, make sure you have pip installed. Install the
-python `pip` tool by executing the following command:
-
+### Add upstream repo
+You can add swiftonfile project repo, to get the latest updates from the project.It will be called upstream by convention. 
 ~~~
-sudo easy_install pip
+git remote add upstream git@github.com:swiftonfile/swiftonfile.git
 ~~~
 
-The tool `git review` is a simple tool to automate interaction with Gerrit.
-It is recommended to use this tool to upload, modify, and query changes in Gerrit.
-The tool can be installed by running the following command:
-
+You can confirm these setting using 'git remote  -v' it should give you somthing like this:
 ~~~
-sudo pip install --upgrade git-review
-~~~
-
-While many Linux distributions offer a version of `git review`, 
-they do not necessarily keep it up to date. Pip provides the latest version
-of the application which avoids problems with various versions of Gerrit.
-
-You now need to setup `git review` to communicate with review.gluster.org.
-First, determine your `git review` setup by typing:
-
-~~~
-git review -s
+origin git@github.com:<username>/swiftonfile.git (fetch)
+origin git@github.com:<username>/swiftonfile.git (push)
+upstream git@github.com:swiftonfile/swiftonfile.git (fetch)
+upstream git@github.com:swiftonfile/swiftonfile.git (push)
 ~~~
 
-If there is no output, then everything is setup correctly.  If the output
-contains the string *We don't know where your gerrit is*, then you need to
-setup a remote repo with the name `gerrit`.  You can inspect the current
-remote repo's by typing the following command.
+### Some additional git configs
+These are the changes you need to make to the git configuration so you can download and verify someone's work. 
 
+Open your .git/config file in your editor and locate the section for your GitHub remote. It should look something like this:
 ~~~
-git remote -v
+[remote "upstream"]
+  url = git@github.com:<USERNAME>/swiftonfile.git
+  fetch = +refs/heads/*:refs/remotes/upstream/*
 ~~~
-
-To add the Gerrit remote repo, type the following:
-
+We're going to add a new refspec to this section so that it now looks like this:
 ~~~
-git remote add gerrit ssh://<username>@review.gluster.org/gluster-swift
-git remote -v
-~~~
-
-Now we can confirm that `git review` has been setup by typing the
-following and noticing no output is returned:
-
-~~~
-git review -s
+[remote "upstream"]
+  url = git@github.com:<USERNAME>/swiftonfile.git
+  fetch = +refs/heads/*:refs/remotes/upstream/*
+  fetch = +refs/pull/*/head:refs/pull/upstream/*
 ~~~
 
 ### Tox and Nose
-Like OpenStack Swift, Gluster for Swift uses `tox` python virtual 
+Like OpenStack Swift, SwiftOnFile uses `tox` python virtual 
 environment for its unit tests.  To install `tox` type:
 
 ~~~
@@ -148,8 +123,8 @@ tests are available under the `test/unit` directory.
 To run the functional tests, the following requirements must be met.
 
 1. `/etc/swift` must not exist.
-1. User needs to have `sudo` access
-1. `/mnt/gluster-object/test` and `/mnt/gluster-object/test2` directories
+2. User needs to have `sudo` access
+3. `/mnt/gluster-object/test` and `/mnt/gluster-object/test2` directories
 must be created on either an XFS or GlusterFS volume.
 
 Once the requirements have been met, you can now run the full functional
@@ -181,44 +156,60 @@ contains less than 70 characters.
 For more information on commit messages, please visit the
 [Git Commit Messages][] page in OpenStack.org.
 
-### Uploading to Gerrit
-Once you have the changes ready for review, you can submit it to Gerrit 
+### Uploading changes to Your Fork
+Once you have the changes ready for review, you can submit it to your github fork topic branch.
 by typing:
 
 ~~~
-git review
+git push origin TOPIC-BRANCH
 ~~~
+
+### Creating Pull request
+You pushed a commit to a topic branch in your fork, and would like someone to review and merge.
+
+Navigate to your repository with the changes you want someone else to pull and press the Pull Request button.
+
+Branch selection ==> Switch to your branch
+
+Pull Request ==> Click the Compare & review button
+
+Pull requests can be sent from any branch or commit but it's recommended that a topic branch be used so that follow-up commits can be pushed to update the pull request if necessary.
+
+### Reviewing the pull request
+After starting the review, you're presented with a review page where you can get a high-level overview of what exactly has changed between your branch and the repository's master branch. You can review all comments made on commits, identify which files changed, and get a list of contributors to your branch.
 
 After the change is reviewed, you might have to make some
-additional modifications to your change.  To continue the work for
-a specific change, you can query Gerrit for the change number by
-typing:
+additional modifications to your change.You just need to do changes to your local topic branch, commit it, and push it to same branch on your github fork repo. If the branch is currently being used for a pull request, then the branch changes are automatically tracked by the pull request.
 
+If 'all goes well' your change will be merged to project swiftonfile. What 'all goes well' means, is this:
+
+1.  Travis-CI passes unit-tests.
+2.  Jenkins passes functional-tests.
+3.  It got +1 by at least 2 reviewers.
+4.  A core-reviewer can give this pull request a +2 and merge it to the project repo.
+
+### Download and Verify someone's pull request 
+You can fetch all the pull requests using:
 ~~~
-git review -l
-~~~
-
-Then download the change to make the new modifications by typing:
-
-~~~
-git review -d CHANGE_NUMBER
-~~~
-
-where CHANGE_NUMBER is the Gerrit change number.
-
-If you need to create a new patch for a change and include your update(s)
-to your last commit type:
-
-~~~
-git commit -as --amend
+git fetch origin
+# From github.com:swiftonfile/swiftonfile
+# * [new ref]         refs/pull/1000/head -> refs/pull/origin/1000
+# * [new ref]         refs/pull/1002/head -> refs/pull/origin/1002
+# * [new ref]         refs/pull/1004/head -> refs/pull/origin/1004
+# * [new ref]         refs/pull/1009/head -> refs/pull/origin/1009
 ~~~
 
-Now that you have finished updating your change, you need to re-upload
-to Gerrit using the following command:
+You should now be able to check out a pull request in your local repository as follows:
+~~~
+git checkout -b 999 pull/origin/999
+# Switched to a new branch '999'
+~~~
 
+To test this changes you can prepare tox virtual env to run with the change using:
 ~~~
-git review
+#tox -e run
 ~~~
+If all the prerequisite for running tox are there you should be able to see the bash prompt, where you can test these changes. 
 
 ## Creating Distribution Packages
 
@@ -233,13 +224,10 @@ of the RPM:
 
 `$ PKG_RELEASE=123 bash makerpm.sh`
 
-
-[OpenStack Gerrit Workflow]: https://wiki.openstack.org/wiki/Gerrit_Workflow
-[Gerrit]: https://code.google.com/p/gerrit/
-[review.gluster.org]: http://review.gluster.org
-[SSH Key]: http://review.gluster.org/#/settings/ssh-keys
+[swiftonfile repo]: https://github.com/swiftonfile/swiftonfile
 [GitHub Generating SSH Keys]: https://help.github.com/articles/generating-ssh-keys
 [PEP8]: http://www.python.org/dev/peps/pep-0008
 [Git Commit Messages]: https://wiki.openstack.org/wiki/GitCommitMessages
 [GlusterFS Compiling RPMS]: https://forge.gluster.org/glusterfs-core/pages/CompilingRPMS
 [README]: http://repos.fedorapeople.org/repos/openstack/openstack-trunk/README
+
