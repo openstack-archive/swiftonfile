@@ -1,13 +1,15 @@
 [![Build Status](https://travis-ci.org/swiftonfile/swiftonfile.svg?branch=master)](https://travis-ci.org/swiftonfile/swiftonfile)
 
-# Gluster For Swift
-Integrating GlusterFS as the back-end to OpenStack Swift
-implementation.  This is a component of the Unified File and Object (UFO)
-story for GlusterFS, which allows files and directories created via
-gluster-native/nfs/samba mount(s) to be accessed as objects via
-the Swift API.
+# Swift-On-File
+Swift-On-File, formerly called Gluster-Swift, enables files and directories 
+created on any filesystem (that supports xattrs) to be accessed as objects 
+via the Swift API. 
+
+## Supported Filesystems:
+* XFS
+* GlusterFS
 
 # Table of Contents
-1. [Quick Start Guide](doc/markdown/quick_start_guide.md)
+1. [Quick Start Guide with GlusterFS](doc/markdown/quick_start_guide.md)
 1. [Developer Guide](doc/markdown/dev_guide.md)
 
