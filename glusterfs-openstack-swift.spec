@@ -94,6 +94,7 @@ done
 %config(noreplace) %{_confdir}/swift.conf-gluster
 %config(noreplace) %{_confdir}/proxy-server.conf-gluster
 %config(noreplace) %{_confdir}/fs.conf-gluster
+%config(noreplace) %{_confdir}/object-expirer.conf-gluster
 
 %changelog
 * Mon Oct 28 2013 Luis Pabon <lpabon@redhat.com> - 1.10.1-0
