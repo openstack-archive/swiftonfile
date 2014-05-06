@@ -70,12 +70,6 @@ run_generic_tests()
         --with-html-output \
         --html-out-file functional_tests/gluster-swift-gswauth-generic-functional-result.html \
         test/functional || fail "Functional tests failed"
-    nosetests -v --exe \
-        --with-xunit \
-        --xunit-file functional_tests/gluster-swift-gswauth-functionalnosetests-TC-report.xml \
-        --with-html-output \
-        --html-out-file functional_tests/gluster-swift-gswauth-functionalnosetests-result.html \
-        test/functionalnosetests || fail "Functional-nose tests failed"
 }
 
 ### MAIN ###
