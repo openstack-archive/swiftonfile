@@ -5,7 +5,7 @@ The workflow for SwiftOnFile is largely based upon the
 Github WorkFlow.
 
 ### Account Setup
-You can create a free account on github.It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with github from any remote machine.Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key.You have to create a fork of [swiftonfile repo][] for your development work.You can create your fork from the github Web UI.
+You can create a free account on github. It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with github from any remote machine. Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key. You have to create a fork of [swiftonfile repo][] for your development work. You can create your fork from the github Web UI.
 
 ### Package Requirements
 Type the following to install the required packages:
@@ -165,9 +165,9 @@ git push origin TOPIC-BRANCH
 ~~~
 
 ### Creating Pull request
-You pushed a commit to a topic branch in your fork, and would like someone to review and merge.
+You pushed a commit to a topic branch in your fork, and now you would like it to be merge in the swiftonfile project.
 
-Navigate to your repository with the changes you want someone else to pull and press the Pull Request button.
+Navigate to your forked repo, locate the change your would like to be merged to swiftonfile and click on the Pull Request button.
 
 Branch selection ==> Switch to your branch
 
@@ -191,17 +191,17 @@ If 'all goes well' your change will be merged to project swiftonfile. What 'all 
 ### Download and Verify someone's pull request 
 You can fetch all the pull requests using:
 ~~~
-git fetch origin
+git fetch upstream
 # From github.com:swiftonfile/swiftonfile
-# * [new ref]         refs/pull/1000/head -> refs/pull/origin/1000
-# * [new ref]         refs/pull/1002/head -> refs/pull/origin/1002
-# * [new ref]         refs/pull/1004/head -> refs/pull/origin/1004
-# * [new ref]         refs/pull/1009/head -> refs/pull/origin/1009
+# * [new ref]         refs/pull/1000/head -> refs/pull/upstream/1000
+# * [new ref]         refs/pull/1002/head -> refs/pull/upstream/1002
+# * [new ref]         refs/pull/1004/head -> refs/pull/upstream/1004
+# * [new ref]         refs/pull/1009/head -> refs/pull/upstream/1009
 ~~~
 
 You should now be able to check out a pull request in your local repository as follows:
 ~~~
-git checkout -b 999 pull/origin/999
+git checkout -b 999 pull/upstream/999
 # Switched to a new branch '999'
 ~~~
 
