@@ -7,4 +7,4 @@ nosetests --exe $@
 func1=$?
 cd -
 
-exit $((func1 + func2))
+exit $func1
