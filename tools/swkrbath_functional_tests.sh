@@ -91,12 +91,6 @@ nosetests -v --exe \
     --with-html-output \
     --html-out-file functional_tests/gluster-swift-swiftkerbauth-generic-functional-result.html \
     test/functional_auth/swiftkerbauth || fail "Functional tests failed"
-#nosetests -v --exe \
-#    --with-xunit \
-#    --xunit-file functional_tests/gluster-swift-swiftkerbauth-functionalnosetests-TC-report.xml \
-#    --with-html-output \
-#    --html-out-file functional_tests/gluster-swift-swiftkerbauth-functionalnosetests-result.html \
-#    test/functional || fail "Functional-nose tests failed"
 
 cleanup
 exit 0

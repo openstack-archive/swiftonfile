@@ -78,12 +78,6 @@ nosetests -v --exe \
     --with-html-output \
     --html-out-file functional_tests/gluster-swift-generic-functional-result.html \
     test/functional || fail "Functional tests failed"
-nosetests -v --exe \
-	--with-xunit \
-	--xunit-file functional_tests/gluster-swift-functionalnosetests-TC-report.xml \
-    --with-html-output \
-    --html-out-file functional_tests/gluster-swift-functionalnosetests-result.html \
-    test/functionalnosetests || fail "Functional-nose tests failed"
 
 cleanup
 exit 0
