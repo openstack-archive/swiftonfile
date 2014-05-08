@@ -48,11 +48,6 @@ fail()
 ### MAIN ###
 # This script runs functional tests only with tempauth
 
-if [ $EUID -ne 0 ]; then
-    echo "Functional tests must be run as root"
-    exit 1
-fi
-
 # Only run if there is no configuration in the system
 if [ -x /etc/swift ] ; then
 	quit "/etc/swift exists, cannot run functional tests."
