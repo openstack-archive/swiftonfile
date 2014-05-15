@@ -926,3 +926,31 @@ class TestDiskFile(unittest.TestCase):
             dw.write("123")
             os.unlink(saved_tmppath)
         assert not os.path.exists(saved_tmppath)
+
+    def test_unlink_not_called_after_rename(self):
+        the_obj_path = os.path.join("b", "a")
+        the_file = os.path.join(the_obj_path, "z")
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", the_file)
+
+        body = '1234\n'
+        etag = md5(body).hexdigest()
+        metadata = {
+            'X-Timestamp': '1234',
+            'Content-Type': 'file',
+            'ETag': etag,
+            'Content-Length': '5',
+        }
+
+        _mock_do_unlink = Mock()  # Shouldn't be called
+        with patch("gluster.swift.obj.diskfile.do_unlink", _mock_do_unlink):
+            with gdf.create() as dw:
+                assert dw._tmppath is not None
+                tmppath = dw._tmppath
+                dw.write(body)
+                dw.put(metadata)
+                # do_unlink is not called if dw._tmppath is set to None
+                assert dw._tmppath is None
+        self.assertFalse(_mock_do_unlink.called)
+
+        assert os.path.exists(gdf._data_file)  # Real file exists
+        assert not os.path.exists(tmppath)  # Temp file does not exist
