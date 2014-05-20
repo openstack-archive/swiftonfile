@@ -87,15 +87,15 @@ sudo_env gluster-swift-gen-builders $accounts || fail "Unable to create ring fil
 sudo service memcached start || fail "Unable to start memcached"
 sudo_env swift-init main start || fail "Unable to start swift"
 
-mkdir functional_tests > /dev/null 2>&1
+mkdir functional_tests_result > /dev/null 2>&1
 
 echo "== Keystone: Generic Functional Tests =="
 
 nosetests -v --exe \
     --with-xunit \
-    --xunit-file functional_tests/gluster-swift-keystone-generic-functional-TC-report.xml \
+    --xunit-file functional_tests_result/gluster-swift-keystone-generic-functional-TC-report.xml \
     --with-html-output \
-    --html-out-file functional_tests/gluster-swift-keystone-generic-functional-result.html \
+    --html-out-file functional_tests_result/gluster-swift-keystone-generic-functional-result.html \
     test/functional || fail "Functional tests failed"
 
 cleanup

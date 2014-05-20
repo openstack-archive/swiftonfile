@@ -15,10 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+TOP_DIR=$(python -c "import os; print os.path.dirname(os.path.realpath('$0'))")
 
-cd $(dirname $0)/test/unit
-nosetests -v --exe --with-coverage --cover-package gluster --cover-erase --cover-html --cover-branches $@
-
-saved_status=$?
+python -c 'from distutils.version import LooseVersion as Ver; import nose, sys; sys.exit(0 if Ver(nose.__version__) >= Ver("1.2.0") else 1)'
+if [ $? != 0 ]; then
+    cover_branches=""
+else
+    # Having the HTML reports is REALLY useful for achieving 100% branch
+    # coverage.
+    cover_branches="--cover-branches --cover-html --cover-html-dir=$TOP_DIR/cover"
+fi
+cd $TOP_DIR/test/unit
+nosetests -v --exe --with-coverage --cover-package gluster. --cover-erase $cover_branches $@
+rvalue=$?
 rm -f .coverage
-exit $saved_status
+cd -
+exit $rvalue

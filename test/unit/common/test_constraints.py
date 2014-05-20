@@ -57,10 +57,10 @@ class TestConstraints(unittest.TestCase):
             cnt.set_object_name_component_length()
             self.assertEqual(len, cnt.get_object_name_component_length())
 
-        with patch('swift.common.constraints.constraints_conf_int',
-                   mock_constraints_conf_int):
-            cnt.set_object_name_component_length()
-            self.assertEqual(cnt.get_object_name_component_length(), 1000)
+            with patch('swift.common.constraints.constraints_conf_int',
+                       mock_constraints_conf_int):
+                cnt.set_object_name_component_length()
+                self.assertEqual(cnt.get_object_name_component_length(), 1000)
 
     def test_validate_obj_name_component(self):
         max_obj_len = cnt.get_object_name_component_length()
