@@ -24,11 +24,11 @@ Requires : memcached
 Requires : openssl
 Requires : python
 Requires : python-prettytable
-Requires : openstack-swift = 1.10.0
-Requires : openstack-swift-account = 1.10.0
-Requires : openstack-swift-container = 1.10.0
-Requires : openstack-swift-object = 1.10.0
-Requires : openstack-swift-proxy = 1.10.0
+Requires : openstack-swift = 1.13.1
+Requires : openstack-swift-account = 1.13.1
+Requires : openstack-swift-container = 1.13.1
+Requires : openstack-swift-object = 1.13.1
+Requires : openstack-swift-proxy = 1.13.1
 Requires : glusterfs-api >= 3.4.1
 Obsoletes: glusterfs-swift-plugin
 Obsoletes: glusterfs-swift
@@ -39,11 +39,11 @@ Obsoletes: glusterfs-swift-proxy
 Obsoletes: glusterfs-swift-account
 
 %description
-Gluster-For-Swift (G4S, pronounced "gee-force") integrates GlusterFS as an
-alternative back end for OpenStack Object Storage (Swift) leveraging the
-existing front end OpenStack Swift code. Gluster volumes are used to store
-objects in files, containers are maintained as top-level directories of volumes,
-where accounts are mapped one-to-one to gluster volumes.
+SwiftOnFile integrates GlusterFS as an alternative back end for OpenStack 
+Object Storage (Swift) leveraging the existing front end OpenStack Swift code.
+Gluster volumes are used to store objects in files, containers are maintained
+as top-level directories of volumes, where accounts are mapped one-to-one to 
+gluster volumes.
 
 %prep
 %setup -q -n gluster_swift-%{_version}
