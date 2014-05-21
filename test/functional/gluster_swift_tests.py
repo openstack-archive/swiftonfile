@@ -16,7 +16,6 @@
 """ OpenStack Swift based functional tests for Gluster for Swift"""
 
 import random
-import time
 import os,sys,re,hashlib
 from nose import SkipTest
 
