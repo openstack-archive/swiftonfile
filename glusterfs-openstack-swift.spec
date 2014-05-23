@@ -97,8 +97,11 @@ done
 %config(noreplace) %{_confdir}/object-expirer.conf-gluster
 
 %changelog
+* Fri May 23 2014 Thiago da Silva <thiago@redhat.com> - 1.13.1-1
+- Update to Icehouse release
+
 * Mon Oct 28 2013 Luis Pabon <lpabon@redhat.com> - 1.10.1-0
-- IceHouse Release
+- Havana Release
 
 * Wed Aug 21 2013 Luis Pabon <lpabon@redhat.com> - 1.8.0-7
 - Update RPM spec file to support SRPMS
