@@ -285,7 +285,7 @@ class TestDiskFile(unittest.TestCase):
             assert gdf._data_file == the_dir
             assert gdf._metadata == exp_md
 
-    def _create_and_get_diskfile(self, dev, par, acc, con, obj):
+    def _create_and_get_diskfile(self, dev, par, acc, con, obj, fsize=256):
         # FIXME: assumes account === volume
         the_path = os.path.join(self.td, dev, con)
         the_file = os.path.join(the_path, obj)
@@ -293,7 +293,7 @@ class TestDiskFile(unittest.TestCase):
         base_dir = os.path.dirname(the_file)
         os.makedirs(base_dir)
         with open(the_file, "wb") as fd:
-            fd.write("y" * 256)
+            fd.write("y" * fsize)
         gdf = self._get_diskfile(dev, par, acc, con, obj)
         assert gdf._obj == base_obj
         assert not gdf._is_dir
@@ -352,6 +352,26 @@ class TestDiskFile(unittest.TestCase):
             reader.close()
         assert len(chunks) == 1, repr(chunks)
         assert called[0] == 1, called
+
+    def test_reader_larger_file(self):
+        closed = [False]
+        fd = [-1]
+
+        def mock_close(*args, **kwargs):
+            closed[0] = True
+            os.close(fd[0])
+
+        with mock.patch("gluster.swift.obj.diskfile.do_close", mock_close):
+            gdf = self._create_and_get_diskfile("vol0", "p57", "ufo47", "bar", "z", fsize=1024*1024*2)
+            with gdf.open():
+                assert gdf._fd is not None
+                assert gdf._data_file == os.path.join(self.td, "vol0", "bar", "z")
+                reader = gdf.reader()
+            assert reader._fd is not None
+            fd[0] = reader._fd
+            chunks = [ck for ck in reader]
+            assert reader._fd is None
+            assert closed[0]
 
     def test_reader_dir_object(self):
         called = [False]

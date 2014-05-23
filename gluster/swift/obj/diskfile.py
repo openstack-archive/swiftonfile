@@ -509,7 +509,7 @@ class DiskFileReader(object):
                     bytes_read += len(chunk)
                     diff = bytes_read - dropped_cache
                     if diff > (1024 * 1024):
-                        self._drop_cache(self._fd, dropped_cache, diff)
+                        self._drop_cache(dropped_cache, diff)
                         dropped_cache = bytes_read
                     yield chunk
                     if self._iter_hook:
