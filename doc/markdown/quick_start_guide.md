@@ -69,22 +69,23 @@ possible ways to get OpenStack Swift packages.
 1. Install from source
 
 	a.) Git clone the required branch (assume icehouse)
-        ~~~
+	~~~
         git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
         ~~~
 	b.)Install the prerequisite
 	~~~
-        python-pip install -r requirements.txt
-        python-pip install -r test-requirements.txt
-        ~~~
+	python-pip install -r requirements.txt
+	python-pip install -r test-requirements.txt
+	~~~
 	c.)Install the packages
-        ~~~
-        python setup.py install
-        ~~~
+	~~~
+	python setup.py install
+	~~~
 
 2. Using RPMs
 
 	a.) Download the rpms from [Jenkins CI][]
+	
 	b.)Install the RPM by executing the following:
 	~~~
 	yum install -y <path to RPM>
@@ -217,4 +218,4 @@ For more information, please visit the following links:
 [Authentication Services Start Guide]: auth_guide.md
 [EPEL]: https://fedoraproject.org/wiki/EPEL
 [Jenkins CI]: http://build.gluster.org/job/swiftonfile-builds/lastSuccessfulBuild/artifact/build/
-[test code ] : https://github.com/swiftonfile/swiftonfile/tree/master/test/functional_auth/tempauth/conf/
+[test code] : https://github.com/swiftonfile/swiftonfile/tree/master/test/functional_auth/tempauth/conf/
