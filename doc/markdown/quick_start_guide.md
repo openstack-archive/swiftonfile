@@ -72,11 +72,13 @@ possible ways to get OpenStack Swift packages.
 	~~~
         git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
         ~~~
+
 	b.)Install the prerequisite
 	~~~
 	python-pip install -r requirements.txt
 	python-pip install -r test-requirements.txt
 	~~~
+
 	c.)Install the packages
 	~~~
 	python setup.py install
