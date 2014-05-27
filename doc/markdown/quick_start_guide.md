@@ -63,33 +63,27 @@ possible ways to get OpenStack Swift packages.
 	yum install -y openstack-swift-proxy openstack-swift-account openstack-swift-container\
 	openstack-swift-object memcached python-swiftclient python-keystoneclient 
 	~~~
-
 ### Install SwiftOnFile
-
 1. Install from source
 
-	a.) Git clone the required branch (assume icehouse)
-	~~~
+    a.) Git clone the required branch (assume icehouse)
         git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
-        ~~~
-	b.)Install the prerequisite
-	~~~
-	python-pip install -r requirements.txt
-	python-pip install -r test-requirements.txt
-	~~~
-	c.)Install the packages
-	~~~
-	python setup.py install
-	~~~
-
+        
+    b.)Install the prerequisite
+        
+        python-pip install -r requirements.txt
+        python-pip install -r test-requirements.txt
+        
+    c.)Install the packages
+        
+        python setup.py install
+        
 2. Using RPMs
 
-	a.) Download the rpms from [Jenkins CI][]
-	
-	b.)Install the RPM by executing the following:
-	~~~
-	yum install -y <path to RPM>
-	~~~
+    a.) Download the rpms from [Jenkins CI][]
+
+    b.)Install the RPM by executing the following:
+        yum install -y <path to RPM>
 
 ### Enabling Swift Service available accross reboots
 ~~~
