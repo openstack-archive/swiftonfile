@@ -138,7 +138,7 @@ tox -e functest
 After making the changes needed, you can commit your changes by typing:
 
 ~~~
-git commit -as
+git commit -a
 ~~~
 
 where the commit message should follow the following recommendations:
