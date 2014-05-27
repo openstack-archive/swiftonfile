@@ -3,155 +3,92 @@
 ## Contents
 * [Overview](#overview)
 * [System Setup](#system_setup)
-* [Gluster For Swift Setup](#swift_setup)
-* [Using Gluster for Swift](#using_swift)
+* [SwiftOnFile Setup](#swift_setup)
+* [Using SwiftOnFile](#using_swift)
 * [What now?](#what_now)
 
 <a name="overview" />
 ## Overview
-Gluster-swift allows GlusterFS to be used as the backend to the object
-store OpenStack Swift.
+SwiftOnFile allows any POSIX complaint filesystem to be used as the 
+backend to the object store OpenStack Swift.
 
-The following guide will get you quickly started with a gluster-swift
+The following guide will get you quickly started with a SwiftOnFile
 environment on a Fedora or RHEL/CentOS system.  This guide is a
-great way to begin using gluster-swift, and can be easily deployed on
-a single virtual machine. The final result will be a single gluster-swift
+great way to begin using SwiftOnFile, and can be easily deployed on
+a single virtual machine. The final result will be a single SwiftOnFile
 node.
 
-> NOTE: In Gluster-Swift, accounts must be GlusterFS volumes.
+> NOTE: In SwiftOnFile a swift account is a mounted FS under path mentioned 
+in configuration parameter.It is assumed you have two xattrr supporting FS mounted
+under certain paths.We suggest you to start with two xfs formatted FS then you can 
+move on to other FS that supports xattr.For setting up gluster volume in particular
+you can look here [GlusterFS Quick Start Guide][]
 
 <a name="system_setup" />
 ## System Setup
 
 ### Prerequisites on CentOS/RHEL
-On CentOS/RHEL you will need to setup GlusterFS and EPEL repos.
+On CentOS/RHEL you may need to EPEL repo.Please refer to 
+[EPEL][] for more information on how to setup the EPEL repo.
 
-#### GlusterFS CentOS/RHEL Repo
+SwiftOnfile requires corresponding OpenStack Swift release packages.There are two 
+possible ways to get OpenStack Swift packages.
 
-* CentOS
+1. Get & build the OpenStack swift source from github.(This should work for all linux flavors)
 
-~~~
-wget -O /etc/yum.repos.d/glusterfs-epel.repo \
-  http://download.gluster.org/pub/gluster/glusterfs/LATEST/CentOS/glusterfs-epel.repo
-~~~
+	a.) Git clone the required branch (assume icehouse)
+	~~~
+	git clone -b icehouse-stable https://github.com/openstack/swift.git 
+	~~~
+	b.)Install the prerequisite 
+	~~~
+	python-pip install -r requirements.txt
+	python-pip install -r test-requirements.txt
+	~~~ 
+	c.)Install the packages 
+	~~~
+	python setup.py install
+	~~~
+	d.) Please refer to the OpenStack swift SAIO guide, 
+	if you face any difficulty in doing above.
 
-* RHEL
+2. Use the Stable RDO release (Fedora/RHEL/CentOS)
 
-~~~
-wget -O /etc/yum.repos.d/glusterfs-epel.repo \
-  http://download.gluster.org/pub/gluster/glusterfs/LATEST/RHEL/glusterfs-epel.repo
-~~~
+	a.) Please setup corresponding Red Hat RDO release repo (assume icehouse)
+	~~~
+	yum install -y http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm 
+	~~~
+	b.) Install required rpms:
+	~~~
+	yum install -y openstack-swift-proxy openstack-swift-account openstack-swift-container\
+	openstack-swift-object memcached python-swiftclient python-keystoneclient 
+	~~~
 
-#### EPEL CentOS/RHEL Repo
-Please refer to [EPEL][] for more information on how to setup the EPEL repo.
+### Install SwiftOnFile
+1. Install from source
+	 a.) Git clone the required branch (assume icehouse)
+        ~~~
+        git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
+        ~~~
+        b.)Install the prerequisite
+        ~~~
+        python-pip install -r requirements.txt
+        python-pip install -r test-requirements.txt
+        ~~~
+        c.)Install the packages
+        ~~~
+        python setup.py install
+        ~~~
+ 
+2. Using RPMs
 
-### Required Package Installation
-Install and start the required packages on your system to create a GlusterFS volume.
+	a.) Download the rpms from [Jenkins CI][]
+	b.)Install the RPM by executing the following:
+	~~~
+	yum install -y <path to RPM>
+	~~~
 
-~~~
-yum install glusterfs glusterfs-server glusterfs-fuse memcached xfsprogs
-~~~
-
-#### Start services
-
-Type the following to start `memcached` and `glusterfs` services:
-
-~~~
-service memcached start
-service glusterd start
-~~~
-
-Type the following to start the services automatically on system startup:
-
-~~~
-chkconfig memcached on
-chkconfig glusterd on
-~~~
-
-### Gluster Volume Setup
-Now you need to determine whether you are going to use a partition or a loopback device
-for storage.
-
-#### Partition Storage Setup
-If you are using a separate disk partition, please execute the following instructions
-to create a GlusterFS brick:
-
-~~~
-mkfs.xfs -i size=512 /dev/<disk partition>
-mkdir -p /export/brick
-~~~
-
-Add the following line to `/etc/fstab` to mount the storage automatically on system
-startup:
-
-~~~
-/dev/<disk partition>   /export/brick   xfs   inode64,noatime,nodiratime 0 0
-~~~
-
-Now type the following to mount the storage:
-
-~~~
-mount -a
-~~~
-
-#### Loopback Storage Setup
-If you do not have a separate partition, please execute the following instructions
-to create a disk image as a file:
-
-~~~
-truncate -s 5GB /srv/swift-disk
-mkfs.xfs -i size=512 /srv/swift-disk
-mkdir -p /export/brick
-~~~
-
-Add the following line to `/etc/fstab` to mount the storage automatically on system
-startup:
-
-~~~
-/srv/swift-disk /export/brick   xfs   loop,inode64,noatime,nodiratime 0 0
-~~~
-
-Now type the following to mount the storage:
-
-~~~
-mount -a
-~~~
-
-### Create a GlusterFS Volume
-You now need to create a GlusterFS volume (make sure your hostname is in /etc/hosts or is DNS-resolvable)
-
-~~~
-mkdir /export/brick/b1
-gluster volume create myvolume `hostname`:/export/brick/b1
-gluster volume start myvolume
-~~~
-
-<a name="swift_setup" />
-## Gluster-Swift Setup
-
-### Repository Setup on RHEL/CentOS
-Gluster-Swift requires OpenStack Swift's Havana release, which
-may not be available on some older operating systems. For RHEL/CentOS
-systems, please setup Red Hat RDO's repo by executing the following command:
-
-~~~
-yum install -y http://rdo.fedorapeople.org/rdo-release.rpm
-~~~
-
-### Download
-Download the latest Havana release RPMs from [launchpad.net downloads][]:
-
-### Install
-Install the RPM by executing the following:
-
-~~~
-yum install -y <path to RPM>
-~~~
-
-### Enabling gluster-swift accross reboots
-Type the following to make sure gluster-swift is enabled at
-system startup:
-
+### Enabling Swift Service available accross reboots
 ~~~
 chkconfig openstack-swift-proxy on
 chkconfig openstack-swift-account on
@@ -160,7 +97,7 @@ chkconfig openstack-swift-object on
 ~~~
 
 #### Fedora 19 Adjustment
-Currently gluster-swift requires its processes to be run as `root`. You need to
+Currently SwiftOnFile requires its processes to be run as `root`. You need to
 edit the `openstack-swift-*.service` files in
 `/etc/systemd/system/multi-user.target.wants` and change the `User` entry value
 to `root`.
@@ -172,9 +109,9 @@ systemctl --system daemon-reload
 ~~~
 
 ### Configuration
-As with OpenStack Swift, gluster-swift uses `/etc/swift` as the
+As with OpenStack Swift, SwiftOnFile uses `/etc/swift` as the
 directory containing the configuration files.  You will need to base
-the configuration files on the template files provided.  On new
+the configuration files on the template files provided. On new RPM based
 installations, the simplest way is to copy the `*.conf-gluster`
 files to `*.conf` files as follows:
 
@@ -183,28 +120,30 @@ cd /etc/swift
 for tmpl in *.conf-gluster ; do cp ${tmpl} ${tmpl%.*}.conf; done
 ~~~
 
+Else you can base your config files on [test code ][].
+
 #### Generate Ring Files
-You now need to generate the ring files, which inform gluster-swift
-which GlusterFS volumes are accessible over the object
-storage interface. The format is
+You now need to generate the ring files, which inform SwiftOnFile
+which FS volumes are accessible over the object storage interface.
+This is a borrowed legacy from gluster-swift and it will soon change.
+This script uses OpenStack Swift ring builder with the fundamental 
+assumption that the replication/sync/HA/etc are provided by underlying FS
+(gluster in this case).The format is
 
 ~~~
-gluster-swift-gen-builders [VOLUME] [VOLUME...]
+gluster-swift-gen-builders [mount-point-name] [mount-point-name...]
 ~~~
 
-Where *VOLUME* is the name of the GlusterFS volume which you would
-like to access over gluster-swift.
-
-Let's now expose the GlusterFS volume called `myvolume` you created above
-by executing the following command:
-
+Where *mount-point-name* is the name of the a directory in the path mentioned in
+/etc/swift{account,object,container}.conf under the section [DEFAULT]
+for parameter 'devices'.For ex: If 'device' parameter has the value '/mnt/FS-objects'
+and you mounted two gluster/xfs volumes on /mnt/FS-objects/gfs-vol1 & 
+/mnt/FS-objects/gfs-vol2 then the command would look like this:
 ~~~
-cd /etc/swift
-/usr/bin/gluster-swift-gen-builders myvolume
+gluster-swift-gen-builders gfs-vol1 gfs-vol2
 ~~~
 
-### Start gluster-swift
-Use the following commands to start gluster-swift:
+### Start swift services using the following commands:
 
 ~~~
 service openstack-swift-object start
@@ -213,22 +152,26 @@ service openstack-swift-account start
 service openstack-swift-proxy start
 ~~~
 
+Or using
+~~~
+swift-init main start
+~~~
+
 <a name="using_swift" />
-## Using gluster-swift
+## Using SwiftOnFile
 
 ### Create a container
 Create a container using the following command:
 
 ~~~
-curl -v -X PUT http://localhost:8080/v1/AUTH_myvolume/mycontainer
+curl -v -X PUT http://localhost:8080/v1/AUTH_gfs-vol1/mycontainer
 ~~~
 
 It should return `HTTP/1.1 201 Created` on a successful creation. You can
-also confirm that the container has been created by inspecting the GlusterFS
-volume:
+also confirm that the container has been created by inspecting the FS:
 
 ~~~
-ls /mnt/gluster-object/myvolume
+ls /mnt/FS-object/gfs-vol1
 ~~~
 
 #### Create an object
@@ -236,14 +179,14 @@ You can now place an object in the container you have just created:
 
 ~~~
 echo "Hello World" > mytestfile
-curl -v -X PUT -T mytestfile http://localhost:8080/v1/AUTH_myvolume/mycontainer/mytestfile
+curl -v -X PUT -T mytestfile http://localhost:8080/v1/AUTH_gfs-vol1/mycontainer/mytestfile
 ~~~
 
 To confirm that the object has been written correctly, you can compare the
 test file with the object you created:
 
 ~~~
-cat /mnt/gluster-object/myvolume/mycontainer/mytestfile
+cat /mnt/FS-object/gf-vol1/mycontainer/mytestfile
 ~~~
 
 #### Request the object
@@ -251,9 +194,12 @@ Now you can retreive the object and inspect its contents using the
 following commands:
 
 ~~~
-curl -v -X GET -o newfile http://localhost:8080/v1/AUTH_myvolume/mycontainer/mytestfile
+curl -v -X GET -o newfile http://localhost:8080/v1/AUTH_gfs-vol1/mycontainer/mytestfile
 cat newfile
 ~~~
+
+You can also use etag information provided while you do HEAD on object 
+and compare it with md5sum of the file on your FS. 
 
 <a name="what_now" />
 ## What now?
@@ -268,5 +214,5 @@ For more information, please visit the following links:
 [Jenkins]: http://jenkins-ci.org
 [Authentication Services Start Guide]: auth_guide.md
 [EPEL]: https://fedoraproject.org/wiki/EPEL
-[launchpad.net downloads]: http://launchpad.net/gluster-swift/havana/1.10.0-2
+[Jenkins CI]: http://build.gluster.org/job/swiftonfile-builds/lastSuccessfulBuild/artifact/build/
 
