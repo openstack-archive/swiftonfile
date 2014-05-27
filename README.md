@@ -9,10 +9,9 @@ The main difference from the default Swift Object Server is that Swift-on-File
 stores objects following the same path hirearchy as that object's URL.
 For example: for an object with URL: https://swift.example.com/v1/acc/cont/obj,
 the default Object Server will store the object following the mapping given by
-the Ring and and it final storage location and even filename is unknown to the
-user (see [Swift Architecture](https://swiftstack.com/openstack-swift/architecture/) for more info).
-In the case of SoF. The object will be stored in the configured Filesystem
-volume with the same directory structure 'acc/cont/obj'.
+the Ring and its final storage location and filename are unknown to the user. 
+In the case of SoF, the object will be stored in the configured Filesystem
+volume with the same directory structure '_acc/cont/obj_'.
 
 ## Roadmap
 Swift-On-File is in a transition period. The project was recently renamed from
@@ -34,7 +33,8 @@ through multiple protocols.
  
 To learn more about the history of Gluster-Swift and how Swift-On-File came
 to be, you can watch this presentation given at the Atlanta Openstack Summit: 
-[Breaking the Mold with Openstack Swift and GlusterFS](http://youtu.be/pSWdzjA8WuA)
+[Breaking the Mold with Openstack Swift and GlusterFS](http://youtu.be/pSWdzjA8WuA).
+Presentation slides can be found [here](http://lpabon.github.io/openstack-summit-2014).
 
 ## Supported Filesystems:
 * XFS
