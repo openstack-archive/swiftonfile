@@ -149,8 +149,8 @@ characters.
 3. A line, or multiple line description of the change where each line
 contains less than 70 characters.
 4. Blank line
-5. If this is a bug fix, then it should have a line as follows:
-`BUG 12345: <url to bug>`
+5. If this is a bug/issue fix, then it should have a line as follows:
+`Issue #<IssueNo>`
 6. Blank line.
 
 For more information on commit messages, please visit the
