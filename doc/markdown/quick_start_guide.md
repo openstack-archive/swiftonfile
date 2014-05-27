@@ -68,7 +68,8 @@ possible ways to get OpenStack Swift packages.
 1. Install from source
 
     a.) Git clone the required branch (assume icehouse)
-        git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
+
+	git clone -b icehouse https://github.com/swiftonfile/swiftonfile.git
         
     b.)Install the prerequisite
         
