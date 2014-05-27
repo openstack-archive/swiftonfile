@@ -1,4 +1,0 @@
-include AUTHORS LICENSE README.md .unittests test_swauth/__init__.py
-include CHANGELOG
-graft doc  
-graft etc

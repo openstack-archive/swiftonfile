@@ -19,8 +19,7 @@ try:
 except ImportError:
     from swift.common.swob import HTTPBadRequest
 import swift.common.constraints
-import swift.common.ring as _ring
-from gluster.swift.common import Glusterfs, ring
+from gluster.swift.common import Glusterfs
 
 MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
 UNSUPPORTED_HEADERS = []
@@ -130,9 +129,3 @@ swift.common.constraints.check_metadata = gluster_check_metadata
 
 # Replace the original check mount with ours
 swift.common.constraints.check_mount = Glusterfs.mount
-
-# Save the original Ring class
-__Ring = _ring.Ring
-
-# Replace the original Ring class
-_ring.Ring = ring.Ring
