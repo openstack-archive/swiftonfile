@@ -63,6 +63,7 @@ possible ways to get OpenStack Swift packages.
 	yum install -y openstack-swift-proxy openstack-swift-account openstack-swift-container\
 	openstack-swift-object memcached python-swiftclient python-keystoneclient 
 	~~~
+
 ### Install SwiftOnFile
 1. Install from source
 
