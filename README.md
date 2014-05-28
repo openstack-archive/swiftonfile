@@ -25,7 +25,8 @@ that supports multiple Posix Filesystems, not just GlusterFS. It is also
 transitioning to become a Swift Storage Policy. While Gluster-Swift had to be
 deployed as its own cluster, SoF can be deployed as a storage policy on an
 existing Swift cluster. This is a tremendous change to the project as it opens
-up new possibilities of how SoF can be used.
+up new possibilities of how SoF can be used, such as, enabling the ability to
+consume and migrate existing file storage (e.g., NFS) on a swift cluster.
 
 Our last stable [release](https://github.com/swiftonfile/swiftonfile/releases)
 was targetting the Swift Icehouse release. This was the last release of
