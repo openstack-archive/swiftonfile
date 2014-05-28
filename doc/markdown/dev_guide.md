@@ -168,9 +168,9 @@ git push origin TOPIC-BRANCH
 ~~~
 
 ### Creating Pull request
-You pushed a commit to a topic branch in your fork, and now you would like it to be merge in the swiftonfile project.
+You pushed a commit to a topic branch in your fork, and now you would like it to be merged in the swiftonfile project.
 
-Navigate to your forked repo, locate the change your would like to be merged to swiftonfile and click on the Pull Request button.
+Navigate to your forked repo, locate the change you would like to be merged to swiftonfile and click on the Pull Request button.
 
 Branch selection ==> Switch to your branch
 
