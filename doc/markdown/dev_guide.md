@@ -154,7 +154,7 @@ contains less than 70 characters.
 6. It may contain any external URL references like a launchpad blueprint.
 7. Blank line.
 
->Note: A bug or an enhancement both can be loged in github as an issue.
+> Note: A bug or an enhancement both can be loged in github as an issue.
 
 For more information on commit messages, please visit the
 [Git Commit Messages][] page in OpenStack.org.
