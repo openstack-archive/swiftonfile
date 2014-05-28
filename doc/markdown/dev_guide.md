@@ -34,19 +34,19 @@ git config --global user.email "your_email@youremail.com"
 ~~~
 
 ### Clone your fork
-You can clone the fork you created using github Web UI.By convention it will be called 'origin'. 
+You can clone the fork you created using github Web UI. By convention it will be called 'origin'. 
 ~~~
 git clone git@github.com:<username>/swiftonfile.git
 cd swiftonfile
 ~~~
 
 ### Add upstream repo
-You can add swiftonfile project repo, to get the latest updates from the project.It will be called upstream by convention. 
+You can add swiftonfile project repo, to get the latest updates from the project. It will be called upstream by convention. 
 ~~~
 git remote add upstream git@github.com:swiftonfile/swiftonfile.git
 ~~~
 
-You can confirm these setting using 'git remote  -v' it should give you somthing like this:
+You can confirm these setting using 'git remote  -v' it should give you something like this:
 ~~~
 origin git@github.com:<username>/swiftonfile.git (fetch)
 origin git@github.com:<username>/swiftonfile.git (push)
@@ -149,9 +149,12 @@ characters.
 3. A line, or multiple line description of the change where each line
 contains less than 70 characters.
 4. Blank line
-5. If this is a bug/issue fix, then it should have a line as follows:
+5. If this is a bug fix or enhancement, then it should have a line as follows:
 `Issue #<IssueNo>`
-6. Blank line.
+6. It may contain any external URL references like a launchpad blueprint.
+7. Blank line.
+
+>Note: A bug or an enhancement both can be loged in github as an issue.
 
 For more information on commit messages, please visit the
 [Git Commit Messages][] page in OpenStack.org.
@@ -179,7 +182,7 @@ Pull requests can be sent from any branch or commit but it's recommended that a 
 After starting the review, you're presented with a review page where you can get a high-level overview of what exactly has changed between your branch and the repository's master branch. You can review all comments made on commits, identify which files changed, and get a list of contributors to your branch.
 
 After the change is reviewed, you might have to make some
-additional modifications to your change.You just need to do changes to your local topic branch, commit it, and push it to same branch on your github fork repo. If the branch is currently being used for a pull request, then the branch changes are automatically tracked by the pull request.
+additional modifications to your change. You just need to do changes to your local topic branch, commit it, and push it to same branch on your github fork repo. If the branch is currently being used for a pull request, then the branch changes are automatically tracked by the pull request.
 
 If 'all goes well' your change will be merged to project swiftonfile. What 'all goes well' means, is this:
 
