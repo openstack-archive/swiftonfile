@@ -31,7 +31,8 @@ from greenlet import getcurrent
 from contextlib import contextmanager
 from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
-from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value
+from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value, \
+    hash_path, normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
@@ -44,12 +45,14 @@ from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
-    get_object_metadata
+    get_object_metadata, write_pickle
 from gluster.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
+from swift.common.storage_policy import get_policy_string
+from functools import partial
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
@@ -66,6 +69,9 @@ MAX_OPEN_ATTEMPTS = 10
 
 _cur_pid = str(os.getpid())
 _cur_host = str(gethostname())
+
+ASYNCDIR_BASE = 'async_pending'
+get_async_dir = partial(get_policy_string, ASYNCDIR_BASE)
 
 
 def _random_sleep():
@@ -223,7 +229,7 @@ def _adjust_metadata(metadata):
     return metadata
 
 
-class OnDiskManager(object):
+class DiskFileManager(object):
     """
     Management class for devices, providing common place for shared parameters
     and methods not provided by the DiskFile class (which primarily services
@@ -254,6 +260,15 @@ class OnDiskManager(object):
         self.threadpools = defaultdict(
             lambda: ThreadPool(nthreads=threads_per_disk))
 
+    def construct_dev_path(self, device):
+        """
+        Construct the path to a device without checking if it is mounted.
+
+        :param device: name of target device
+        :returns: full path to the device
+        """
+        return os.path.join(self.devices, device)
+
     def _get_dev_path(self, device):
         """
         Return the path to a device, checking to see that it is a proper mount
@@ -270,12 +285,25 @@ class OnDiskManager(object):
         return dev_path
 
     def get_diskfile(self, device, account, container, obj,
-                     **kwargs):
+                     policy_idx=0, **kwargs):
         dev_path = self._get_dev_path(device)
         if not dev_path:
             raise DiskFileDeviceUnavailable()
         return DiskFile(self, dev_path, self.threadpools[device],
                         account, container, obj, **kwargs)
+
+    def pickle_async_update(self, device, account, container, obj, data,
+                            timestamp, policy_idx):
+        device_path = self.construct_dev_path(device)
+        async_dir = os.path.join(device_path, get_async_dir(policy_idx))
+        ohash = hash_path(account, container, obj)
+        self.threadpools[device].run_in_thread(
+            write_pickle,
+            data,
+            os.path.join(async_dir, ohash[-3:], ohash + '-' +
+                         normalize_timestamp(timestamp)),
+            os.path.join(device_path, 'tmp'))
+        self.logger.increment('async_pendings')
 
 
 class DiskFileWriter(object):
@@ -607,7 +635,15 @@ class DiskFile(object):
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
-        self._container_path = os.path.join(self._device_path, container)
+        if not hasattr(self._mgr, 'reseller_prefix'):
+            self._mgr.reseller_prefix = 'AUTH_'
+        if account.startswith(self._mgr.reseller_prefix):
+            account = account[len(self._mgr.reseller_prefix):]
+        self._account = account
+        self._container = container
+
+        self._container_path = \
+            os.path.join(self._device_path, self._account, self._container)
         obj = obj.strip(os.path.sep)
         obj_path, self._obj = os.path.split(obj)
         if obj_path:
@@ -862,6 +898,13 @@ class DiskFile(object):
         :raises AlreadyExistsAsFile: if path or part of a path is not a \
                                      directory
         """
+        # Create /account/container directory structure on mount point root
+        try:
+            os.makedirs(self._container_path)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                raise
+
         data_file = os.path.join(self._put_datadir, self._obj)
 
         # Assume the full directory path exists to the file already, and

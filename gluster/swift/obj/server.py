@@ -26,7 +26,7 @@ from swift.common.request_helpers import split_and_validate_path
 
 from swift.obj import server
 
-from gluster.swift.obj.diskfile import OnDiskManager
+from gluster.swift.obj.diskfile import DiskFileManager
 
 
 class ObjectController(server.ObjectController):
@@ -46,11 +46,12 @@ class ObjectController(server.ObjectController):
         """
         # Common on-disk hierarchy shared across account, container and object
         # servers.
-        self._ondisk_mgr = OnDiskManager(conf, self.logger)
-        self.swift_dir = conf.get('swift_dir', '/etc/swift')
+        self._diskfile_mgr = DiskFileManager(conf, self.logger)
+        self._diskfile_mgr.reseller_prefix = \
+            conf.get('reseller_prefix', 'AUTH_').strip()
 
     def get_diskfile(self, device, partition, account, container, obj,
-                     **kwargs):
+                     policy_idx=0, **kwargs):
         """
         Utility method for instantiating a DiskFile object supporting a given
         REST API.
@@ -59,17 +60,8 @@ class ObjectController(server.ObjectController):
         DiskFile class would simply over-ride this method to provide that
         behavior.
         """
-        return self._ondisk_mgr.get_diskfile(device, account, container, obj,
-                                             **kwargs)
-
-    def container_update(self, *args, **kwargs):
-        """
-        Update the container when objects are updated.
-
-        For Gluster, this is just a no-op, since a container is just the
-        directory holding all the objects (sub-directory hierarchy of files).
-        """
-        return
+        return self._diskfile_mgr.get_diskfile(device, account, container, obj,
+                                               **kwargs)
 
     @public
     @timing_stats()

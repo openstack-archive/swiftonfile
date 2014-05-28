@@ -16,6 +16,7 @@
 import os
 import stat
 import errno
+import random
 import logging
 from hashlib import md5
 from eventlet import sleep
@@ -25,7 +26,7 @@ from swift.common.exceptions import DiskFileNoSpace
 from gluster.swift.common.fs_utils import do_getctime, do_getmtime, do_stat, \
     do_listdir, do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
     do_isdir, do_getsize, do_getxattr, do_setxattr, do_removexattr, do_read, \
-    do_close, do_dup, do_lseek, do_fstat
+    do_close, do_dup, do_lseek, do_fstat, do_fsync, do_rename
 from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -530,3 +531,41 @@ def rmobjdir(dir_path):
         raise
     else:
         return True
+
+
+def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
+    """
+    Ensure that a pickle file gets written to disk.  The file is first written
+    to a tmp file location in the destination directory path, ensured it is
+    synced to disk, then moved to its final destination name.
+
+    This version takes advantage of Gluster's dot-prefix-dot-suffix naming
+    where the a file named ".thefile.name.9a7aasv" is hashed to the same
+    Gluster node as "thefile.name". This ensures the renaming of a temp file
+    once written does not move it to another Gluster node.
+
+    :param obj: python object to be pickled
+    :param dest: path of final destination file
+    :param tmp: path to tmp to use, defaults to None (ignored)
+    :param pickle_protocol: protocol to pickle the obj with, defaults to 0
+    """
+    dirname = os.path.dirname(dest)
+    # Create destination directory
+    try:
+        os.makedirs(dirname)
+    except OSError as err:
+        if err.errno != errno.EEXIST:
+            raise
+    basename = os.path.basename(dest)
+    tmpname = '.' + basename + '.' + \
+        md5(basename + str(random.random())).hexdigest()
+    tmppath = os.path.join(dirname, tmpname)
+    with open(tmppath, 'wb') as fo:
+        pickle.dump(obj, fo, pickle_protocol)
+        # TODO: This flush() method call turns into a flush() system call
+        # We'll need to wrap this as well, but we would do this by writing
+        # a context manager for our own open() method which returns an object
+        # in fo which makes the gluster API call.
+        fo.flush()
+        do_fsync(fo)
+    do_rename(tmppath, dest)
