@@ -1,17 +1,22 @@
 [![Build Status](https://travis-ci.org/swiftonfile/swiftonfile.svg?branch=master)](https://travis-ci.org/swiftonfile/swiftonfile)
 
-# Swift-On-File
-Swift-on-File, formerly called Gluster-Swift, enables files and directories 
-created on a Posix filesystem (that supports xattrs) to be accessed as objects 
-via the Swift API. 
+# Swift-on-File
+Swift-on-File, formerly called Gluster-Swift, is a Swift Object Server
+implementation that enables objects created using the Swift API to be accessed
+as files on a Posix filesystem.
 
 The main difference from the default Swift Object Server is that Swift-on-File
-stores objects following the same path hirearchy as that object's URL.
+stores objects following the same path hierarchy as that object's URL.
+On a vanilla openstack swift the object server will store the object following
+the mapping given by the Ring and its final storage location and filename are
+unknown to the user. In the case of Sof, the object will be stored in the
+configured filesystem volume with the same directory structure as the object´s
+URL.
+
 For example: for an object with URL: https://swift.example.com/v1/acc/cont/obj,
-the default Object Server will store the object following the mapping given by
-the Ring and its final storage location and filename are unknown to the user. 
-In the case of SoF, the object will be stored in the configured Filesystem
-volume with the same directory structure '_acc/cont/obj_'.
+would be stored in the following way:
+* Swift: /mnt/sdb1/2/node/sdb2/objects/981/f79/f566bd022b9285b05e665fd7b843bf79/1401254393.89313.data
+* SoF: /mnt/gluster-object/acc/cont/obj
 
 ## Roadmap
 Swift-On-File is in a transition period. The project was recently renamed from
