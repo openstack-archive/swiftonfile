@@ -17,7 +17,7 @@ sudo apt-get -y install gcc python-dev python-setuptools libffi-dev \
     git xfsprogs memcached
 ~~~
 
-* Fedora 19
+* Fedora
 
 ~~~
 sudo yum install gcc python-devel python-setuptools libffi-devel \
