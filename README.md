@@ -10,10 +10,10 @@ stores objects following the same path hierarchy as that object's URL.
 On a vanilla openstack swift the object server will store the object following
 the mapping given by the Ring and its final storage location and filename are
 unknown to the user. In the case of Sof, the object will be stored in the
-configured filesystem volume with the same directory structure as the object´s
+configured filesystem volume with the same directory structure as the object's
 URL.
 
-For example: for an object with URL: https://swift.example.com/v1/acc/cont/obj,
+For example, an object with URL: https://swift.example.com/v1/acc/cont/obj,
 would be stored in the following way:
 * Swift: /mnt/sdb1/2/node/sdb2/objects/981/f79/f566bd022b9285b05e665fd7b843bf79/1401254393.89313.data
 * SoF: /mnt/gluster-object/acc/cont/obj
