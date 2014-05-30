@@ -712,6 +712,42 @@ class TestUtils(unittest.TestCase):
         ret = utils.validate_object(md)
         assert ret
 
+    def test_write_pickle(self):
+        td = tempfile.mkdtemp()
+        try:
+            fpp = os.path.join(td, 'pp')
+            # FIXME: Remove this patch when coverage.py can handle eventlet
+            with patch("gluster.swift.common.fs_utils.do_fsync",
+                       _mock_os_fsync):
+                utils.write_pickle('pickled peppers', fpp)
+            with open(fpp, "rb") as f:
+                contents = f.read()
+            s = pickle.loads(contents)
+            assert s == 'pickled peppers', repr(s)
+        finally:
+            shutil.rmtree(td)
+
+    def test_write_pickle_ignore_tmp(self):
+        tf = tempfile.NamedTemporaryFile()
+        td = tempfile.mkdtemp()
+        try:
+            fpp = os.path.join(td, 'pp')
+            # Also test an explicity pickle protocol
+            # FIXME: Remove this patch when coverage.py can handle eventlet
+            with patch("gluster.swift.common.fs_utils.do_fsync",
+                       _mock_os_fsync):
+                utils.write_pickle('pickled peppers', fpp, tmp=tf.name,
+                                   pickle_protocol=2)
+            with open(fpp, "rb") as f:
+                contents = f.read()
+            s = pickle.loads(contents)
+            assert s == 'pickled peppers', repr(s)
+            with open(tf.name, "rb") as f:
+                contents = f.read()
+            assert contents == ''
+        finally:
+            shutil.rmtree(td)
+
 
 class TestUtilsDirObjects(unittest.TestCase):
 
