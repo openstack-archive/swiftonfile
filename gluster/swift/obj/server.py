@@ -47,11 +47,9 @@ class ObjectController(server.ObjectController):
         # Common on-disk hierarchy shared across account, container and object
         # servers.
         self._diskfile_mgr = DiskFileManager(conf, self.logger)
-        self._diskfile_mgr.reseller_prefix = \
-            conf.get('reseller_prefix', 'AUTH_').strip()
 
     def get_diskfile(self, device, partition, account, container, obj,
-                     policy_idx=0, **kwargs):
+                     policy_idx, **kwargs):
         """
         Utility method for instantiating a DiskFile object supporting a given
         REST API.
@@ -60,8 +58,8 @@ class ObjectController(server.ObjectController):
         DiskFile class would simply over-ride this method to provide that
         behavior.
         """
-        return self._diskfile_mgr.get_diskfile(device, account, container, obj,
-                                               **kwargs)
+        return self._diskfile_mgr.get_diskfile(
+            device, partition, account, container, obj, policy_idx, **kwargs)
 
     @public
     @timing_stats()

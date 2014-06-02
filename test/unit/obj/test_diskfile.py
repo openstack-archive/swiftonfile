@@ -150,7 +150,7 @@ class TestDiskFile(unittest.TestCase):
         shutil.rmtree(self.td)
 
     def _get_diskfile(self, d, p, a, c, o, **kwargs):
-        return self.mgr.get_diskfile(d, a, c, o, **kwargs)
+        return self.mgr.get_diskfile(d, p, a, c, o, **kwargs)
 
     def test_constructor_no_slash(self):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")

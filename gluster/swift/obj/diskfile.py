@@ -23,7 +23,6 @@ except ImportError:
     import random
 import logging
 import time
-from collections import defaultdict
 from socket import gethostname
 from hashlib import md5
 from eventlet import sleep
@@ -31,8 +30,8 @@ from greenlet import getcurrent
 from contextlib import contextmanager
 from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
-from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value, \
-    hash_path, normalize_timestamp
+from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
+    normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
@@ -51,18 +50,12 @@ from gluster.swift.common.utils import X_CONTENT_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
-from swift.obj.diskfile import get_async_dir
 from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
+from swift.obj.diskfile import get_async_dir
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
 O_CLOEXEC = 02000000
-
-DEFAULT_DISK_CHUNK_SIZE = 65536
-DEFAULT_KEEP_CACHE_SIZE = (5 * 1024 * 1024)
-DEFAULT_MB_PER_SYNC = 512
-# keep these lower-case
-DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
 MAX_RENAME_ATTEMPTS = 10
 MAX_OPEN_ATTEMPTS = 10
@@ -245,6 +238,8 @@ class DiskFileManager(SwiftDiskFileManager):
     """
     def __init__(self, conf, logger):
         super(DiskFileManager, self).__init__(conf, logger)
+        self.reseller_prefix = \
+            conf.get('reseller_prefix', 'AUTH_').strip()
 
     def get_dev_path(self, device, mount_check=None):
         """
@@ -262,13 +257,29 @@ class DiskFileManager(SwiftDiskFileManager):
             dev_path = os.path.join(self.devices, device)
         return dev_path
 
-    def get_diskfile(self, device, account, container, obj,
+    def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx=0, **kwargs):
         dev_path = self.get_dev_path(device)
         if not dev_path:
             raise DiskFileDeviceUnavailable()
         return DiskFile(self, dev_path, self.threadpools[device],
-                        account, container, obj, policy_idx, **kwargs)
+                        partition, account, container, obj,
+                        policy_idx=policy_idx, **kwargs)
+
+    def pickle_async_update(self, device, account, container, obj, data,
+                            timestamp, policy_idx):
+        # This method invokes swiftonfile's writepickle method.
+        # Is patching just write_pickle and calling parent method better ?
+        device_path = self.construct_dev_path(device)
+        async_dir = os.path.join(device_path, get_async_dir(policy_idx))
+        ohash = hash_path(account, container, obj)
+        self.threadpools[device].run_in_thread(
+            write_pickle,
+            data,
+            os.path.join(async_dir, ohash[-3:], ohash + '-' +
+                         normalize_timestamp(timestamp)),
+            os.path.join(device_path, 'tmp'))
+        self.logger.increment('async_pendings')
 
 
 class DiskFileWriter(object):
@@ -586,8 +597,10 @@ class DiskFile(object):
     :param uid: user ID disk object should assume (file or directory)
     :param gid: group ID disk object should assume (file or directory)
     """
-    def __init__(self, mgr, dev_path, threadpool, account, container, obj,
+    def __init__(self, mgr, dev_path, threadpool, partition,
+                 account=None, container=None, obj=None,
                  policy_idx=0, uid=DEFAULT_UID, gid=DEFAULT_GID):
+        # Variables partition and policy_idx is currently unused.
         self._mgr = mgr
         self._device_path = dev_path
         self._threadpool = threadpool or ThreadPool(nthreads=0)
@@ -599,10 +612,9 @@ class DiskFile(object):
         self._fd = None
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
-        self._policy_idx = int(policy_idx)
 
-        if not hasattr(self._mgr, 'reseller_prefix'):
-            self._mgr.reseller_prefix = 'AUTH_'
+        # Is this the right thing to do ? The Swift databases include
+        # the resller_prefix while storing the account name.
         if account.startswith(self._mgr.reseller_prefix):
             account = account[len(self._mgr.reseller_prefix):]
         self._account = account
