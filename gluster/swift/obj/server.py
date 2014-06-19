@@ -15,8 +15,6 @@
 
 """ Object Server for Gluster for Swift """
 
-# Simply importing this monkey patches the constraint handling to fit our
-# needs
 import gluster.swift.common.constraints    # noqa
 from swift.common.swob import HTTPConflict
 from swift.common.utils import public, timing_stats
@@ -65,6 +63,8 @@ class ObjectController(server.ObjectController):
     @timing_stats()
     def PUT(self, request):
         try:
+            server.check_object_creation = \
+                gluster.swift.common.constraints.sof_check_object_creation
             return server.ObjectController.PUT(self, request)
         except (AlreadyExistsAsFile, AlreadyExistsAsDir):
             device = \

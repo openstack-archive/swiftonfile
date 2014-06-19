@@ -14,52 +14,36 @@
 # limitations under the License.
 
 import os
-try:
-    from webob.exc import HTTPBadRequest
-except ImportError:
-    from swift.common.swob import HTTPBadRequest
+from swift.common.swob import HTTPBadRequest
 import swift.common.constraints
-from gluster.swift.common import Glusterfs
 
-MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
-
-
-def set_object_name_component_length(len=None):
-    global MAX_OBJECT_NAME_COMPONENT_LENGTH
-
-    if len:
-        MAX_OBJECT_NAME_COMPONENT_LENGTH = len
-    elif hasattr(swift.common.constraints, 'constraints_conf_int'):
-        MAX_OBJECT_NAME_COMPONENT_LENGTH = \
-            swift.common.constraints.constraints_conf_int(
-                'max_object_name_component_length', 255)
-    else:
-        MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
-    return
-
-set_object_name_component_length()
-
-
-def get_object_name_component_length():
-    return MAX_OBJECT_NAME_COMPONENT_LENGTH
+SOF_MAX_OBJECT_NAME_LENGTH = 221
+# Why 221 ?
+# The longest filename supported by XFS in 255.
+# http://lxr.free-electrons.com/source/fs/xfs/xfs_types.h#L125
+# SoF creates a temp file with following naming convention:
+# .OBJECT_NAME.<random-string>
+# The random string is 32 character long and and file name has two dots.
+# Hence 255 - 32 - 2 = 221
+# NOTE: This limitation can be sefely raised by having slashes in really long
+# object name. Each segment between slashes ('/') should not exceed 221.
 
 
 def validate_obj_name_component(obj):
     if not obj:
         return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
-    if len(obj) > MAX_OBJECT_NAME_COMPONENT_LENGTH:
+    if len(obj) > SOF_MAX_OBJECT_NAME_LENGTH:
         return 'too long (%d)' % len(obj)
     if obj == '.' or obj == '..':
         return 'cannot be . or ..'
     return ''
 
-# Save the original check object creation
-__check_object_creation = swift.common.constraints.check_object_creation
-__check_metadata = swift.common.constraints.check_metadata
+# Store Swift's check_object_creation method to be invoked later
+swift_check_object_creation = swift.common.constraints.check_object_creation
 
 
 # Define our new one which invokes the original
-def gluster_check_object_creation(req, object_name):
+def sof_check_object_creation(req, object_name):
     """
     Check to ensure that everything is alright about an object to be created.
     Monkey patches swift.common.constraints.check_object_creation, invoking
@@ -74,8 +58,10 @@ def gluster_check_object_creation(req, object_name):
     :raises HTTPBadRequest: missing or bad content-type header, or
                             bad metadata
     """
-    ret = __check_object_creation(req, object_name)
+    # Invoke Swift's method
+    ret = swift_check_object_creation(req, object_name)
 
+    # SoF's additional checks
     if ret is None:
         for obj in object_name.split(os.path.sep):
             reason = validate_obj_name_component(obj)
@@ -86,9 +72,3 @@ def gluster_check_object_creation(req, object_name):
                                      request=req,
                                      content_type='text/plain')
     return ret
-
-# Replace the original checks with ours
-swift.common.constraints.check_object_creation = gluster_check_object_creation
-
-# Replace the original check mount with ours
-swift.common.constraints.check_mount = Glusterfs.mount

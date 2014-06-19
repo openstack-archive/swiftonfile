@@ -14,10 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Modifications by Red Hat, Inc.
-
 from datetime import datetime
-import os
 import hashlib
 import hmac
 import json
@@ -25,131 +22,18 @@ import locale
 import random
 import StringIO
 import time
-import threading
 import unittest
 import urllib
 import uuid
+import eventlet
 from nose import SkipTest
-from ConfigParser import ConfigParser
 
-from test import get_config
+from swift.common.storage_policy import POLICY
+
+from test.functional import normalized_urls, load_constraint, cluster_info
+import test.functional as tf
 from test.functional.swift_test_client import Account, Connection, File, \
     ResponseError
-from swift.common.constraints import MAX_FILE_SIZE, MAX_META_NAME_LENGTH, \
-    MAX_META_VALUE_LENGTH, MAX_META_COUNT, MAX_META_OVERALL_SIZE, \
-    MAX_OBJECT_NAME_LENGTH, CONTAINER_LISTING_LIMIT, ACCOUNT_LISTING_LIMIT, \
-    MAX_ACCOUNT_NAME_LENGTH, MAX_CONTAINER_NAME_LENGTH, MAX_HEADER_SIZE
-from gluster.swift.common.constraints import \
-    set_object_name_component_length, get_object_name_component_length
-
-default_constraints = dict((
-    ('max_file_size', MAX_FILE_SIZE),
-    ('max_meta_name_length', MAX_META_NAME_LENGTH),
-    ('max_meta_value_length', MAX_META_VALUE_LENGTH),
-    ('max_meta_count', MAX_META_COUNT),
-    ('max_meta_overall_size', MAX_META_OVERALL_SIZE),
-    ('max_object_name_length', MAX_OBJECT_NAME_LENGTH),
-    ('container_listing_limit', CONTAINER_LISTING_LIMIT),
-    ('account_listing_limit', ACCOUNT_LISTING_LIMIT),
-    ('max_account_name_length', MAX_ACCOUNT_NAME_LENGTH),
-    ('max_container_name_length', MAX_CONTAINER_NAME_LENGTH),
-    ('max_header_size', MAX_HEADER_SIZE)))
-constraints_conf = ConfigParser()
-conf_exists = constraints_conf.read('/etc/swift/swift.conf')
-# Constraints are set first from the test config, then from
-# /etc/swift/swift.conf if it exists. If swift.conf doesn't exist,
-# then limit test coverage. This allows SAIO tests to work fine but
-# requires remote functional testing to know something about the cluster
-# that is being tested.
-config = get_config('func_test')
-for k in default_constraints:
-    if k in config:
-        # prefer what's in test.conf
-        config[k] = int(config[k])
-    elif conf_exists:
-        # swift.conf exists, so use what's defined there (or swift defaults)
-        # This normally happens when the test is running locally to the cluster
-        # as in a SAIO.
-        config[k] = default_constraints[k]
-    else:
-        # .functests don't know what the constraints of the tested cluster are,
-        # so the tests can't reliably pass or fail. Therefore, skip those
-        # tests.
-        config[k] = '%s constraint is not defined' % k
-
-web_front_end = config.get('web_front_end', 'integral')
-normalized_urls = config.get('normalized_urls', False)
-set_object_name_component_length()
-
-
-def load_constraint(name):
-    c = config[name]
-    if not isinstance(c, int):
-        raise SkipTest(c)
-    return c
-
-locale.setlocale(locale.LC_COLLATE, config.get('collate', 'C'))
-
-
-def create_limit_filename(name_limit):
-    """
-    Convert a split a large object name with
-    slashes so as to conform the GlusterFS file name
-    constraints.
-    Example:  Take a object name: 'a'*1024, and
-    convert it to a*255/a*255/...
-    """
-    # Get the file name limit from the configuration file
-    filename_limit = get_object_name_component_length()
-
-    # Convert string to a list:  "abc" -> ['a', 'b', 'c']
-    filename_list = list('a' * name_limit)
-
-    # Replace chars at filename limits to '/'
-    for index in range(filename_limit, name_limit, filename_limit):
-        filename_list[index] = os.path.sep
-
-    # Cannot end in a '/'
-    if os.path.sep == filename_list[-1]:
-        return "".join(filename_list[:-1])
-    else:
-        return "".join(filename_list)
-
-
-def chunks(s, length=3):
-    i, j = 0, length
-    while i < len(s):
-        yield s[i:j]
-        i, j = j, j + length
-
-
-def timeout(seconds, method, *args, **kwargs):
-    class TimeoutThread(threading.Thread):
-        def __init__(self, method, *args, **kwargs):
-            threading.Thread.__init__(self)
-
-            self.method = method
-            self.args = args
-            self.kwargs = kwargs
-            self.exception = None
-
-        def run(self):
-            try:
-                self.method(*self.args, **self.kwargs)
-            except Exception as e:
-                self.exception = e
-
-    t = TimeoutThread(method, *args, **kwargs)
-    t.start()
-    t.join(seconds)
-
-    if t.exception:
-        raise t.exception
-
-    if t.isAlive():
-        t._Thread__stop()
-        return True
-    return False
 
 
 class Utils(object):
@@ -207,10 +91,10 @@ class Base2(object):
 class TestAccountEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.containers = []
@@ -394,10 +278,10 @@ class TestAccountUTF8(Base2, TestAccount):
 class TestAccountNoContainersEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
 
@@ -423,10 +307,10 @@ class TestAccountNoContainersUTF8(Base2, TestAccountNoContainers):
 class TestContainerEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.container = cls.account.container(Utils.create_name())
@@ -715,10 +599,10 @@ class TestContainerPathsEnv(object):
     @classmethod
     def setUp(cls):
         raise SkipTest('Objects ending in / are not supported')
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.file_size = 8
@@ -894,10 +778,10 @@ class TestContainerPaths(Base):
 class TestFileEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.container = cls.account.container(Utils.create_name())
@@ -1079,7 +963,7 @@ class TestFile(Base):
         limit = load_constraint('max_object_name_length')
 
         for l in (1, 10, limit / 2, limit - 1, limit, limit + 1, limit * 2):
-            file_item = self.env.container.file(create_limit_filename(l))
+            file_item = self.env.container.file('a' * l)
 
             if l <= limit:
                 self.assert_(file_item.write())
@@ -1244,6 +1128,15 @@ class TestFile(Base):
     def testFileSizeLimit(self):
         limit = load_constraint('max_file_size')
         tsecs = 3
+
+        def timeout(seconds, method, *args, **kwargs):
+            try:
+                with eventlet.Timeout(seconds):
+                    method(*args, **kwargs)
+            except eventlet.Timeout:
+                return True
+            else:
+                return False
 
         for i in (limit - 100, limit - 10, limit - 1, limit, limit + 1,
                   limit + 10, limit + 100):
@@ -1553,8 +1446,16 @@ class TestFile(Base):
         self.assertEqual(etag, header_etag)
 
     def testChunkedPut(self):
-        if (web_front_end == 'apache2'):
-            raise SkipTest()
+        if (tf.web_front_end == 'apache2'):
+            raise SkipTest("Chunked PUT can only be tested with apache2 web"
+                           " front end")
+
+        def chunks(s, length=3):
+            i, j = 0, length
+            while i < len(s):
+                yield s[i:j]
+                i, j = j, j + length
+
         data = File.random_data(10000)
         etag = File.compute_md5sum(data)
 
@@ -1578,10 +1479,10 @@ class TestFileUTF8(Base2, TestFile):
 class TestDloEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.container = cls.account.container(Utils.create_name())
@@ -1699,6 +1600,51 @@ class TestDlo(Base):
             # try not to leave this around for other tests to stumble over
             self.env.container.file("copied-man1").delete()
 
+    def test_dlo_if_match_get(self):
+        manifest = self.env.container.file("man1")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.read,
+                          hdrs={'If-Match': 'not-%s' % etag})
+        self.assert_status(412)
+
+        manifest.read(hdrs={'If-Match': etag})
+        self.assert_status(200)
+
+    def test_dlo_if_none_match_get(self):
+        manifest = self.env.container.file("man1")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.read,
+                          hdrs={'If-None-Match': etag})
+        self.assert_status(304)
+
+        manifest.read(hdrs={'If-None-Match': "not-%s" % etag})
+        self.assert_status(200)
+
+    def test_dlo_if_match_head(self):
+        manifest = self.env.container.file("man1")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.info,
+                          hdrs={'If-Match': 'not-%s' % etag})
+        self.assert_status(412)
+
+        manifest.info(hdrs={'If-Match': etag})
+        self.assert_status(200)
+
+    def test_dlo_if_none_match_head(self):
+        manifest = self.env.container.file("man1")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.info,
+                          hdrs={'If-None-Match': etag})
+        self.assert_status(304)
+
+        manifest.info(hdrs={'If-None-Match': "not-%s" % etag})
+        self.assert_status(200)
+
+
 class TestDloUTF8(Base2, TestDlo):
     set_up = False
 
@@ -1706,10 +1652,10 @@ class TestDloUTF8(Base2, TestDlo):
 class TestFileComparisonEnv(object):
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.container = cls.account.container(Utils.create_name())
@@ -1761,18 +1707,24 @@ class TestFileComparison(Base):
         for file_item in self.env.files:
             hdrs = {'If-Modified-Since': self.env.time_old_f1}
             self.assert_(file_item.read(hdrs=hdrs))
+            self.assert_(file_item.info(hdrs=hdrs))
 
             hdrs = {'If-Modified-Since': self.env.time_new}
             self.assertRaises(ResponseError, file_item.read, hdrs=hdrs)
+            self.assert_status(304)
+            self.assertRaises(ResponseError, file_item.info, hdrs=hdrs)
             self.assert_status(304)
 
     def testIfUnmodifiedSince(self):
         for file_item in self.env.files:
             hdrs = {'If-Unmodified-Since': self.env.time_new}
             self.assert_(file_item.read(hdrs=hdrs))
+            self.assert_(file_item.info(hdrs=hdrs))
 
             hdrs = {'If-Unmodified-Since': self.env.time_old_f2}
             self.assertRaises(ResponseError, file_item.read, hdrs=hdrs)
+            self.assert_status(412)
+            self.assertRaises(ResponseError, file_item.info, hdrs=hdrs)
             self.assert_status(412)
 
     def testIfMatchAndUnmodified(self):
@@ -1823,17 +1775,16 @@ class TestSloEnv(object):
 
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
 
         if cls.slo_enabled is None:
-            cluster_info = cls.conn.cluster_info()
             cls.slo_enabled = 'slo' in cluster_info
             if not cls.slo_enabled:
                 return
 
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
         cls.account.delete_containers()
 
         cls.container = cls.account.container(Utils.create_name())
@@ -1899,7 +1850,6 @@ class TestSlo(Base):
     set_up = False
 
     def setUp(self):
-        raise SkipTest("SLO not enabled yet in gluster-swift")
         super(TestSlo, self).setUp()
         if self.env.slo_enabled is False:
             raise SkipTest("SLO not enabled")
@@ -2039,6 +1989,50 @@ class TestSlo(Base):
         self.assertEqual('application/json; charset=utf-8',
                          got_info['content_type'])
 
+    def test_slo_if_match_get(self):
+        manifest = self.env.container.file("manifest-abcde")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.read,
+                          hdrs={'If-Match': 'not-%s' % etag})
+        self.assert_status(412)
+
+        manifest.read(hdrs={'If-Match': etag})
+        self.assert_status(200)
+
+    def test_slo_if_none_match_get(self):
+        manifest = self.env.container.file("manifest-abcde")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.read,
+                          hdrs={'If-None-Match': etag})
+        self.assert_status(304)
+
+        manifest.read(hdrs={'If-None-Match': "not-%s" % etag})
+        self.assert_status(200)
+
+    def test_slo_if_match_head(self):
+        manifest = self.env.container.file("manifest-abcde")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.info,
+                          hdrs={'If-Match': 'not-%s' % etag})
+        self.assert_status(412)
+
+        manifest.info(hdrs={'If-Match': etag})
+        self.assert_status(200)
+
+    def test_slo_if_none_match_head(self):
+        manifest = self.env.container.file("manifest-abcde")
+        etag = manifest.info()['etag']
+
+        self.assertRaises(ResponseError, manifest.info,
+                          hdrs={'If-None-Match': etag})
+        self.assert_status(304)
+
+        manifest.info(hdrs={'If-None-Match': "not-%s" % etag})
+        self.assert_status(200)
+
 
 class TestSloUTF8(Base2, TestSlo):
     set_up = False
@@ -2049,11 +2043,11 @@ class TestObjectVersioningEnv(object):
 
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
 
-        cls.account = Account(cls.conn, config.get('account',
-                                                   config['username']))
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
 
         # avoid getting a prefix that stops halfway through an encoded
         # character
@@ -2066,6 +2060,61 @@ class TestObjectVersioningEnv(object):
         cls.container = cls.account.container(prefix + "-objs")
         if not cls.container.create(
                 hdrs={'X-Versions-Location': cls.versions_container.name}):
+            raise ResponseError(cls.conn.response)
+
+        container_info = cls.container.info()
+        # if versioning is off, then X-Versions-Location won't persist
+        cls.versioning_enabled = 'versions' in container_info
+
+
+class TestCrossPolicyObjectVersioningEnv(object):
+    # tri-state: None initially, then True/False
+    versioning_enabled = None
+    multiple_policies_enabled = None
+    policies = None
+
+    @classmethod
+    def setUp(cls):
+        cls.conn = Connection(tf.config)
+        cls.conn.authenticate()
+
+        if cls.multiple_policies_enabled is None:
+            try:
+                cls.policies = tf.FunctionalStoragePolicyCollection.from_info()
+            except AssertionError:
+                pass
+
+        if cls.policies and len(cls.policies) > 1:
+            cls.multiple_policies_enabled = True
+        else:
+            cls.multiple_policies_enabled = False
+            # We have to lie here that versioning is enabled. We actually
+            # don't know, but it does not matter. We know these tests cannot
+            # run without multiple policies present. If multiple policies are
+            # present, we won't be setting this field to any value, so it
+            # should all still work.
+            cls.versioning_enabled = True
+            return
+
+        policy = cls.policies.select()
+        version_policy = cls.policies.exclude(name=policy['name']).select()
+
+        cls.account = Account(cls.conn, tf.config.get('account',
+                                                      tf.config['username']))
+
+        # avoid getting a prefix that stops halfway through an encoded
+        # character
+        prefix = Utils.create_name().decode("utf-8")[:10].encode("utf-8")
+
+        cls.versions_container = cls.account.container(prefix + "-versions")
+        if not cls.versions_container.create(
+                {POLICY: policy['name']}):
+            raise ResponseError(cls.conn.response)
+
+        cls.container = cls.account.container(prefix + "-objs")
+        if not cls.container.create(
+                hdrs={'X-Versions-Location': cls.versions_container.name,
+                      POLICY: version_policy['name']}):
             raise ResponseError(cls.conn.response)
 
         container_info = cls.container.info()
@@ -2123,16 +2172,30 @@ class TestObjectVersioningUTF8(Base2, TestObjectVersioning):
     set_up = False
 
 
+class TestCrossPolicyObjectVersioning(TestObjectVersioning):
+    env = TestCrossPolicyObjectVersioningEnv
+    set_up = False
+
+    def setUp(self):
+        super(TestCrossPolicyObjectVersioning, self).setUp()
+        if self.env.multiple_policies_enabled is False:
+            raise SkipTest('Cross policy test requires multiple policies')
+        elif self.env.multiple_policies_enabled is not True:
+            # just some sanity checking
+            raise Exception("Expected multiple_policies_enabled "
+                            "to be True/False, got %r" % (
+                                self.env.versioning_enabled,))
+
+
 class TestTempurlEnv(object):
     tempurl_enabled = None  # tri-state: None initially, then True/False
 
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
 
         if cls.tempurl_enabled is None:
-            cluster_info = cls.conn.cluster_info()
             cls.tempurl_enabled = 'tempurl' in cluster_info
             if not cls.tempurl_enabled:
                 return
@@ -2142,7 +2205,7 @@ class TestTempurlEnv(object):
         cls.tempurl_key2 = Utils.create_name()
 
         cls.account = Account(
-            cls.conn, config.get('account', config['username']))
+            cls.conn, tf.config.get('account', tf.config['username']))
         cls.account.delete_containers()
         cls.account.update_metadata({
             'temp-url-key': cls.tempurl_key,
@@ -2303,17 +2366,16 @@ class TestSloTempurlEnv(object):
 
     @classmethod
     def setUp(cls):
-        cls.conn = Connection(config)
+        cls.conn = Connection(tf.config)
         cls.conn.authenticate()
 
         if cls.enabled is None:
-            cluster_info = cls.conn.cluster_info()
             cls.enabled = 'tempurl' in cluster_info and 'slo' in cluster_info
 
         cls.tempurl_key = Utils.create_name()
 
         cls.account = Account(
-            cls.conn, config.get('account', config['username']))
+            cls.conn, tf.config.get('account', tf.config['username']))
         cls.account.delete_containers()
         cls.account.update_metadata({'temp-url-key': cls.tempurl_key})
 

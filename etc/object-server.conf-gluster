@@ -11,7 +11,7 @@ devices = /mnt/gluster-object
 # you can *consider* setting this value to "false" to reduce the per-request
 # overhead it can incur.
 mount_check = true
-bind_port = 6010
+bind_port = 6050
 #
 # Maximum number of clients one worker can process simultaneously (it will
 # actually accept N + 1). Setting this to one (1) will only handle one request
@@ -34,11 +34,6 @@ use = egg:gluster_swift#object
 user = root
 log_facility = LOG_LOCAL2
 log_level = WARN
-# The following parameters are used by object-expirer and needs to be same
-# across all conf files!
-auto_create_account_prefix = gs
-expiring_objects_account_name = expiring
-#
 # For performance, after ensuring things are running in a stable manner, you
 # can turn off normal request logging for the object server to reduce the
 # per-request overhead and unclutter the log files. Warnings and errors will

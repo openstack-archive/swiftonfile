@@ -180,13 +180,6 @@ def make_directory(full_path, uid, gid, metadata=None):
 _fs_conf = ConfigParser()
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
-        _mkdir_locking = _fs_conf.get('DEFAULT', 'mkdir_locking', "no") \
-            in TRUE_VALUES
-        logging.warn("The option mkdir_locking has been deprecated and is"
-                     " no longer supported")
-    except (NoSectionError, NoOptionError):
-        pass
-    try:
         _use_put_mount = _fs_conf.get('DEFAULT', 'use_put_mount', "no") \
             in TRUE_VALUES
     except (NoSectionError, NoOptionError):
