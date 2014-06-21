@@ -38,7 +38,7 @@ from test.functional.swift_test_client import Connection, ResponseError
 # on file systems that don't support extended attributes.
 from test.unit import debug_logger, FakeMemcache
 
-from swift.common import constraints, utils, ring
+from swift.common import constraints, utils, ring, storage_policy
 from swift.common.wsgi import monkey_patch_mimetools
 from swift.common.middleware import catch_errors, gatekeeper, healthcheck, \
     proxy_logging, container_sync, bulk, tempurl, slo, dlo, ratelimit, \
@@ -152,6 +152,8 @@ def in_process_setup(the_object_server=object_server):
     orig_swift_conf_name = utils.SWIFT_CONF_FILE
     utils.SWIFT_CONF_FILE = swift_conf
     constraints.reload_constraints()
+    storage_policy.SWIFT_CONF_FILE = swift_conf
+    storage_policy.reload_storage_policies()
     global config
     if constraints.SWIFT_CONSTRAINTS_LOADED:
         # Use the swift constraints that are loaded for the test framework
@@ -345,7 +347,7 @@ def get_cluster_info():
         # test.conf data
         pass
     else:
-        eff_constraints.update(cluster_info['swift'])
+        eff_constraints.update(cluster_info.get('swift', {}))
 
     # Finally, we'll allow any constraint present in the swift-constraints
     # section of test.conf to override everything. Note that only those
@@ -714,18 +716,14 @@ class FunctionalStoragePolicyCollection(object):
 def requires_policies(f):
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
-        rv = None
         if skip:
             raise SkipTest
         try:
             self.policies = FunctionalStoragePolicyCollection.from_info()
-            assert len(self.policies) > 1
         except AssertionError:
+            raise SkipTest("Unable to determine available policies")
+        if len(self.policies) < 2:
             raise SkipTest("Multiple policies not enabled")
-        try:
-            rv = f(self, *args, **kwargs)
-        except:
-            raise
-        return rv
+        return f(self, *args, **kwargs)
 
     return wrapper

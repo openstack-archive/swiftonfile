@@ -24,15 +24,26 @@ swift_hash_path_prefix = changeme
 # storage-policy:0.
 [storage-policy:0]
 name = Policy-0
-# default = yes
-# Default has beeen turned off here and set for policy-1 for running SoF
-# functional tests.
+default = yes
+
+# the following section would declare a policy called 'silver', the number of
+# replicas will be determined by how the ring is built.  In this example the
+# 'silver' policy could have a lower or higher # of replicas than the
+# 'Policy-0' policy above.  The ring filename will be 'object-1.ring.gz'.  You
+# may only specify one storage policy section as the default.  If you changed
+# this section to specify 'silver' as the default, when a client created a new
+# container w/o a policy specified, it will get the 'silver' policy because
+# this config has specified it as the default.  However if a legacy container
+# (one created with a pre-policy version of swift) is accessed, it is known
+# implicitly to be assigned to the policy with index 0 as opposed to the
+# current default.
+#[storage-policy:1]
+#name = silver
 
 # The following section defines a policy called 'sof' to be used by swiftonfile
 # object-server implementation.
-[storage-policy:1]
+[storage-policy:2]
 name = sof
-default = yes
 
 # The swift-constraints section sets the basic constraints on data
 # saved in the swift cluster. These constraints are automatically

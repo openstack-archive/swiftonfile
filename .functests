@@ -80,15 +80,15 @@ print "Invoking SAIO's remakerings script"
 remakerings
 
 print "Copying conf files into /etc/swift. This will replace swift.conf and test.conf"
-cp etc/object-server.conf-gluster /etc/swift/object-server/5.conf
-cp etc/swift.conf-gluster /etc/swift/swift.conf
-cp etc/test.conf /etc/swift/test.conf
+\cp etc/object-server.conf-gluster /etc/swift/object-server/5.conf
+\cp test/functional/conf/swift.conf /etc/swift/swift.conf
+\cp test/functional/conf/test.conf /etc/swift/test.conf
 
 print "Generating additional object-rings for swiftonfile SP"
 cd /etc/swift
-swift-ring-builder object-1.builder create 1 1 1
-swift-ring-builder object-1.builder add r1z1-127.0.0.1:6050/test 1
-swift-ring-builder object-1.builder rebalance
+swift-ring-builder object-2.builder create 1 1 1
+swift-ring-builder object-2.builder add r1z1-127.0.0.1:6050/test 1
+swift-ring-builder object-2.builder rebalance
 cd -
 
 export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf

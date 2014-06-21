@@ -32,9 +32,7 @@ class TestSwiftOnFileEnv:
         cls.conn.authenticate()
         cls.account = Account(cls.conn, tf.config.get('account',
                                                       tf.config['username']))
-        cls.root_dir = os.path.join('/mnt/gluster-object',
-                                    cls.account.conn.storage_url.split(
-                                        '/')[2].split('_')[1])
+        cls.root_dir = os.path.join('/mnt/gluster-object/test')
         cls.account.delete_containers()
 
         cls.file_size = 8
