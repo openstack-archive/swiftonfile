@@ -38,7 +38,6 @@ from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
 from swift.common.swob import multi_range_iterator
 
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
-from gluster.swift.common.Glusterfs import mount
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
@@ -233,22 +232,6 @@ class DiskFileManager(SwiftDiskFileManager):
         super(DiskFileManager, self).__init__(conf, logger)
         self.reseller_prefix = \
             conf.get('reseller_prefix', 'AUTH_').strip()
-
-    def get_dev_path(self, device, mount_check=None):
-        """
-        Return the path to a device, checking to see that it is a proper mount
-        point based on a configuration parameter.
-
-        :param device: name of target device
-        :returns: full path to the device, None if the path to the device is
-                  not a proper mount point.
-        """
-        should_check = self.mount_check if mount_check is None else mount_check
-        if should_check and not mount(self.devices, device):
-            dev_path = None
-        else:
-            dev_path = os.path.join(self.devices, device)
-        return dev_path
 
     def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx=0, **kwargs):
