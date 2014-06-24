@@ -18,6 +18,7 @@
 import os
 import re
 import hashlib
+from shutil import rmtree
 
 from test.functional.tests import Base, Utils
 from test.functional.swift_test_client import Account, Connection, \
@@ -32,7 +33,7 @@ class TestSwiftOnFileEnv:
         cls.conn.authenticate()
         cls.account = Account(cls.conn, tf.config.get('account',
                                                       tf.config['username']))
-        cls.root_dir = os.path.join('/mnt/gluster-object/test')
+        cls.root_dir = os.path.join('/mnt/swiftonfile/test')
         cls.account.delete_containers()
 
         cls.file_size = 8
@@ -85,6 +86,12 @@ class TestSwiftOnFile(Base):
     env = TestSwiftOnFileEnv
     set_up = False
 
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
+        for account_dir in os.listdir(self.env.root_dir):
+            rmtree(os.path.join(self.env.root_dir, account_dir))
+
     def testObjectsFromMountPoint(self):
         found_files = []
         found_dirs = []
@@ -99,7 +106,7 @@ class TestSwiftOnFile(Base):
                     found_dirs.append(file)
                 elif os.path.isfile(os.path.join(path, file)):
                     filename = os.path.join(os.path.relpath(path, os.path.join(
-                        self.env.root_dir, self.env.account.name,
+                        self.env.root_dir, 'AUTH_' + self.env.account.name,
                         self.env.container.name)), file)
                     if re.match('^[\.]', filename):
                         filename = filename[2:]
@@ -107,7 +114,8 @@ class TestSwiftOnFile(Base):
                 else:
                     pass  # Just a Place holder
 
-        recurse_path(os.path.join(self.env.root_dir, self.env.account.name,
+        recurse_path(os.path.join(self.env.root_dir,
+                                  'AUTH_' + self.env.account.name,
                                   self.env.container.name))
         for file in self.env.stored_files:
                 self.assert_(file in found_files)
@@ -120,7 +128,8 @@ class TestSwiftOnFile(Base):
         self.assert_status(201)
         file_info = file_item.info()
         fhOnMountPoint = open(os.path.join(self.env.root_dir,
-                              self.env.account.name, self.env.container.name,
+                              'AUTH_' + self.env.account.name,
+                              self.env.container.name,
                               file_name), 'r')
         data_read_from_mountP = fhOnMountPoint.read()
         md5_returned = hashlib.md5(data_read_from_mountP).hexdigest()

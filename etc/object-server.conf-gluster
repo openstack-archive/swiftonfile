@@ -4,7 +4,7 @@
 # setting the following value in {account,container,object}-server.conf files.
 # It is recommended to keep this value same for all the three services but can
 # be kept different if environment demands.
-devices = /mnt/gluster-object
+devices = /mnt/swiftonfile
 #
 # Once you are confident that your startup processes will always have your
 # gluster volumes properly mounted *before* the object-server workers start,

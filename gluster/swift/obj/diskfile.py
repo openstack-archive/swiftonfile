@@ -231,7 +231,7 @@ class DiskFileManager(SwiftDiskFileManager):
     def __init__(self, conf, logger):
         super(DiskFileManager, self).__init__(conf, logger)
         self.reseller_prefix = \
-            conf.get('reseller_prefix', 'AUTH_').strip()
+            conf.get('reseller_prefix', 'AUTH_').strip()  # Not used, currently
 
     def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx=0, **kwargs):
@@ -589,10 +589,6 @@ class DiskFile(object):
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
-        # Is this the right thing to do ? The Swift databases include
-        # the resller_prefix while storing the account name.
-        if account.startswith(self._mgr.reseller_prefix):
-            account = account[len(self._mgr.reseller_prefix):]
         self._account = account
         self._container = container
 

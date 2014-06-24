@@ -40,10 +40,10 @@ default = yes
 #[storage-policy:1]
 #name = silver
 
-# The following section defines a policy called 'sof' to be used by swiftonfile
-# object-server implementation.
+# The following section defines a policy called 'swiftonfile' to be used by
+# swiftonfile object-server implementation.
 [storage-policy:2]
-name = sof
+name = swiftonfile
 
 # The swift-constraints section sets the basic constraints on data
 # saved in the swift cluster. These constraints are automatically

@@ -39,8 +39,8 @@ cleanup()
     print "Stopping swift sevices"
     sudo_env swift-init main stop
     print "Cleaning SoF mount point"
-    sudo rm -rf /mnt/gluster-object/test/* > /dev/null 2>&1
-    sudo setfattr -x user.swift.metadata /mnt/gluster-object/test > /dev/null 2>&1
+    sudo rm -rf /mnt/swiftonfile/test/* > /dev/null 2>&1
+    sudo setfattr -x user.swift.metadata /mnt/swiftonfile/test > /dev/null 2>&1
     print "Invoking SAIO's resetswift script"
     resetswift
 }
@@ -57,7 +57,7 @@ fail()
 print """
 Before proceeding forward, please make sure you already have:
 1. SAIO deployment. (with resetswift and remakerings script)
-2. XFS/GlusterFS mounted at /mnt/gluster-object/test
+2. XFS/GlusterFS mounted at /mnt/swiftonfile/test
 """
 
 prompt=true
