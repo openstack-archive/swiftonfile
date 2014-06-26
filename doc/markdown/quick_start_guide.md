@@ -33,7 +33,9 @@ Each xfs/glusterfs volume will be defined as a separate storage policy.
 3. cd ~/swiftonfile;python setup.py develop;cd ~
 
 ### Configure SwiftOnFile as Storage Policy
-1. A SAIO setup mimic a four node swift setup and should have four object server running.Add another object server for SwiftOnFile by setting the following configurations in the file /etc/swift/object-server/5.conf:
+
+#### Object Server Configuration
+A SAIO setup mimic a four node swift setup and should have four object server running.Add another object server for SwiftOnFile by setting the following configurations in the file /etc/swift/object-server/5.conf:
 
 ~~~
 [DEFAULT]
@@ -55,29 +57,36 @@ log_level = DEBUG
 log_requests = on
 disk_chunk_size = 65536
 ~~~
-
 >Note: The parameter 'devices' tells about the path where your xfs/glusterfs volume is mounted. The sub directory under which your volume is mounted will be called volume name. For ex: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your volume name would be 'vol'& and the parameter 'devices' would contain value '/mnt/xfsvols'.
 
-2. Edit /etc/swift.conf to add swiftonfile as a storage policy:
+#### Setting SwiftOnFile as storage policy
+Edit /etc/swift.conf to add swiftonfile as a storage policy:
 
 ~~~
 [storage-policy:0]
 name = swift
+default = yes
 
 [storage-policy:1]
 name = swiftonfile-test
-default = yes
 ~~~
+You can also make "swiftonfile-test" the default storage policy by using the 'default' parameter.
 
-3. Edit the remakerings script to prepare rings for this new storage policy:
+#### Prepare rings
+Edit the remakerings script to prepare rings for this new storage policy:
 
 ~~~
 swift-ring-builder object-1.builder create 1 1 1
 swift-ring-builder object-1.builder add r1z1-127.0.0.1:6050/vol 1
 swift-ring-builder object-1.builder rebalance
 ~~~
+Execute the remakerings script to prepare new rings files.
+In a SAIO setup remakerings scipt is usually situated at ~/bin/remakerings.It you can also run above rings builder commands manually.
 
-4. Restart swift services to reflect new changes:
+Notice the mapping between SP index (1) defined in conf file above and the object ring builder command.
+
+#### Load the new configurations
+Restart swift services to reflect new changes:
 
 ~~~
 swift-init all restart
@@ -86,28 +95,29 @@ swift-init all restart
 
 <a name="using_swift" />
 
-5. Running functional tests: TBD
+#### Running functional tests
+TBD
 
 ## Using SwiftOnFile
 It is assumed that you are still using 'tempauth' as authnetication method, which is default in SAIO deployment.
 
-### Get the token
+#### Get the token
 ~~~
 curl -v -H 'X-Auth-User: test:tester' -H "X-Auth-key: testing" -k http://localhost:8080/auth/v1.0
 ~~~
 Use 'X-Auth-Token' & 'X-Storage-Url' returned in above request for all sucequent request.
 
-### Create a container
+#### Create a container
 Create a container using the following command:
 
 ~~~
-curl -v -X PUT -H 'X-Auth-Token: AUTH_XXXX' http://localhost:8080/v1/AUTH_test/mycontainer
+curl -v -X PUT -H 'X-Auth-Token: AUTH_XXXX' -H 'X-Storage-Policy: swiftonfile-test' http://localhost:8080/v1/AUTH_test/mycontainer
 ~~~
 
 It should return `HTTP/1.1 201 Created` on a successful creation. 
 
 #### Create an object
-You can now place an object in the container you have just dreated:
+You can now place an object in the container you have just created:
 
 ~~~
 echo "Hello World" > mytestfile
