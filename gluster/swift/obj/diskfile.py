@@ -589,6 +589,9 @@ class DiskFile(object):
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
+        # Account name contains resller_prefix which is retained and not
+        # stripped. This to conform to Swift's behavior where account name
+        # entry in Account DBs contain resller_prefix.
         self._account = account
         self._container = container
 
