@@ -32,12 +32,7 @@ _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
 RUN_DIR = '/var/run/swift'
 SWIFT_DIR = '/etc/swift'
-_do_getsize = False
 _allow_mount_per_server = False
-_implicit_dir_objects = False
-_container_update_object_count = False
-_account_update_container_count = False
-_ignore_unsupported_headers = False
 
 if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
     try:
@@ -50,68 +45,12 @@ if _fs_conf.read(os.path.join(SWIFT_DIR, 'fs.conf')):
         pass
 
     try:
-        _do_getsize = _fs_conf.get('DEFAULT',
-                                   'accurate_size_in_listing',
-                                   "no") in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        pass
-
-    try:
         _allow_mount_per_server = _fs_conf.get('DEFAULT',
                                                'allow_mount_per_server',
                                                _allow_mount_per_server
                                                ) in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
-
-    # -- Hidden configuration option --
-    # Report gratuitously created directories as objects
-    # Directories can be gratuitously created on the path to a given
-    # object. This option turn on or off the reporting of those directories.
-    # It defaults to False so that only those directories explicitly
-    # created by the object server PUT REST API are reported
-    try:
-        _implicit_dir_objects = \
-            _fs_conf.get('DEFAULT',
-                         'implicit_dir_objects',
-                         "no") in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        pass
-
-    # -- Hidden configuration option --
-    # Due to the impact on performance, this option is disabled by default
-    try:
-        _container_update_object_count = \
-            _fs_conf.get('DEFAULT',
-                         'container_update_object_count',
-                         "no") in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        pass
-
-    # -- Hidden configuration option --
-    # Due to the impact on performance, this option is disabled by default
-    try:
-        _account_update_container_count = \
-            _fs_conf.get('DEFAULT',
-                         'account_update_container_count',
-                         "no") in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        pass
-
-    # -- Hidden configuration option --
-    # Ignore unsupported headers and allow them in a request without
-    # returning a 400-BadRequest.  This setting can be set to
-    # allow unsupported headers such as X-Delete-At and
-    # X-Delete-After even though they will not be used.
-    try:
-        _ignore_unsupported_headers = \
-            _fs_conf.get('DEFAULT',
-                         'ignore_unsupported_headers',
-                         "no") in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        pass
-
-NAME = 'glusterfs'
 
 
 def _busy_wait(full_mount_path):

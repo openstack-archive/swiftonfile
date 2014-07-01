@@ -41,31 +41,11 @@ setup(
     ],
     install_requires=[],
     scripts=[
-        'bin/gluster-swift-gen-builders',
         'bin/gluster-swift-print-metadata',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-add-account',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-add-user',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-cleanup-tokens',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-delete-account',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-delete-user',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-list',
-        'gluster/swift/common/middleware/gswauth/bin/gswauth-prep',
-        'gluster/swift/common/middleware/gswauth/bin/'
-        'gswauth-set-account-service',
-
     ],
     entry_points={
         'paste.app_factory': [
-            'proxy=gluster.swift.proxy.server:app_factory',
             'object=gluster.swift.obj.server:app_factory',
-            'container=gluster.swift.container.server:app_factory',
-            'account=gluster.swift.account.server:app_factory',
-        ],
-        'paste.filter_factory': [
-            'gswauth=gluster.swift.common.middleware.gswauth.swauth.'
-            'middleware:filter_factory',
-            'kerbauth=gluster.swift.common.middleware.'
-            'swiftkerbauth.kerbauth:filter_factory',
         ],
     },
 )

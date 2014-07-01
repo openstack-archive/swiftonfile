@@ -16,37 +16,29 @@
 import os
 import stat
 import errno
+import random
 import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
 from gluster.swift.common.exceptions import GlusterFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
-from gluster.swift.common.fs_utils import do_getctime, do_getmtime, do_stat, \
-    do_listdir, do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
-    do_isdir, do_getsize, do_getxattr, do_setxattr, do_removexattr, do_read, \
-    do_close, do_dup, do_lseek, do_fstat
-from gluster.swift.common import Glusterfs
+from gluster.swift.common.fs_utils import do_stat, \
+    do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
+    do_getxattr, do_setxattr, do_removexattr, do_read, \
+    do_close, do_dup, do_lseek, do_fstat, do_fsync, do_rename
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
 X_TIMESTAMP = 'X-Timestamp'
-X_PUT_TIMESTAMP = 'X-PUT-Timestamp'
 X_TYPE = 'X-Type'
 X_ETAG = 'ETag'
-X_OBJECTS_COUNT = 'X-Object-Count'
-X_BYTES_USED = 'X-Bytes-Used'
-X_CONTAINER_COUNT = 'X-Container-Count'
 X_OBJECT_TYPE = 'X-Object-Type'
 DIR_TYPE = 'application/directory'
-ACCOUNT = 'Account'
 METADATA_KEY = 'user.swift.metadata'
 MAX_XATTR_SIZE = 65536
-CONTAINER = 'container'
 DIR_NON_OBJECT = 'dir'
 DIR_OBJECT = 'marker_dir'
-TEMP_DIR = 'tmp'
-ASYNCDIR = 'async_pending'  # Keep in sync with swift.obj.server.ASYNCDIR
 FILE = 'file'
 FILE_TYPE = 'application/octet-stream'
 OBJECT = 'Object'
@@ -169,49 +161,6 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_container(metadata):
-    if not metadata:
-        logging.warn('validate_container: No metadata')
-        return False
-
-    if X_TYPE not in metadata.keys() or \
-       X_TIMESTAMP not in metadata.keys() or \
-       X_PUT_TIMESTAMP not in metadata.keys() or \
-       X_OBJECTS_COUNT not in metadata.keys() or \
-       X_BYTES_USED not in metadata.keys():
-        return False
-
-    (value, timestamp) = metadata[X_TYPE]
-    if value == CONTAINER:
-        return True
-
-    logging.warn('validate_container: metadata type is not CONTAINER (%r)',
-                 value)
-    return False
-
-
-def validate_account(metadata):
-    if not metadata:
-        logging.warn('validate_account: No metadata')
-        return False
-
-    if X_TYPE not in metadata.keys() or \
-       X_TIMESTAMP not in metadata.keys() or \
-       X_PUT_TIMESTAMP not in metadata.keys() or \
-       X_OBJECTS_COUNT not in metadata.keys() or \
-       X_BYTES_USED not in metadata.keys() or \
-       X_CONTAINER_COUNT not in metadata.keys():
-        return False
-
-    (value, timestamp) = metadata[X_TYPE]
-    if value == ACCOUNT:
-        return True
-
-    logging.warn('validate_account: metadata type is not ACCOUNT (%r)',
-                 value)
-    return False
-
-
 def validate_object(metadata):
     if not metadata:
         return False
@@ -230,86 +179,6 @@ def validate_object(metadata):
     logging.warn('validate_object: metadata type is not OBJECT (%r)',
                  metadata[X_TYPE])
     return False
-
-
-def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
-                 bytes_used=0, obj_list=[]):
-    # strip the prefix off, also stripping the leading and trailing slashes
-    obj_path = path.replace(cont_path, '').strip(os.path.sep)
-
-    for obj_name in src_list:
-        # If it is not a reg_file then it is a directory.
-        if not reg_file and not Glusterfs._implicit_dir_objects:
-            # Now check if this is a dir object or a gratuiously crated
-            # directory
-            metadata = \
-                read_metadata(os.path.join(cont_path, obj_path, obj_name))
-            if not dir_is_object(metadata):
-                continue
-
-        if obj_path:
-            obj_list.append(os.path.join(obj_path, obj_name))
-        else:
-            obj_list.append(obj_name)
-
-        object_count += 1
-
-        if reg_file and Glusterfs._do_getsize:
-            bytes_used += do_getsize(os.path.join(path, obj_name))
-            sleep()
-
-    return object_count, bytes_used
-
-
-def update_list(path, cont_path, dirs=[], files=[], object_count=0,
-                bytes_used=0, obj_list=[]):
-    if files:
-        object_count, bytes_used = _update_list(path, cont_path, files, True,
-                                                object_count, bytes_used,
-                                                obj_list)
-    if dirs:
-        object_count, bytes_used = _update_list(path, cont_path, dirs, False,
-                                                object_count, bytes_used,
-                                                obj_list)
-    return object_count, bytes_used
-
-
-def get_container_details(cont_path):
-    """
-    get container details by traversing the filesystem
-    """
-    bytes_used = 0
-    object_count = 0
-    obj_list = []
-
-    if do_isdir(cont_path):
-        for (path, dirs, files) in do_walk(cont_path):
-            object_count, bytes_used = update_list(path, cont_path, dirs,
-                                                   files, object_count,
-                                                   bytes_used, obj_list)
-
-            sleep()
-
-    return obj_list, object_count, bytes_used
-
-
-def get_account_details(acc_path):
-    """
-    Return container_list and container_count.
-    """
-    container_list = []
-    container_count = 0
-
-    if do_isdir(acc_path):
-        for name in do_listdir(acc_path):
-            if name.lower() == TEMP_DIR \
-                    or name.lower() == ASYNCDIR \
-                    or not do_isdir(os.path.join(acc_path, name)):
-                continue
-            container_count += 1
-            container_list.append(name)
-
-    return container_list, container_count
 
 
 def _read_for_etag(fp):
@@ -381,49 +250,6 @@ def get_object_metadata(obj_path_or_fd):
     return metadata
 
 
-def _add_timestamp(metadata_i):
-    # At this point we have a simple key/value dictionary, turn it into
-    # key/(value,timestamp) pairs.
-    timestamp = 0
-    metadata = {}
-    for key, value_i in metadata_i.iteritems():
-        if not isinstance(value_i, tuple):
-            metadata[key] = (value_i, timestamp)
-        else:
-            metadata[key] = value_i
-    return metadata
-
-
-def get_container_metadata(cont_path):
-    objects = []
-    object_count = 0
-    bytes_used = 0
-    objects, object_count, bytes_used = get_container_details(cont_path)
-    metadata = {X_TYPE: CONTAINER,
-                X_TIMESTAMP: normalize_timestamp(
-                    do_getctime(cont_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(
-                    do_getmtime(cont_path)),
-                X_OBJECTS_COUNT: object_count,
-                X_BYTES_USED: bytes_used}
-    return _add_timestamp(metadata)
-
-
-def get_account_metadata(acc_path):
-    containers = []
-    container_count = 0
-    containers, container_count = get_account_details(acc_path)
-    metadata = {X_TYPE: ACCOUNT,
-                X_TIMESTAMP: normalize_timestamp(
-                    do_getctime(acc_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(
-                    do_getmtime(acc_path)),
-                X_OBJECTS_COUNT: 0,
-                X_BYTES_USED: 0,
-                X_CONTAINER_COUNT: container_count}
-    return _add_timestamp(metadata)
-
-
 def restore_metadata(path, metadata):
     meta_orig = read_metadata(path)
     if meta_orig:
@@ -442,18 +268,6 @@ def create_object_metadata(obj_path_or_fd):
     # module (for container operations) uses a path.
     metadata = get_object_metadata(obj_path_or_fd)
     return restore_metadata(obj_path_or_fd, metadata)
-
-
-def create_container_metadata(cont_path):
-    metadata = get_container_metadata(cont_path)
-    rmd = restore_metadata(cont_path, metadata)
-    return rmd
-
-
-def create_account_metadata(acc_path):
-    metadata = get_account_metadata(acc_path)
-    rmd = restore_metadata(acc_path, metadata)
-    return rmd
 
 
 # The following dir_xxx calls should definitely be replaced
@@ -530,3 +344,41 @@ def rmobjdir(dir_path):
         raise
     else:
         return True
+
+
+def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
+    """
+    Ensure that a pickle file gets written to disk.  The file is first written
+    to a tmp file location in the destination directory path, ensured it is
+    synced to disk, then moved to its final destination name.
+
+    This version takes advantage of Gluster's dot-prefix-dot-suffix naming
+    where the a file named ".thefile.name.9a7aasv" is hashed to the same
+    Gluster node as "thefile.name". This ensures the renaming of a temp file
+    once written does not move it to another Gluster node.
+
+    :param obj: python object to be pickled
+    :param dest: path of final destination file
+    :param tmp: path to tmp to use, defaults to None (ignored)
+    :param pickle_protocol: protocol to pickle the obj with, defaults to 0
+    """
+    dirname = os.path.dirname(dest)
+    # Create destination directory
+    try:
+        os.makedirs(dirname)
+    except OSError as err:
+        if err.errno != errno.EEXIST:
+            raise
+    basename = os.path.basename(dest)
+    tmpname = '.' + basename + '.' + \
+        md5(basename + str(random.random())).hexdigest()
+    tmppath = os.path.join(dirname, tmpname)
+    with open(tmppath, 'wb') as fo:
+        pickle.dump(obj, fo, pickle_protocol)
+        # TODO: This flush() method call turns into a flush() system call
+        # We'll need to wrap this as well, but we would do this by writing
+        # a context manager for our own open() method which returns an object
+        # in fo which makes the gluster API call.
+        fo.flush()
+        do_fsync(fo)
+    do_rename(tmppath, dest)

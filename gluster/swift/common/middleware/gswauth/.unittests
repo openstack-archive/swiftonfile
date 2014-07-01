@@ -1,4 +1,0 @@
-#!/bin/bash
-
-nosetests test_swauth/unit --exe --with-coverage --cover-package swauth --cover-erase
-rm -f .coverage

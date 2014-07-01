@@ -23,7 +23,6 @@ except ImportError:
     import random
 import logging
 import time
-from collections import defaultdict
 from socket import gethostname
 from hashlib import md5
 from eventlet import sleep
@@ -31,35 +30,31 @@ from greenlet import getcurrent
 from contextlib import contextmanager
 from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
-from swift.common.utils import TRUE_VALUES, ThreadPool, config_true_value
+from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
+    normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
 from swift.common.swob import multi_range_iterator
 
 from gluster.swift.common.exceptions import GlusterFileSystemOSError
-from gluster.swift.common.Glusterfs import mount
 from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
 from gluster.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
-    get_object_metadata
+    get_object_metadata, write_pickle
 from gluster.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
+from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
+from swift.obj.diskfile import get_async_dir
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
 O_CLOEXEC = 02000000
-
-DEFAULT_DISK_CHUNK_SIZE = 65536
-DEFAULT_KEEP_CACHE_SIZE = (5 * 1024 * 1024)
-DEFAULT_MB_PER_SYNC = 512
-# keep these lower-case
-DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
 MAX_RENAME_ATTEMPTS = 10
 MAX_OPEN_ATTEMPTS = 10
@@ -184,13 +179,6 @@ def make_directory(full_path, uid, gid, metadata=None):
 _fs_conf = ConfigParser()
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
-        _mkdir_locking = _fs_conf.get('DEFAULT', 'mkdir_locking', "no") \
-            in TRUE_VALUES
-        logging.warn("The option mkdir_locking has been deprecated and is"
-                     " no longer supported")
-    except (NoSectionError, NoOptionError):
-        pass
-    try:
         _use_put_mount = _fs_conf.get('DEFAULT', 'use_put_mount', "no") \
             in TRUE_VALUES
     except (NoSectionError, NoOptionError):
@@ -223,7 +211,7 @@ def _adjust_metadata(metadata):
     return metadata
 
 
-class OnDiskManager(object):
+class DiskFileManager(SwiftDiskFileManager):
     """
     Management class for devices, providing common place for shared parameters
     and methods not provided by the DiskFile class (which primarily services
@@ -241,41 +229,33 @@ class OnDiskManager(object):
     :param logger: caller provided logger
     """
     def __init__(self, conf, logger):
-        self.logger = logger
-        self.disk_chunk_size = int(conf.get('disk_chunk_size',
-                                            DEFAULT_DISK_CHUNK_SIZE))
-        self.keep_cache_size = int(conf.get('keep_cache_size',
-                                            DEFAULT_KEEP_CACHE_SIZE))
-        self.bytes_per_sync = int(conf.get('mb_per_sync',
-                                           DEFAULT_MB_PER_SYNC)) * 1024 * 1024
-        self.devices = conf.get('devices', '/srv/node/')
-        self.mount_check = config_true_value(conf.get('mount_check', 'true'))
-        threads_per_disk = int(conf.get('threads_per_disk', '0'))
-        self.threadpools = defaultdict(
-            lambda: ThreadPool(nthreads=threads_per_disk))
+        super(DiskFileManager, self).__init__(conf, logger)
+        self.reseller_prefix = \
+            conf.get('reseller_prefix', 'AUTH_').strip()  # Not used, currently
 
-    def _get_dev_path(self, device):
-        """
-        Return the path to a device, checking to see that it is a proper mount
-        point based on a configuration parameter.
-
-        :param device: name of target device
-        :returns: full path to the device, None if the path to the device is
-                  not a proper mount point.
-        """
-        if self.mount_check and not mount(self.devices, device):
-            dev_path = None
-        else:
-            dev_path = os.path.join(self.devices, device)
-        return dev_path
-
-    def get_diskfile(self, device, account, container, obj,
-                     **kwargs):
-        dev_path = self._get_dev_path(device)
+    def get_diskfile(self, device, partition, account, container, obj,
+                     policy_idx=0, **kwargs):
+        dev_path = self.get_dev_path(device)
         if not dev_path:
             raise DiskFileDeviceUnavailable()
         return DiskFile(self, dev_path, self.threadpools[device],
-                        account, container, obj, **kwargs)
+                        partition, account, container, obj,
+                        policy_idx=policy_idx, **kwargs)
+
+    def pickle_async_update(self, device, account, container, obj, data,
+                            timestamp, policy_idx):
+        # This method invokes swiftonfile's writepickle method.
+        # Is patching just write_pickle and calling parent method better ?
+        device_path = self.construct_dev_path(device)
+        async_dir = os.path.join(device_path, get_async_dir(policy_idx))
+        ohash = hash_path(account, container, obj)
+        self.threadpools[device].run_in_thread(
+            write_pickle,
+            data,
+            os.path.join(async_dir, ohash[-3:], ohash + '-' +
+                         normalize_timestamp(timestamp)),
+            os.path.join(device_path, 'tmp'))
+        self.logger.increment('async_pendings')
 
 
 class DiskFileWriter(object):
@@ -593,8 +573,10 @@ class DiskFile(object):
     :param uid: user ID disk object should assume (file or directory)
     :param gid: group ID disk object should assume (file or directory)
     """
-    def __init__(self, mgr, dev_path, threadpool, account, container, obj,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID):
+    def __init__(self, mgr, dev_path, threadpool, partition,
+                 account=None, container=None, obj=None,
+                 policy_idx=0, uid=DEFAULT_UID, gid=DEFAULT_GID):
+        # Variables partition and policy_idx is currently unused.
         self._mgr = mgr
         self._device_path = dev_path
         self._threadpool = threadpool or ThreadPool(nthreads=0)
@@ -607,7 +589,14 @@ class DiskFile(object):
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
-        self._container_path = os.path.join(self._device_path, container)
+        # Account name contains resller_prefix which is retained and not
+        # stripped. This to conform to Swift's behavior where account name
+        # entry in Account DBs contain resller_prefix.
+        self._account = account
+        self._container = container
+
+        self._container_path = \
+            os.path.join(self._device_path, self._account, self._container)
         obj = obj.strip(os.path.sep)
         obj_path, self._obj = os.path.split(obj)
         if obj_path:
@@ -862,6 +851,13 @@ class DiskFile(object):
         :raises AlreadyExistsAsFile: if path or part of a path is not a \
                                      directory
         """
+        # Create /account/container directory structure on mount point root
+        try:
+            os.makedirs(self._container_path)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                raise
+
         data_file = os.path.join(self._put_datadir, self._obj)
 
         # Assume the full directory path exists to the file already, and
