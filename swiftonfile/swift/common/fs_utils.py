@@ -25,7 +25,7 @@ from itertools import repeat
 import ctypes
 from eventlet import sleep
 from swift.common.utils import load_libc_function
-from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
+from swiftonfile.swift.common.exceptions import FileOrDirNotFoundError, \
     NotDirectoryError, GlusterFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 

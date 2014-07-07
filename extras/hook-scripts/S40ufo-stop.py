@@ -21,7 +21,7 @@ from optparse import OptionParser
 if __name__ == '__main__':
     # check if swift is installed
     try:
-        from gluster.swift.common.Glusterfs import get_mnt_point, unmount
+        from swiftonfile.swift.common.Glusterfs import get_mnt_point, unmount
     except ImportError:
         import sys
         sys.exit("Openstack Swift does not appear to be installed properly")

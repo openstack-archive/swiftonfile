@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Tests for gluster.swift.obj.diskfile """
+""" Tests for swiftonfile.swift.obj.diskfile """
 
 import os
 import stat
@@ -26,18 +26,18 @@ from eventlet import tpool
 from mock import Mock, patch
 from hashlib import md5
 from copy import deepcopy
-from gluster.swift.common.exceptions import AlreadyExistsAsDir, \
+from swiftonfile.swift.common.exceptions import AlreadyExistsAsDir, \
     AlreadyExistsAsFile
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileNotOpen
 from swift.common.utils import ThreadPool
 
-from gluster.swift.common.exceptions import GlusterFileSystemOSError
-import gluster.swift.common.utils
-from gluster.swift.common.utils import normalize_timestamp
-import gluster.swift.obj.diskfile
-from gluster.swift.obj.diskfile import DiskFileWriter, DiskFile, DiskFileManager
-from gluster.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
+from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
+import swiftonfile.swift.common.utils
+from swiftonfile.swift.common.utils import normalize_timestamp
+import swiftonfile.swift.obj.diskfile
+from swiftonfile.swift.obj.diskfile import DiskFileWriter, DiskFile, DiskFileManager
+from swiftonfile.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
     X_OBJECT_TYPE, DIR_OBJECT
 
 from test.unit.common.test_utils import _initxattr, _destroyxattr
@@ -81,7 +81,7 @@ class MockException(Exception):
 
 
 def _mock_rmobjdir(p):
-    raise MockException("gluster.swift.obj.diskfile.rmobjdir() called")
+    raise MockException("swiftonfile.swift.obj.diskfile.rmobjdir() called")
 
 
 def _mock_do_fsync(fd):
@@ -96,12 +96,12 @@ def _mock_renamer(a, b):
     raise MockRenamerCalled()
 
 class TestDiskFileWriter(unittest.TestCase):
-    """ Tests for gluster.swift.obj.diskfile.DiskFileWriter """
+    """ Tests for swiftonfile.swift.obj.diskfile.DiskFileWriter """
 
     def test_close(self):
         dw = DiskFileWriter(100, 'a', None)
         mock_close = Mock()
-        with patch("gluster.swift.obj.diskfile.do_close", mock_close):
+        with patch("swiftonfile.swift.obj.diskfile.do_close", mock_close):
             # It should call do_close
             self.assertEqual(100, dw._fd)
             dw.close()
@@ -115,7 +115,7 @@ class TestDiskFileWriter(unittest.TestCase):
             self.assertEqual(1, mock_close.call_count)
 
 class TestDiskFile(unittest.TestCase):
-    """ Tests for gluster.swift.obj.diskfile """
+    """ Tests for swiftonfile.swift.obj.diskfile """
 
     def setUp(self):
         self._orig_tpool_exc = tpool.execute
@@ -123,16 +123,16 @@ class TestDiskFile(unittest.TestCase):
         self.lg = FakeLogger()
         _initxattr()
         _mock_clear_metadata()
-        self._saved_df_wm = gluster.swift.obj.diskfile.write_metadata
-        self._saved_df_rm = gluster.swift.obj.diskfile.read_metadata
-        gluster.swift.obj.diskfile.write_metadata = _mock_write_metadata
-        gluster.swift.obj.diskfile.read_metadata = _mock_read_metadata
-        self._saved_ut_wm = gluster.swift.common.utils.write_metadata
-        self._saved_ut_rm = gluster.swift.common.utils.read_metadata
-        gluster.swift.common.utils.write_metadata = _mock_write_metadata
-        gluster.swift.common.utils.read_metadata = _mock_read_metadata
-        self._saved_do_fsync = gluster.swift.obj.diskfile.do_fsync
-        gluster.swift.obj.diskfile.do_fsync = _mock_do_fsync
+        self._saved_df_wm = swiftonfile.swift.obj.diskfile.write_metadata
+        self._saved_df_rm = swiftonfile.swift.obj.diskfile.read_metadata
+        swiftonfile.swift.obj.diskfile.write_metadata = _mock_write_metadata
+        swiftonfile.swift.obj.diskfile.read_metadata = _mock_read_metadata
+        self._saved_ut_wm = swiftonfile.swift.common.utils.write_metadata
+        self._saved_ut_rm = swiftonfile.swift.common.utils.read_metadata
+        swiftonfile.swift.common.utils.write_metadata = _mock_write_metadata
+        swiftonfile.swift.common.utils.read_metadata = _mock_read_metadata
+        self._saved_do_fsync = swiftonfile.swift.obj.diskfile.do_fsync
+        swiftonfile.swift.obj.diskfile.do_fsync = _mock_do_fsync
         self.td = tempfile.mkdtemp()
         self.conf = dict(devices=self.td, mb_per_sync=2,
                          keep_cache_size=(1024 * 1024), mount_check=False)
@@ -142,11 +142,11 @@ class TestDiskFile(unittest.TestCase):
         tpool.execute = self._orig_tpool_exc
         self.lg = None
         _destroyxattr()
-        gluster.swift.obj.diskfile.write_metadata = self._saved_df_wm
-        gluster.swift.obj.diskfile.read_metadata = self._saved_df_rm
-        gluster.swift.common.utils.write_metadata = self._saved_ut_wm
-        gluster.swift.common.utils.read_metadata = self._saved_ut_rm
-        gluster.swift.obj.diskfile.do_fsync = self._saved_do_fsync
+        swiftonfile.swift.obj.diskfile.write_metadata = self._saved_df_wm
+        swiftonfile.swift.obj.diskfile.read_metadata = self._saved_df_rm
+        swiftonfile.swift.common.utils.write_metadata = self._saved_ut_wm
+        swiftonfile.swift.common.utils.read_metadata = self._saved_ut_rm
+        swiftonfile.swift.obj.diskfile.do_fsync = self._saved_do_fsync
         shutil.rmtree(self.td)
 
     def _get_diskfile(self, d, p, a, c, o, **kwargs):
@@ -207,7 +207,7 @@ class TestDiskFile(unittest.TestCase):
     def test_open_and_close(self):
         mock_close = Mock()
 
-        with mock.patch("gluster.swift.obj.diskfile.do_close", mock_close):
+        with mock.patch("swiftonfile.swift.obj.diskfile.do_close", mock_close):
             gdf = self._create_and_get_diskfile("vol0", "p57", "ufo47",
                                                 "bar", "z")
             with gdf.open():
@@ -308,7 +308,7 @@ class TestDiskFile(unittest.TestCase):
             closed[0] = True
             os.close(fd[0])
 
-        with mock.patch("gluster.swift.obj.diskfile.do_close", mock_close):
+        with mock.patch("swiftonfile.swift.obj.diskfile.do_close", mock_close):
             gdf = self._create_and_get_diskfile("vol0", "p57", "ufo47", "bar", "z")
             with gdf.open():
                 assert gdf._fd is not None
@@ -361,7 +361,7 @@ class TestDiskFile(unittest.TestCase):
             closed[0] = True
             os.close(fd[0])
 
-        with mock.patch("gluster.swift.obj.diskfile.do_close", mock_close):
+        with mock.patch("swiftonfile.swift.obj.diskfile.do_close", mock_close):
             gdf = self._create_and_get_diskfile("vol0", "p57", "ufo47", "bar", "z", fsize=1024*1024*2)
             with gdf.open():
                 assert gdf._fd is not None
@@ -388,7 +388,7 @@ class TestDiskFile(unittest.TestCase):
         try:
             chunks = [ck for ck in reader]
             assert len(chunks) == 0, repr(chunks)
-            with mock.patch("gluster.swift.obj.diskfile.do_close",
+            with mock.patch("swiftonfile.swift.obj.diskfile.do_close",
                             our_do_close):
                 reader.close()
             assert not called[0]
@@ -437,11 +437,11 @@ class TestDiskFile(unittest.TestCase):
             assert u == DEFAULT_UID
             assert g == DEFAULT_GID
 
-        dc = gluster.swift.obj.diskfile.do_chown
-        gluster.swift.obj.diskfile.do_chown = _mock_do_chown
+        dc = swiftonfile.swift.obj.diskfile.do_chown
+        swiftonfile.swift.obj.diskfile.do_chown = _mock_do_chown
         self.assertRaises(
             AlreadyExistsAsFile, gdf._create_dir_object, the_dir)
-        gluster.swift.obj.diskfile.do_chown = dc
+        swiftonfile.swift.obj.diskfile.do_chown = dc
         self.assertFalse(os.path.isdir(the_dir))
         self.assertFalse(_mapit(the_dir) in _metadata)
 
@@ -459,11 +459,11 @@ class TestDiskFile(unittest.TestCase):
             assert u == DEFAULT_UID
             assert g == DEFAULT_GID
 
-        dc = gluster.swift.obj.diskfile.do_chown
-        gluster.swift.obj.diskfile.do_chown = _mock_do_chown
+        dc = swiftonfile.swift.obj.diskfile.do_chown
+        swiftonfile.swift.obj.diskfile.do_chown = _mock_do_chown
         self.assertRaises(
             AlreadyExistsAsFile, gdf._create_dir_object, the_dir)
-        gluster.swift.obj.diskfile.do_chown = dc
+        swiftonfile.swift.obj.diskfile.do_chown = dc
         self.assertFalse(os.path.isdir(the_dir))
         self.assertFalse(_mapit(the_dir) in _metadata)
 
@@ -756,7 +756,7 @@ class TestDiskFile(unittest.TestCase):
         def mock_rename(*args, **kwargs):
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
 
-        with mock.patch("gluster.swift.obj.diskfile.sleep", mock_sleep):
+        with mock.patch("swiftonfile.swift.obj.diskfile.sleep", mock_sleep):
             with mock.patch("os.rename", mock_rename):
                 try:
                     with gdf.create() as dw:

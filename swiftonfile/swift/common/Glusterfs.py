@@ -22,8 +22,8 @@ import urllib
 
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.common.utils import TRUE_VALUES
-from gluster.swift.common.fs_utils import do_ismount
-from gluster.swift.common.exceptions import FailureToMountError
+from swiftonfile.swift.common.fs_utils import do_ismount
+from swiftonfile.swift.common.exceptions import FailureToMountError
 
 #
 # Read the fs.conf file once at startup (module load)

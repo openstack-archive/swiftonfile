@@ -28,8 +28,8 @@ cleanup()
         sudo service memcached stop
         sudo_env swift-init main stop
         sudo rm -rf /etc/swift > /dev/null 2>&1
-        sudo rm -rf /mnt/gluster-object/test{,2}/* > /dev/null 2>&1
-        sudo setfattr -x user.swift.metadata /mnt/gluster-object/test{,2} > /dev/null 2>&1
+        sudo rm -rf /mnt/swiftonfile/test{,2}/* > /dev/null 2>&1
+        sudo setfattr -x user.swift.metadata /mnt/swiftonfile/test{,2} > /dev/null 2>&1
 }
 
 quit()
@@ -53,7 +53,7 @@ if [ -x /etc/swift ] ; then
 fi
 
 # Check the directories exist
-DIRS="/mnt/gluster-object /mnt/gluster-object/test /mnt/gluster-object/test2"
+DIRS="/mnt/swiftonfile /mnt/swiftonfile/test /mnt/swiftonfile/test2"
 for d in $DIRS ; do
 	if [ ! -x $d ] ; then
 		quit "$d must exist on an XFS or GlusterFS volume"

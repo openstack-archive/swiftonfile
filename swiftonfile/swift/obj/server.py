@@ -15,16 +15,16 @@
 
 """ Object Server for Gluster for Swift """
 
-import gluster.swift.common.constraints    # noqa
+import swiftonfile.swift.common.constraints    # noqa
 from swift.common.swob import HTTPConflict
 from swift.common.utils import public, timing_stats
-from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
+from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.request_helpers import split_and_validate_path
 
 from swift.obj import server
 
-from gluster.swift.obj.diskfile import DiskFileManager
+from swiftonfile.swift.obj.diskfile import DiskFileManager
 
 
 class ObjectController(server.ObjectController):
@@ -64,7 +64,7 @@ class ObjectController(server.ObjectController):
     def PUT(self, request):
         try:
             server.check_object_creation = \
-                gluster.swift.common.constraints.sof_check_object_creation
+                swiftonfile.swift.common.constraints.sof_check_object_creation
             return server.ObjectController.PUT(self, request)
         except (AlreadyExistsAsFile, AlreadyExistsAsDir):
             device = \
