@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Tests for gluster.swift.obj.server subclass """
+""" Tests for swiftonfile.swift.obj.server subclass """
 
 import unittest
 from nose import SkipTest
 
-import gluster.swift.obj.server as server
+import swiftonfile.swift.obj.server as server
 
 
 class TestObjServer(unittest.TestCase):

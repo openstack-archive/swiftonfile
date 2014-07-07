@@ -40,5 +40,5 @@ effect."
 fi
 
 echo "Successfully configured Apache as frontend for Swift."
-echo "Make sure GlusterFS volume is mounted at /mnt/gluster-object/<vol-name> \
+echo "Make sure GlusterFS volume is mounted at /mnt/swiftonfile/<vol-name> \
 before starting httpd"

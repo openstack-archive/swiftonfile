@@ -15,7 +15,7 @@
 
 import unittest
 from mock import Mock, patch
-from gluster.swift.common import constraints as cnt
+from swiftonfile.swift.common import constraints as cnt
 
 
 def mock_check_object_creation(*args, **kwargs):
@@ -41,7 +41,7 @@ class TestConstraints(unittest.TestCase):
         self.assertTrue(cnt.validate_obj_name_component(''))
 
     def test_sof_check_object_creation(self):
-        with patch('gluster.swift.common.constraints.swift_check_object_creation',
+        with patch('swiftonfile.swift.common.constraints.swift_check_object_creation',
                    mock_check_object_creation):
             req = Mock()
             req.headers = []

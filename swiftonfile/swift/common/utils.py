@@ -21,9 +21,9 @@ import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
-from gluster.swift.common.exceptions import GlusterFileSystemIOError
+from swiftonfile.swift.common.exceptions import GlusterFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
-from gluster.swift.common.fs_utils import do_stat, \
+from swiftonfile.swift.common.fs_utils import do_stat, \
     do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
     do_getxattr, do_setxattr, do_removexattr, do_read, \
     do_close, do_dup, do_lseek, do_fstat, do_fsync, do_rename

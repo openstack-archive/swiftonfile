@@ -28,7 +28,7 @@ from hashlib import md5
 from eventlet import sleep
 from greenlet import getcurrent
 from contextlib import contextmanager
-from gluster.swift.common.exceptions import AlreadyExistsAsFile, \
+from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
     normalize_timestamp
@@ -37,14 +37,14 @@ from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileExpired
 from swift.common.swob import multi_range_iterator
 
-from gluster.swift.common.exceptions import GlusterFileSystemOSError
-from gluster.swift.common.fs_utils import do_fstat, do_open, do_close, \
+from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
+from swiftonfile.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
-from gluster.swift.common.utils import read_metadata, write_metadata, \
+from swiftonfile.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
     get_object_metadata, write_pickle
-from gluster.swift.common.utils import X_CONTENT_TYPE, \
+from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
@@ -561,7 +561,7 @@ class DiskFile(object):
     Object names ending or beginning with a '/' as in /a, a/, /a/b/,
     etc, or object names with multiple consecutive slahes, like a//b,
     are not supported.  The proxy server's contraints filter
-    gluster.common.constrains.gluster_check_object_creation() should
+    swiftonfile.common.constrains.sof_check_object_creation() should
     reject such requests.
 
     :param mgr: associated on-disk manager instance

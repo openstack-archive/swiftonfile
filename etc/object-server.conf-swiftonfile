@@ -30,7 +30,7 @@ disable_fallocate = true
 pipeline = object-server
 
 [app:object-server]
-use = egg:gluster_swift#object
+use = egg:swiftonfile#object
 user = root
 log_facility = LOG_LOCAL2
 log_level = WARN

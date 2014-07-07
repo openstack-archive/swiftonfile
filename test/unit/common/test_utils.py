@@ -26,8 +26,8 @@ import tarfile
 import shutil
 from collections import defaultdict
 from mock import patch
-from gluster.swift.common import utils, Glusterfs
-from gluster.swift.common.exceptions import GlusterFileSystemOSError
+from swiftonfile.swift.common import utils, Glusterfs
+from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
 #
@@ -466,7 +466,7 @@ class TestUtils(unittest.TestCase):
         try:
             fpp = os.path.join(td, 'pp')
             # FIXME: Remove this patch when coverage.py can handle eventlet
-            with patch("gluster.swift.common.fs_utils.do_fsync",
+            with patch("swiftonfile.swift.common.fs_utils.do_fsync",
                        _mock_os_fsync):
                 utils.write_pickle('pickled peppers', fpp)
             with open(fpp, "rb") as f:
@@ -483,7 +483,7 @@ class TestUtils(unittest.TestCase):
             fpp = os.path.join(td, 'pp')
             # Also test an explicity pickle protocol
             # FIXME: Remove this patch when coverage.py can handle eventlet
-            with patch("gluster.swift.common.fs_utils.do_fsync",
+            with patch("swiftonfile.swift.common.fs_utils.do_fsync",
                        _mock_os_fsync):
                 utils.write_pickle('pickled peppers', fpp, tmp=tf.name,
                                    pickle_protocol=2)
