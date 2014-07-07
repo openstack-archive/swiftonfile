@@ -429,7 +429,7 @@ class DiskFileWriter(object):
 
         # Avoid the unlink() system call as part of the mkstemp context
         # cleanup
-        self.tmppath = None
+        self._tmppath = None
 
 
 class DiskFileReader(object):

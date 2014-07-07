@@ -271,7 +271,7 @@ def do_unlink(path, log=True):
         if err.errno != errno.ENOENT:
             raise GlusterFileSystemOSError(
                 err.errno, '%s, os.unlink("%s")' % (err.strerror, path))
-        elif log:
+        else:
             logging.warn("fs_utils: os.unlink failed on non-existent path: %s",
                          path)
 
