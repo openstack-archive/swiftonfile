@@ -80,7 +80,7 @@ print "Invoking SAIO's remakerings script"
 remakerings
 
 print "Copying conf files into /etc/swift. This will replace swift.conf and test.conf"
-\cp etc/object-server.conf-gluster /etc/swift/object-server/5.conf
+\cp etc/object-server.conf-swiftonfile /etc/swift/object-server/5.conf
 \cp test/functional/conf/swift.conf /etc/swift/swift.conf
 \cp test/functional/conf/test.conf /etc/swift/test.conf
 
@@ -103,9 +103,9 @@ mkdir functional_tests_result > /dev/null 2>&1
 print "Runnning functional tests"
 nosetests -v --exe \
 	--with-xunit \
-	--xunit-file functional_tests_result/gluster-swift-generic-functional-TC-report.xml \
+	--xunit-file functional_tests_result/swiftonfile-generic-functional-TC-report.xml \
     --with-html-output \
-    --html-out-file functional_tests_result/gluster-swift-generic-functional-result.html \
+    --html-out-file functional_tests_result/swiftonfile-generic-functional-result.html \
     test/functional || fail "Functional tests failed"
 cleanup
 exit 0
