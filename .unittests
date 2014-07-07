@@ -26,7 +26,7 @@ else
     cover_branches="--cover-branches --cover-html --cover-html-dir=$TOP_DIR/cover"
 fi
 cd $TOP_DIR/test/unit
-nosetests -v --exe --with-coverage --cover-package gluster. --cover-erase $cover_branches $@
+nosetests -v --exe --with-coverage --cover-package swiftonfile --cover-erase $cover_branches $@
 rvalue=$?
 rm -f .coverage
 cd -
