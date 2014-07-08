@@ -962,7 +962,7 @@ class TestDiskFile(unittest.TestCase):
         }
 
         _mock_do_unlink = Mock()  # Shouldn't be called
-        with patch("gluster.swift.obj.diskfile.do_unlink", _mock_do_unlink):
+        with patch("swiftonfile.swift.obj.diskfile.do_unlink", _mock_do_unlink):
             with gdf.create() as dw:
                 assert dw._tmppath is not None
                 tmppath = dw._tmppath
