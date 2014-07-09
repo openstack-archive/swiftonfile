@@ -14,17 +14,17 @@
 # limitations under the License.
 
 from setuptools import setup, find_packages
-from gluster.swift import _pkginfo
+from swiftonfile.swift import _pkginfo
 
 
 setup(
     name=_pkginfo.name,
     version=_pkginfo.full_version,
-    description='Gluster For Swift',
+    description='SwiftOnfile',
     license='Apache License (2.0)',
     author='Red Hat, Inc.',
     author_email='gluster-users@gluster.org',
-    url='http://launchpad.net/gluster-swift',
+    url='https://github.com/swiftonfile/swiftonfile',
     packages=find_packages(exclude=['test', 'bin']),
     test_suite='nose.collector',
     classifiers=[
@@ -41,11 +41,11 @@ setup(
     ],
     install_requires=[],
     scripts=[
-        'bin/gluster-swift-print-metadata',
+        'bin/swiftonfile-print-metadata',
     ],
     entry_points={
         'paste.app_factory': [
-            'object=gluster.swift.obj.server:app_factory',
+            'object=swiftonfile.swift.obj.server:app_factory',
         ],
     },
 )

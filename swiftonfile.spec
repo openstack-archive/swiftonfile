@@ -8,12 +8,12 @@
 %{!?_name:%define _name __PKG_NAME__}
 %{!?_release:%define _release __PKG_RELEASE__}
 
-Summary  : GlusterFS Integration with OpenStack Object Storage (Swift).
+Summary  : SwiftOnFile enables Swift objects to be accessed as files.
 Name     : %{_name}
 Version  : %{_version}
 Release  : %{_release}%{?dist}
 Group    : Application/File
-URL      : http://launchpad.net/gluster-swift
+URL      : https://github.com/swiftonfile/swiftonfile
 Vendor   : Fedora Project
 Source0  : %{_name}-%{_version}-%{_release}.tar.gz
 License  : ASL 2.0
@@ -46,7 +46,7 @@ as top-level directories of volumes, where accounts are mapped one-to-one to
 gluster volumes.
 
 %prep
-%setup -q -n gluster_swift-%{_version}
+%setup -q -n swiftonfile-%{_version}
 
 %build
 %{__python} setup.py build
@@ -68,23 +68,11 @@ done
 # Remove tests
 %{__rm} -rf %{buildroot}/%{python_sitelib}/test
 
-# Remove files provided by glusterfs-api
-%{__rm} -rf %{buildroot}/%{python_sitelib}/gluster/__init__.p*
-
 %files
 %defattr(-,root,root)
-%{python_sitelib}/gluster
-%{python_sitelib}/gluster_swift-%{_version}_*.egg-info
-%{_bindir}/gluster-swift-gen-builders
-%{_bindir}/gluster-swift-print-metadata
-%{_bindir}/gswauth-add-account
-%{_bindir}/gswauth-add-user
-%{_bindir}/gswauth-cleanup-tokens
-%{_bindir}/gswauth-delete-account
-%{_bindir}/gswauth-delete-user
-%{_bindir}/gswauth-list
-%{_bindir}/gswauth-prep
-%{_bindir}/gswauth-set-account-service
+%{python_sitelib}/swiftonfile
+%{python_sitelib}/swiftonfile-%{_version}_*.egg-info
+%{_bindir}/swiftonfile-print-metadata
 %{_mandir}/man8/*
 
 %dir %{_confdir}

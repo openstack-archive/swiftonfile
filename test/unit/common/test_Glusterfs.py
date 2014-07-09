@@ -19,7 +19,7 @@ import time
 import StringIO
 import mock
 from tempfile import mkdtemp
-import gluster.swift.common.Glusterfs as gfs
+import swiftonfile.swift.common.Glusterfs as gfs
 
 def mock_os_path_ismount_false(path):
     return False
@@ -92,7 +92,7 @@ class TestGlusterfs(unittest.TestCase):
     def test_mount(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test'
 
             _init_mock_variables(tmpdir)
@@ -104,7 +104,7 @@ class TestGlusterfs(unittest.TestCase):
     def test_mount_egain(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test'
 
             _init_mock_variables(tmpdir)
@@ -117,7 +117,7 @@ class TestGlusterfs(unittest.TestCase):
     def test_mount_get_export_list_err(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test3'
 
             _init_mock_variables(tmpdir)
@@ -132,7 +132,7 @@ class TestGlusterfs(unittest.TestCase):
         """
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test'
 
             _init_mock_variables(tmpdir)
@@ -150,7 +150,7 @@ class TestGlusterfs(unittest.TestCase):
         """
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test'
 
             _init_mock_variables(tmpdir)
@@ -166,7 +166,7 @@ class TestGlusterfs(unittest.TestCase):
     def test_invalid_drive_name(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'te st'
 
             _init_mock_variables(tmpdir)
@@ -178,14 +178,14 @@ class TestGlusterfs(unittest.TestCase):
     def test_already_mounted(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile')
             drive  = 'test'
 
             _init_mock_variables(tmpdir)
             def mock_do_ismount(path):
                 return True
 
-            with mock.patch("gluster.swift.common.Glusterfs.do_ismount",
+            with mock.patch("swiftonfile.swift.common.Glusterfs.do_ismount",
                 mock_do_ismount):
                 self.assertTrue(gfs.mount(root, drive))
         finally:
@@ -195,7 +195,7 @@ class TestGlusterfs(unittest.TestCase):
     def test_get_export_list(self):
         try:
             tmpdir = mkdtemp()
-            root   = os.path.join(tmpdir, 'mnt/gluster-object')
+            root   = os.path.join(tmpdir, 'mnt/swiftonfile-object')
             drive  = 'test'
 
             # undo mocking of _get_export_list

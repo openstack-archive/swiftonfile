@@ -13,36 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Tests for gluster.swift """
+""" Tests for swiftonfile.swift """
 
 import os
 import unittest
 import shutil
 import tempfile
 
-import gluster.swift as gs
+import swiftonfile.swift as sof
 
 
 class TestPkgInfo(unittest.TestCase):
     """
-    Tests for gluster.swift PkgInfo class.
+    Tests for swiftonfile.swift PkgInfo class.
     """
 
     def test_constructor(self):
-        pi = gs.PkgInfo('a', 'b', 'c', 'd')
+        pi = sof.PkgInfo('a', 'b', 'c', 'd')
         assert pi.canonical_version == 'a'
         assert pi.name == 'c'
         self.assertEqual(pi.release, 'b')
         assert pi.final == 'd'
 
     def test_pretty_version(self):
-        pi = gs.PkgInfo('a', 'b', 'c', False)
+        pi = sof.PkgInfo('a', 'b', 'c', False)
         assert pi.pretty_version == 'a-dev'
-        pi = gs.PkgInfo('a', 'b', 'c', True)
+        pi = sof.PkgInfo('a', 'b', 'c', True)
         assert pi.pretty_version == 'a'
 
     def test_save_config(self):
-        pi = gs.PkgInfo('a', 'b', 'c', 'd')
+        pi = sof.PkgInfo('a', 'b', 'c', 'd')
         td = tempfile.mkdtemp()
         try:
             sc = os.path.join(td, 'saved_config.txt')

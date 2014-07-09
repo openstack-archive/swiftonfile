@@ -59,7 +59,7 @@ Before proceeding forward, please make sure you already have:
        name = swiftonfile
        default = yes
 
-4. Copied etc/object-server.conf-gluster to /etc/swift/object-server/5.conf
+4. Copied etc/object-server.conf-swiftonfile to /etc/swift/object-server/5.conf
 
 5. Generated ring files for swiftonfile policy.
    Example: for policy with index 2
@@ -91,9 +91,9 @@ mkdir functional_tests_result > /dev/null 2>&1
 print "Runnning functional tests"
 nosetests -v --exe \
 	--with-xunit \
-	--xunit-file functional_tests_result/gluster-swift-generic-functional-TC-report.xml \
+	--xunit-file functional_tests_result/swiftonfile-generic-functional-TC-report.xml \
     --with-html-output \
-    --html-out-file functional_tests_result/gluster-swift-generic-functional-result.html \
+    --html-out-file functional_tests_result/swiftonfile-generic-functional-result.html \
     test/functional || fail "Functional tests failed"
 cleanup
 exit 0
