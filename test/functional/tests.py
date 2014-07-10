@@ -119,6 +119,10 @@ class TestAccount(Base):
     env = TestAccountEnv
     set_up = False
 
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
+
     def testNoAuthToken(self):
         self.assertRaises(ResponseError, self.env.account.info,
                           cfg={'no_auth_token': True})
@@ -351,6 +355,10 @@ class TestContainerDevUTF8(Base2, TestContainerDev):
 class TestContainer(Base):
     env = TestContainerEnv
     set_up = False
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def testContainerNameLimit(self):
         limit = load_constraint('max_container_name_length')
@@ -816,6 +824,10 @@ class TestFileDevUTF8(Base2, TestFileDev):
 class TestFile(Base):
     env = TestFileEnv
     set_up = False
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def testCopy(self):
         # makes sure to test encoded characters
@@ -1535,6 +1547,10 @@ class TestDlo(Base):
     env = TestDloEnv
     set_up = False
 
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
+
     def test_get_manifest(self):
         file_item = self.env.container.file('man1')
         file_contents = file_item.read()
@@ -1697,6 +1713,10 @@ class TestFileComparisonEnv(object):
 class TestFileComparison(Base):
     env = TestFileComparisonEnv
     set_up = False
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def testIfMatch(self):
         for file_item in self.env.files:
@@ -1871,6 +1891,10 @@ class TestSlo(Base):
             raise Exception(
                 "Expected slo_enabled to be True/False, got %r" %
                 (self.env.slo_enabled,))
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def test_slo_get_simple_manifest(self):
         file_item = self.env.container.file('manifest-abcde')
@@ -2149,6 +2173,10 @@ class TestObjectVersioning(Base):
                 "Expected versioning_enabled to be True/False, got %r" %
                 (self.env.versioning_enabled,))
 
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
+
     def test_overwriting(self):
         container = self.env.container
         versions_container = self.env.versions_container
@@ -2254,6 +2282,10 @@ class TestTempurl(Base):
             self.env.tempurl_key)
         self.obj_tempurl_parms = {'temp_url_sig': sig,
                                   'temp_url_expires': str(expires)}
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def tempurl_sig(self, method, expires, path, key):
         return hmac.new(
@@ -2432,6 +2464,10 @@ class TestSloTempurl(Base):
             raise Exception(
                 "Expected enabled to be True/False, got %r" %
                 (self.env.enabled,))
+
+    @classmethod
+    def tearDownClass(self):
+        self.env.account.delete_containers()
 
     def tempurl_sig(self, method, expires, path, key):
         return hmac.new(
