@@ -9,33 +9,33 @@
 
 <a name="overview" />
 ## Overview
-SwiftOnFile allows any POSIX complaint filesystem to be used as the backend to the object store OpenStack Swift.
+SwiftOnFile allows any POSIX complaint filesystem (which supports extended attributes) to be used as the backend to the OpenStack Swift(Object Store).
 
-The following guide assumes you have a running [OpenStack Swift SAIO setup][], and you want to extend this setup to try SwiftOnFile as Storage Policy on a XFS/gluster volume. This   will get you quickly started with a SwiftOnFile environment on a Fedora or RHEL/CentOS system. 
+The following guide assumes you have a running [OpenStack Swift SAIO setup][], and you want to extend this setup to try SwiftOnFile as Storage Policy on a with XFS partition or GlusterFS volume. This will get you quickly started with a SwiftOnFile deployment on a Fedora or RHEL/CentOS system. 
 
-This guide will not go on detail on how to prepare a Swift SAIO setup or how to create a gluster volume (or other FS).This guide assumes you know about these technologies, if you require any help in setting those please refer to the link provided.
+This guide will not go on detail on how to prepare a Swift SAIO setup or how to create a gluster volume (or other FS).This guide assumes you know about these technologies, if you require any help in setting those please refer to the links provided.
 
 <a name="system_setup" />
 ## System Setup
 
 ### Prerequisites on CentOS/RHEL
 
-1. OpenStack SAIO deployment on Fedora20 onwards 
-2. One xfs/glusterfs volume - named vol
+1. OpenStack SAIO deployment(this guide uses SAIO on Fedora20) 
+2. One xfs partition /glusterfs volume - named vol
 
->Note: Swift SAIO deployment should contain Storage Policy code changes. Initialy Storage Policy feature was developed seprately in openstack swift feature/ec branch, and it is now merged in master branch. The latest OpenStack Swift2.0 release also contain storage policy code.
+>Note: Swift SAIO deployment should contain Storage Policy code changes. SwiftOnFile should work with OpenStack Swift2.0.0 release and onwards. Icehouse and prior release of OpenStack Swift does not have Storage Policy code.
 
-Each xfs/glusterfs volume will be defined as a separate storage policy. 
+Each xfs partition/glusterfs volume will be defined as a separate storage policy. 
 
 ### Install SwiftOnfile
 1. Before you begin swiftonfile setup please ensure you have OpenStack Swift SAIO setup up & running. Please refer to the SAIO guide for this.
-2. cd ~; git clone https://github.com/swiftonfile/swiftonfile.git
-3. cd ~/swiftonfile;python setup.py develop;cd ~
+2. cd $HOME; git clone https://github.com/swiftonfile/swiftonfile.git
+3. cd $HOME/swiftonfile;python setup.py develop;cd $HOME
 
 ### Configure SwiftOnFile as Storage Policy
 
 #### Object Server Configuration
-A SAIO setup mimic a four node swift setup and should have four object server running.Add another object server for SwiftOnFile by setting the following configurations in the file /etc/swift/object-server/5.conf:
+A SAIO setup emulates a four node swift setup and should have four object server running.Add another object server for SwiftOnFile DiskFile API implementation by setting the following configurations in the file /etc/swift/object-server/5.conf:
 
 ~~~
 [DEFAULT]
@@ -57,7 +57,7 @@ log_level = DEBUG
 log_requests = on
 disk_chunk_size = 65536
 ~~~
->Note: The parameter 'devices' tells about the path where your xfs/glusterfs volume is mounted. The sub directory under which your volume is mounted will be called volume name. For ex: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your volume name would be 'vol'& and the parameter 'devices' would contain value '/mnt/xfsvols'.
+>Note: The parameter 'devices' tells about the path where your xfs partition /glusterfs volume is mounted. The sub directory under which your xfs partition/glusterfs volume is mounted will be called device name. For ex: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
 
 #### Setting SwiftOnFile as storage policy
 Edit /etc/swift.conf to add swiftonfile as a storage policy:
@@ -81,7 +81,7 @@ swift-ring-builder object-1.builder add r1z1-127.0.0.1:6050/vol 1
 swift-ring-builder object-1.builder rebalance
 ~~~
 Execute the remakerings script to prepare new rings files.
-In a SAIO setup remakerings scipt is usually situated at ~/bin/remakerings.It you can also run above rings builder commands manually.
+In a SAIO setup remakerings scipt is usually situated at ~/bin/remakerings.You can also run above rings builder commands manually.
 
 Notice the mapping between SP index (1) defined in conf file above and the object ring builder command.
 
@@ -89,7 +89,7 @@ Notice the mapping between SP index (1) defined in conf file above and the objec
 Restart swift services to reflect new changes:
 
 ~~~
-swift-init all restart
+swift-init main restart
 ~~~
 
 
@@ -99,7 +99,7 @@ swift-init all restart
 TBD
 
 ## Using SwiftOnFile
-It is assumed that you are still using 'tempauth' as authnetication method, which is default in SAIO deployment.
+It is assumed that you are still using 'tempauth' as authentication method, which is default in SAIO deployment.
 
 #### Get the token
 ~~~
@@ -128,7 +128,7 @@ To confirm that the object has been written correctly, you can compare the
 test file with the object you created:
 
 ~~~
-cat /mnt/xfsvols/vol/test/mycontainer/mytestfile
+cat /mnt/xfsvols/vol/AUTH_test/mycontainer/mytestfile
 ~~~
 
 #### Request the object
@@ -145,17 +145,18 @@ and compare it with md5sum of the file on your FS.
 
 <a name="what_now" />
 ## What now?
+You now have a single node SwiftOnFile setup ready, next sane step is a multinode swift and SwiftOnFile setup. It is recomended to have a look at [OpenStack Swift deployment guide][] & [Multiple Server Swift Installation][].If you now consider yourself familiar with a typical 4-5 node swift setup, you are good to extent this setup further and add SwiftOnFile DiskFile implementation as a Storage Policy to it. If you want to use SwiftOnFile on a gluster volume, it would be good to have a seprate gluster cluster. We would love to hear about any deployment scenarios involving SOF.
+    
 For more information, please visit the following links:
-
-* [Authentication Services Start Guide][]
+* [OpenStack Swift deployment guide][]
+* [Multiple Server Swift Installation][]
+* [OpenStack Swift Storage Policy][]
 * [GlusterFS Quick Start Guide][]
 * [OpenStack Swift API][]
 
 [GlusterFS Quick Start Guide]: http://www.gluster.org/community/documentation/index.php/QuickStart
 [OpenStack Swift API]: http://docs.openstack.org/api/openstack-object-storage/1.0/content/
-[Jenkins]: http://jenkins-ci.org
-[Authentication Services Start Guide]: auth_guide.md
-[EPEL]: https://fedoraproject.org/wiki/EPEL
-[Jenkins CI]: http://build.gluster.org/job/swiftonfile-builds/lastSuccessfulBuild/artifact/build/
-[test code]: https://github.com/swiftonfile/swiftonfile/tree/master/test/functional_auth/tempauth/conf/
+[OpenStack Swift Storage Policy]: http://docs.openstack.org/developer/swift/overview_policies.html
 [OpenStack Swift SAIO setup]: http://docs.openstack.org/developer/swift/development_saio.html
+[OpenStack Swift deployment guide][http://docs.openstack.org/developer/swift/deployment_guide.html]
+[Multiple Server Swift Installation][http://docs.openstack.org/developer/swift/howto_installmultinode.html]
