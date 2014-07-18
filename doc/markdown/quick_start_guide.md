@@ -160,5 +160,5 @@ For more information, please visit the following links:
 [OpenStack Swift API]: http://docs.openstack.org/api/openstack-object-storage/1.0/content/
 [OpenStack Swift Storage Policy]: http://docs.openstack.org/developer/swift/overview_policies.html
 [OpenStack Swift SAIO setup]: http://docs.openstack.org/developer/swift/development_saio.html
-[OpenStack Swift deployment guide]: [http://docs.openstack.org/developer/swift/deployment_guide.html]
-[Multiple Server Swift Installation]: [http://docs.openstack.org/developer/swift/howto_installmultinode.html]
+[OpenStack Swift deployment guide]: http://docs.openstack.org/developer/swift/deployment_guide.html
+[Multiple Server Swift Installation]: http://docs.openstack.org/developer/swift/howto_installmultinode.html
