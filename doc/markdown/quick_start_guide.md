@@ -35,7 +35,7 @@ Each xfs partition/glusterfs volume will be defined as a separate storage policy
 ### Configure SwiftOnFile as Storage Policy
 
 #### Object Server Configuration
-A SAIO setup emulates a four node swift setup and should have four object server running.Add another object server for SwiftOnFile DiskFile API implementation by setting the following configurations in the file /etc/swift/object-server/5.conf:
+An SAIO setup emulates a four node swift setup and should have four object server running. Add another object server for SwiftOnFile DiskFile API implementation by setting the following configurations in the file /etc/swift/object-server/5.conf:
 
 ~~~
 [DEFAULT]
@@ -57,7 +57,9 @@ log_level = DEBUG
 log_requests = on
 disk_chunk_size = 65536
 ~~~
->Note: The parameter 'devices' tells about the path where your xfs partition /glusterfs volume is mounted. The sub directory under which your xfs partition/glusterfs volume is mounted will be called device name. For ex: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
+>Note: The parameter 'devices' tells about the path where your xfs partition or glusterfs volume is mounted. The sub directory under which your xfs partition or glusterfs volume is mounted will be called device name. 
+
+For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
 
 #### Setting SwiftOnFile as storage policy
 Edit /etc/swift.conf to add swiftonfile as a storage policy:
@@ -158,5 +160,5 @@ For more information, please visit the following links:
 [OpenStack Swift API]: http://docs.openstack.org/api/openstack-object-storage/1.0/content/
 [OpenStack Swift Storage Policy]: http://docs.openstack.org/developer/swift/overview_policies.html
 [OpenStack Swift SAIO setup]: http://docs.openstack.org/developer/swift/development_saio.html
-[OpenStack Swift deployment guide][http://docs.openstack.org/developer/swift/deployment_guide.html]
-[Multiple Server Swift Installation][http://docs.openstack.org/developer/swift/howto_installmultinode.html]
+[OpenStack Swift deployment guide]: [http://docs.openstack.org/developer/swift/deployment_guide.html]
+[Multiple Server Swift Installation]: [http://docs.openstack.org/developer/swift/howto_installmultinode.html]
