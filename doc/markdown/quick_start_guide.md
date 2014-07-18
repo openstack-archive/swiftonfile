@@ -59,7 +59,7 @@ disk_chunk_size = 65536
 ~~~
 >Note: The parameter 'devices' tells about the path where your xfs partition or glusterfs volume is mounted. The sub directory under which your xfs partition or glusterfs volume is mounted will be called device name. 
 
-For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
+>For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
 
 #### Setting SwiftOnFile as storage policy
 Edit /etc/swift.conf to add swiftonfile as a storage policy:
