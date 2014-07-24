@@ -8,5 +8,4 @@ nosehtmloutput
 sphinx>=1.1.2,<1.2
 mock>=0.8.0
 python-swiftclient
-python-keystoneclient
 prettytable
