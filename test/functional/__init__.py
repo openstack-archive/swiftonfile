@@ -508,6 +508,7 @@ def teardown_package():
     global orig_collate
     locale.setlocale(locale.LC_COLLATE, orig_collate)
 
+    # clean up containers and objects left behind after running tests
     conn = Connection(config)
     conn.authenticate()
     account = Account(conn, config.get('account', config['username']))
