@@ -2,10 +2,10 @@
 
 ## Development Environment Setup
 The workflow for SwiftOnFile is largely based upon the 
-Github WorkFlow.
+[GitHub work flow][] using the [fork and pull model][].
 
 ### Account Setup
-You can create a free account on github. It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with github from any remote machine. Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key. You have to create a fork of [swiftonfile repo][] for your development work. You can create your fork from the github Web UI.
+You can create a free account on GitHub. It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with GitHub from any remote machine. Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key. You have to create a fork of [swiftonfile repo][] for your development work. You can create your fork from the github Web UI.
 
 ### Package Requirements
 Type the following to install the required packages:
@@ -34,9 +34,9 @@ git config --global user.email "your_email@youremail.com"
 ~~~
 
 ### Clone your fork
-You can clone the fork you created using github Web UI. By convention it will be called 'origin'. 
+You can clone the fork you created using GitHub Web UI. By convention it will be called 'origin'. 
 ~~~
-git clone git@github.com:<username>/swiftonfile.git
+git clone git@github.com:<your_username>/swiftonfile.git
 cd swiftonfile
 ~~~
 
@@ -46,29 +46,46 @@ You can add swiftonfile project repo, to get the latest updates from the project
 git remote add upstream git@github.com:swiftonfile/swiftonfile.git
 ~~~
 
-You can confirm these setting using 'git remote  -v' it should give you something like this:
+You can confirm these setting using 'git remote  -v'. It should give you something like this:
 ~~~
-origin git@github.com:<username>/swiftonfile.git (fetch)
-origin git@github.com:<username>/swiftonfile.git (push)
+origin git@github.com:<your_username>/swiftonfile.git (fetch)
+origin git@github.com:<your_username>/swiftonfile.git (push)
 upstream git@github.com:swiftonfile/swiftonfile.git (fetch)
 upstream git@github.com:swiftonfile/swiftonfile.git (push)
 ~~~
 
-### Some additional git configs
+### Code reviews
 These are the changes you need to make to the git configuration so you can download and verify someone's work. 
 
 Open your .git/config file in your editor and locate the section for your GitHub remote. It should look something like this:
 ~~~
 [remote "upstream"]
-  url = git@github.com:<USERNAME>/swiftonfile.git
+  url = git@github.com:<your_username>/swiftonfile.git
   fetch = +refs/heads/*:refs/remotes/upstream/*
 ~~~
 We're going to add a new refspec to this section so that it now looks like this:
 ~~~
 [remote "upstream"]
-  url = git@github.com:<USERNAME>/swiftonfile.git
+  url = git@github.com:<your_username>/swiftonfile.git
   fetch = +refs/heads/*:refs/remotes/upstream/*
   fetch = +refs/pull/*/head:refs/pull/upstream/*
+~~~
+
+#### Download and Verify someone's pull request 
+You can fetch all the pull requests using:
+~~~
+git fetch upstream
+# From github.com:swiftonfile/swiftonfile
+# * [new ref]         refs/pull/1000/head -> refs/pull/upstream/1000
+# * [new ref]         refs/pull/1002/head -> refs/pull/upstream/1002
+# * [new ref]         refs/pull/1004/head -> refs/pull/upstream/1004
+# * [new ref]         refs/pull/1009/head -> refs/pull/upstream/1009
+~~~
+
+You should now be able to check out a pull request in your local repository as follows:
+~~~
+git checkout -b 999 pull/upstream/999
+# Switched to a new branch '999'
 ~~~
 
 ### Tox and Nose
@@ -120,15 +137,7 @@ tests are available under the `test/unit` directory.
 #### Functional Tests
 
 ##### Executing the tests
-To run the functional tests, the following requirements must be met.
-
-1. `/etc/swift` must not exist.
-2. User needs to have `sudo` access
-3. `/mnt/gluster-object/test` and `/mnt/gluster-object/test2` directories
-must be created on either an XFS or GlusterFS volume.
-
-Once the requirements have been met, you can now run the full functional
-tests using the following command:
+To run the functional tests, run the command:
 
 ~~~
 tox -e functest
@@ -170,7 +179,7 @@ git push origin TOPIC-BRANCH
 ### Creating Pull request
 You pushed a commit to a topic branch in your fork, and now you would like it to be merged in the swiftonfile project.
 
-Navigate to your forked repo, locate the change you would like to be merged to swiftonfile and click on the Pull Request button.
+Navigate to your forked repo, locate the branch you would like to be merged to swiftonfile and click on the Pull Request button.
 
 Branch selection ==> Switch to your branch
 
@@ -191,28 +200,6 @@ If 'all goes well' your change will be merged to project swiftonfile. What 'all 
 3.  It got +1 by at least 2 reviewers.
 4.  A core-reviewer can give this pull request a +2 and merge it to the project repo.
 
-### Download and Verify someone's pull request 
-You can fetch all the pull requests using:
-~~~
-git fetch upstream
-# From github.com:swiftonfile/swiftonfile
-# * [new ref]         refs/pull/1000/head -> refs/pull/upstream/1000
-# * [new ref]         refs/pull/1002/head -> refs/pull/upstream/1002
-# * [new ref]         refs/pull/1004/head -> refs/pull/upstream/1004
-# * [new ref]         refs/pull/1009/head -> refs/pull/upstream/1009
-~~~
-
-You should now be able to check out a pull request in your local repository as follows:
-~~~
-git checkout -b 999 pull/upstream/999
-# Switched to a new branch '999'
-~~~
-
-To test this changes you can prepare tox virtual env to run with the change using:
-~~~
-#tox -e run
-~~~
-If all the prerequisite for running tox are there you should be able to see the bash prompt, where you can test these changes. 
 
 ## Creating Distribution Packages
 
@@ -227,6 +214,8 @@ of the RPM:
 
 `$ PKG_RELEASE=123 bash makerpm.sh`
 
+[GitHub work flow]: https://guides.github.com/introduction/flow/index.html
+[fork and pull model]: https://help.github.com/articles/using-pull-requests
 [swiftonfile repo]: https://github.com/swiftonfile/swiftonfile
 [GitHub Generating SSH Keys]: https://help.github.com/articles/generating-ssh-keys
 [PEP8]: http://www.python.org/dev/peps/pep-0008
