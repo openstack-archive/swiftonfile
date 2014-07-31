@@ -46,7 +46,7 @@ Presentation slides can be found [here](http://lpabon.github.io/openstack-summit
 * XFS
 * GlusterFS
 
-# Get involved:
+## Get involved:
 Join us in contributing to the project. Feel free to file bugs, help with documentation
 or work directly on the code. You can communicate with us using GitHub [issues](https://github.com/swiftonfile/swiftonfile/issues) or find
 us in the #swiftonfile channel on Freenode.
