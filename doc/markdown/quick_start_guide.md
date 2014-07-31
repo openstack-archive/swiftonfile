@@ -9,29 +9,27 @@
 
 <a name="overview" />
 ## Overview
-SwiftOnFile allows any POSIX complaint filesystem (which supports extended attributes) to be used as the backend to the OpenStack Swift(Object Store).
+SwiftOnFile allows any POSIX compliant filesystem (which supports extended attributes) to be used as the backend to OpenStack Swift (Object Store).
 
-The following guide assumes you have a running [OpenStack Swift SAIO setup][], and you want to extend this setup to try SwiftOnFile as Storage Policy on a with XFS partition or GlusterFS volume. This will get you quickly started with a SwiftOnFile deployment on a Fedora or RHEL/CentOS system. 
+The following guide assumes you have a running [OpenStack Swift SAIO setup][], and you want to extend this setup to try SwiftOnFile as Storage Policy with an XFS partition or GlusterFS volume. This will get you quickly started with a SwiftOnFile deployment on a Fedora or RHEL/CentOS system. 
 
-This guide will not go on detail on how to prepare a Swift SAIO setup or how to create a gluster volume (or other FS).This guide assumes you know about these technologies, if you require any help in setting those please refer to the links provided.
+This guide will not provide detailed information on how to prepare a SAIO setup or how to create a gluster volume (or other FS).This guide assumes you know about these technologies; if you require any help in setting those please refer to the links provided.
 
 <a name="system_setup" />
 ## System Setup
 
 ### Prerequisites on CentOS/RHEL
 
-1. OpenStack SAIO deployment(this guide uses SAIO on Fedora20) 
-2. One xfs partition /glusterfs volume - named vol
+1. SAIO deployment (this guide uses SAIO on Fedora 20) running Swift 2.0 or newer versions
+1. One XFS partition/GlusterFS volume mounted as `/mnt/swiftonfile`
 
->Note: Swift SAIO deployment should contain Storage Policy code changes. SwiftOnFile should work with OpenStack Swift2.0.0 release and onwards. Icehouse and prior release of OpenStack Swift does not have Storage Policy code.
-
-Each xfs partition/glusterfs volume will be defined as a separate storage policy. 
+>Note: Each XFS partition/GlusterFS volume will be defined as a separate storage policy. 
 
 ### Install SwiftOnfile
-1. Before you begin swiftonfile setup please ensure you have OpenStack Swift SAIO setup up & running. Please refer to the SAIO guide for this.
-2. cd $HOME; git clone https://github.com/swiftonfile/swiftonfile.git
-3. cd $HOME/swiftonfile;python setup.py develop;cd $HOME
 
+1. `cd $HOME; git clone https://github.com/swiftonfile/swiftonfile.git`
+1. `cd $HOME/swiftonfile; python setup.py develop; cd $HOME`
+ 
 ### Configure SwiftOnFile as Storage Policy
 
 #### Object Server Configuration
@@ -39,7 +37,7 @@ An SAIO setup emulates a four node swift setup and should have four object serve
 
 ~~~
 [DEFAULT]
-devices = /mnt/xfsvols/
+devices = /mnt/swiftonfile
 mount_check = false
 bind_port = 6050
 max_clients = 1024
@@ -50,8 +48,8 @@ disable_fallocate = true
 pipeline = object-server
 
 [app:object-server]
-use = egg:gluster_swift#object
-user = root
+use = egg:swiftonfile#object
+user = <your-user-name>
 log_facility = LOG_LOCAL2
 log_level = DEBUG
 log_requests = on
@@ -59,33 +57,36 @@ disk_chunk_size = 65536
 ~~~
 >Note: The parameter 'devices' tells about the path where your xfs partition or glusterfs volume is mounted. The sub directory under which your xfs partition or glusterfs volume is mounted will be called device name. 
 
->For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/xfsvols/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/xfsvols'.
+>For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/swiftonfile/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/swiftonfile'.
 
 #### Setting SwiftOnFile as storage policy
 Edit /etc/swift.conf to add swiftonfile as a storage policy:
 
 ~~~
 [storage-policy:0]
-name = swift
+name = gold
 default = yes
 
 [storage-policy:1]
-name = swiftonfile-test
+name = silver
+
+[storage-policy:2]
+name = swiftonfile
 ~~~
-You can also make "swiftonfile-test" the default storage policy by using the 'default' parameter.
+You can also make "swiftonfile" the default storage policy by using the 'default' parameter.
 
 #### Prepare rings
 Edit the remakerings script to prepare rings for this new storage policy:
 
 ~~~
-swift-ring-builder object-1.builder create 1 1 1
-swift-ring-builder object-1.builder add r1z1-127.0.0.1:6050/vol 1
-swift-ring-builder object-1.builder rebalance
+swift-ring-builder object-2.builder create 1 1 1
+swift-ring-builder object-2.builder add r1z1-127.0.0.1:6050/vol 1
+swift-ring-builder object-2.builder rebalance
 ~~~
 Execute the remakerings script to prepare new rings files.
 In a SAIO setup remakerings scipt is usually situated at ~/bin/remakerings.You can also run above rings builder commands manually.
 
-Notice the mapping between SP index (1) defined in conf file above and the object ring builder command.
+Notice the mapping between SP index (2) defined in conf file above and the object ring builder command.
 
 #### Load the new configurations
 Restart swift services to reflect new changes:
@@ -107,13 +108,13 @@ It is assumed that you are still using 'tempauth' as authentication method, whic
 ~~~
 curl -v -H 'X-Auth-User: test:tester' -H "X-Auth-key: testing" -k http://localhost:8080/auth/v1.0
 ~~~
-Use 'X-Auth-Token' & 'X-Storage-Url' returned in above request for all sucequent request.
+Use 'X-Auth-Token' & 'X-Storage-Url' returned in above request for all subsequent requests.
 
 #### Create a container
 Create a container using the following command:
 
 ~~~
-curl -v -X PUT -H 'X-Auth-Token: AUTH_XXXX' -H 'X-Storage-Policy: swiftonfile-test' http://localhost:8080/v1/AUTH_test/mycontainer
+curl -v -X PUT -H 'X-Auth-Token: AUTH_XXXX' -H 'X-Storage-Policy: swiftonfile' http://localhost:8080/v1/AUTH_test/mycontainer
 ~~~
 
 It should return `HTTP/1.1 201 Created` on a successful creation. 
@@ -130,7 +131,7 @@ To confirm that the object has been written correctly, you can compare the
 test file with the object you created:
 
 ~~~
-cat /mnt/xfsvols/vol/AUTH_test/mycontainer/mytestfile
+cat /mnt/swiftonfile/vol/AUTH_test/mycontainer/mytestfile
 ~~~
 
 #### Request the object
@@ -143,7 +144,7 @@ cat newfile
 ~~~
 
 You can also use etag information provided while you do HEAD on object 
-and compare it with md5sum of the file on your FS. 
+and compare it with md5sum of the file on your filesystem. 
 
 <a name="what_now" />
 ## What now?
