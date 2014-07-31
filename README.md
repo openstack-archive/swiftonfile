@@ -16,7 +16,7 @@ URL.
 For example, an object with URL: https://swift.example.com/v1/acc/cont/obj,
 would be stored in the following way:
 * Swift: /mnt/sdb1/2/node/sdb2/objects/981/f79/f566bd022b9285b05e665fd7b843bf79/1401254393.89313.data
-* SoF: /mnt/gluster-object/acc/cont/obj
+* SoF: /mnt/gluster-vol/acc/cont/obj
 
 ## Roadmap
 Swift-On-File is in a transition period. The project was recently renamed from
@@ -47,6 +47,6 @@ Presentation slides can be found [here](http://lpabon.github.io/openstack-summit
 * GlusterFS
 
 # Table of Contents
-1. [Quick Start Guide with GlusterFS](doc/markdown/quick_start_guide.md)
+1. [Quick Start Guide with XFS/GlusterFS](doc/markdown/quick_start_guide.md)
 1. [Developer Guide](doc/markdown/dev_guide.md)
 
