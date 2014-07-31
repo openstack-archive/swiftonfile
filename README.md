@@ -51,7 +51,7 @@ Join us in contributing to the project. Feel free to file bugs, help with docume
 or work directly on the code. You can communicate with us using GitHub [issues](https://github.com/swiftonfile/swiftonfile/issues) or find
 us in the #swiftonfile channel on Freenode.
 
-# Table of Contents
+# Guides to get started:
 1. [Quick Start Guide with XFS/GlusterFS](doc/markdown/quick_start_guide.md)
 1. [Developer Guide](doc/markdown/dev_guide.md)
 
