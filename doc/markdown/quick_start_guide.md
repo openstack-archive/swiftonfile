@@ -86,7 +86,7 @@ swift-ring-builder object-2.builder rebalance
 Execute the remakerings script to prepare new rings files.
 In a SAIO setup remakerings scipt is usually situated at ~/bin/remakerings.You can also run above rings builder commands manually.
 
-Notice the mapping between SP index (2) defined in conf file above and the object ring builder command.
+Notice the mapping between SP index (`2`) defined in `swift.conf` file above and the object ring builder command.
 
 #### Load the new configurations
 Restart swift services to reflect new changes:
@@ -97,9 +97,6 @@ swift-init main restart
 
 
 <a name="using_swift" />
-
-#### Running functional tests
-TBD
 
 ## Using SwiftOnFile
 It is assumed that you are still using 'tempauth' as authentication method, which is default in SAIO deployment.
