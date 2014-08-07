@@ -135,3 +135,26 @@ class TestSwiftOnFile(Base):
         md5_returned = hashlib.md5(data_read_from_mountP).hexdigest()
         self.assertEquals(md5_returned, file_info['etag'])
         fhOnMountPoint.close()
+
+    def test_GET_on_file_created_over_mountpoint(self):
+        file_name = Utils.create_name()
+
+        # Create a file over mountpoint
+        file_path = os.path.join(self.env.root_dir,
+                                 'AUTH_' + self.env.account.name,
+                                 self.env.container.name, file_name)
+
+        data = "I'm whatever Gotham needs me to be."
+        data_hash = hashlib.md5(data).hexdigest()
+
+        with open(file_path, 'w') as f:
+            f.write(data)
+
+        # Access the file over Swift as an object
+        object_item = self.env.container.file(file_name)
+        self.assert_(data == object_item.read())
+        self.assert_status(200)
+
+        # Confirm that Etag is present in response headers
+        self.assert_(data_hash == object_item.info()['etag'])
+        self.assert_status(200)
