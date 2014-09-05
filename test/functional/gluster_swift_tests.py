@@ -58,6 +58,14 @@ class TestFile(Base):
         data_read = file.read()
         self.assertEquals(data,data_read)
 
+    def test_PUT_large_object(self):
+        file_item = self.env.container.file(Utils.create_name())
+        data = File.random_data(1024 * 1024 * 2)
+        self.assertTrue(file_item.write(data))
+        self.assert_status(201)
+        self.assertTrue(data == file_item.read())
+        self.assert_status(200)
+
     def testInvalidHeadersPUT(self):
         #TODO: Although we now support x-delete-at and x-delete-after,
         #retained this test case as we may add some other header to
