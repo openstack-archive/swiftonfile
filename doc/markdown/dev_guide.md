@@ -1,11 +1,14 @@
 # Developer Guide
 
 ## Development Environment Setup
-The workflow for SwiftOnFile is largely based upon the 
-[GitHub work flow][] using the [fork and pull model][].
+The workflow for SwiftOnFile is largely based upon the [OpenStack Gerrit Workflow][].
 
-### Account Setup
-You can create a free account on GitHub. It would be better to create keys and add your public key to github, else you can provide username/password each time you communicate with GitHub from any remote machine. Follow the the information given at [GitHub Generating SSH Keys][] if you need help creating your key. You have to create a fork of [swiftonfile repo][] for your development work. You can create your fork from the github Web UI.
+## Account Setup
+Please follow the guidelines at [OpenStack Gerrit Workflow][] to do the following:
+1. Create a Launchpad account.
+2. Create a Gerrit account.
+3. Upload SSH Keys to Gerrit.
+4. Install git-review tool.
 
 ### Package Requirements
 Type the following to install the required packages:
@@ -33,59 +36,51 @@ git config --global user.name "Firstname Lastname"
 git config --global user.email "your_email@youremail.com"
 ~~~
 
-### Clone your fork
-You can clone the fork you created using GitHub Web UI. By convention it will be called 'origin'. 
+### Clone the source
+You can clone the swiftonfile repo from Gerrit:
 ~~~
-git clone git@github.com:<your_username>/swiftonfile.git
-cd swiftonfile
-~~~
-
-### Add upstream repo
-You can add swiftonfile project repo, to get the latest updates from the project. It will be called upstream by convention. 
-~~~
-git remote add upstream git@github.com:swiftonfile/swiftonfile.git
+git clone ssh://<your-gerrit-username>@review.openstack.org:29418/stackforge/swiftonfile
 ~~~
 
-You can confirm these setting using 'git remote  -v'. It should give you something like this:
+Alternatively, if you just want to clone the source for trying things out,
+without setting up lp or Gerrit account or SSH keys, you can clone from the
+github mirror.
 ~~~
-origin git@github.com:<your_username>/swiftonfile.git (fetch)
-origin git@github.com:<your_username>/swiftonfile.git (push)
-upstream git@github.com:swiftonfile/swiftonfile.git (fetch)
-upstream git@github.com:swiftonfile/swiftonfile.git (push)
-~~~
-
-### Code reviews
-These are the changes you need to make to the git configuration so you can download and verify someone's work. 
-
-Open your .git/config file in your editor and locate the section for your GitHub remote. It should look something like this:
-~~~
-[remote "upstream"]
-  url = git@github.com:<your_username>/swiftonfile.git
-  fetch = +refs/heads/*:refs/remotes/upstream/*
-~~~
-We're going to add a new refspec to this section so that it now looks like this:
-~~~
-[remote "upstream"]
-  url = git@github.com:<your_username>/swiftonfile.git
-  fetch = +refs/heads/*:refs/remotes/upstream/*
-  fetch = +refs/pull/*/head:refs/pull/upstream/*
+git clone git://github.com/stackforge/swiftonfile
 ~~~
 
-#### Download and Verify someone's pull request 
-You can fetch all the pull requests using:
+### Git Review
+Before installing git-review, make sure you have pip installed. Install the
+python `pip` tool by executing the following command:
+
 ~~~
-git fetch upstream
-# From github.com:swiftonfile/swiftonfile
-# * [new ref]         refs/pull/1000/head -> refs/pull/upstream/1000
-# * [new ref]         refs/pull/1002/head -> refs/pull/upstream/1002
-# * [new ref]         refs/pull/1004/head -> refs/pull/upstream/1004
-# * [new ref]         refs/pull/1009/head -> refs/pull/upstream/1009
+sudo easy_install pip
 ~~~
 
-You should now be able to check out a pull request in your local repository as follows:
+The tool `git review` is a simple tool to automate interaction with Gerrit.
+It is recommended to use this tool to upload, modify, and query changes in Gerrit.
+The tool can be installed by running the following command:
+
 ~~~
-git checkout -b 999 pull/upstream/999
-# Switched to a new branch '999'
+sudo pip install --upgrade git-review
+~~~
+
+While many Linux distributions offer a version of `git review`,
+they do not necessarily keep it up to date. Pip provides the latest version
+of the application which avoids problems with various versions of Gerrit.
+
+The following command will setup an additional remote named 'gerrit' and
+also installs the gerrit Change-Id commit hook.
+~~~
+git review -s
+~~~
+
+If there is no output, then everything is setup correctly.  If the output
+contains the string *We don't know where your gerrit is*, then you need to
+manually setup a remote repo with the name `gerrit`.
+~~~
+git remote add gerrit ssh://<your-gerrit-username>@review.openstack.org:29418/stackforge/swiftonfile
+git remote -v
 ~~~
 
 ### Tox and Nose
@@ -163,63 +158,49 @@ contains less than 70 characters.
 6. It may contain any external URL references like a launchpad blueprint.
 7. Blank line.
 
-> Note: A bug or an enhancement both can be loged in github as an issue.
-
 For more information on commit messages, please visit the
 [Git Commit Messages][] page in OpenStack.org.
 
-### Uploading changes to Your Fork
-Once you have the changes ready for review, you can submit it to your github fork topic branch.
+### Uploading to Gerrit
+Once you have the changes ready for review, you can submit it to Gerrit
 by typing:
 
 ~~~
-git push origin TOPIC-BRANCH
+git review
 ~~~
 
-### Creating Pull request
-You pushed a commit to a topic branch in your fork, and now you would like it to be merged in the swiftonfile project.
-
-Navigate to your forked repo, locate the branch you would like to be merged to swiftonfile and click on the Pull Request button.
-
-Branch selection ==> Switch to your branch
-
-Pull Request ==> Click the Compare & review button
-
-Pull requests can be sent from any branch or commit but it's recommended that a topic branch be used so that follow-up commits can be pushed to update the pull request if necessary.
-
-### Reviewing the pull request
-After starting the review, you're presented with a review page where you can get a high-level overview of what exactly has changed between your branch and the repository's master branch. You can review all comments made on commits, identify which files changed, and get a list of contributors to your branch.
-
 After the change is reviewed, you might have to make some
-additional modifications to your change. You just need to do changes to your local topic branch, commit it, and push it to same branch on your github fork repo. If the branch is currently being used for a pull request, then the branch changes are automatically tracked by the pull request.
+additional modifications to your change.  To continue the work for
+a specific change, you can query Gerrit for the change number by
+typing:
+
+~~~
+git review -l
+~~~
+
+Then download the change to make the new modifications by typing:
+
+~~~
+git review -d CHANGE_NUMBER
+~~~
+
+where CHANGE_NUMBER is the Gerrit change number.
+
+If you need to create a new patch for a change and include your update(s)
+to your last commit type:
+
+~~~
+git commit -as --amend
+~~~
+
+Now that you have finished updating your change, you need to re-upload
+to Gerrit using the following command:
+
+~~~
+git review
+~~~
 
 If 'all goes well' your change will be merged to project swiftonfile. What 'all goes well' means, is this:
 
-1.  Travis-CI passes unit-tests.
-2.  Jenkins passes functional-tests.
-3.  It got +1 by at least 2 reviewers.
-4.  A core-reviewer can give this pull request a +2 and merge it to the project repo.
-
-
-## Creating Distribution Packages
-
-### Building RPMs for Fedora/RHEL/CentOS Systems
-Building RPMs.  RPMs will be located in the *build* directory.
-
-`$ bash makerpm.sh`
-
-Building the RPM with a specific release value is useful for 
-automatic Jenkin builds, or keeping track of different versions 
-of the RPM:
-
-`$ PKG_RELEASE=123 bash makerpm.sh`
-
-[GitHub work flow]: https://guides.github.com/introduction/flow/index.html
-[fork and pull model]: https://help.github.com/articles/using-pull-requests
-[swiftonfile repo]: https://github.com/swiftonfile/swiftonfile
-[GitHub Generating SSH Keys]: https://help.github.com/articles/generating-ssh-keys
-[PEP8]: http://www.python.org/dev/peps/pep-0008
-[Git Commit Messages]: https://wiki.openstack.org/wiki/GitCommitMessages
-[GlusterFS Compiling RPMS]: https://forge.gluster.org/glusterfs-core/pages/CompilingRPMS
-[README]: http://repos.fedorapeople.org/repos/openstack/openstack-trunk/README
-
+1. Jenkins passes unit tests and functional tests.
+2. Two core reviewers give +2.
