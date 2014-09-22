@@ -64,7 +64,7 @@ Create */etc/httpd/conf.d/swift_wsgi.conf* configuration file that will define
 port and Virtual Host per each local service.
 
     WSGISocketPrefix /var/run/wsgi
-    
+
     #Proxy Service
     Listen 8080
     <VirtualHost *:8080>
@@ -78,7 +78,7 @@ port and Virtual Host per each local service.
         LogLevel debug
         CustomLog /var/log/httpd/proxy.log combined
     </VirtualHost>
-    
+
     #Object Service
     Listen 6010
     <VirtualHost *:6010>
@@ -91,7 +91,7 @@ port and Virtual Host per each local service.
         LogLevel debug
         CustomLog /var/log/httpd/access.log combined
     </VirtualHost>
-    
+
     #Container Service
     Listen 6011
     <VirtualHost *:6011>
@@ -104,7 +104,7 @@ port and Virtual Host per each local service.
         LogLevel debug
         CustomLog /var/log/httpd/access.log combined
     </VirtualHost>
-    
+
     #Account Service
     Listen 6012
     <VirtualHost *:6012>
