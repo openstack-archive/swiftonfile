@@ -26,7 +26,7 @@ import ctypes
 from eventlet import sleep
 from swift.common.utils import load_libc_function
 from swiftonfile.swift.common.exceptions import FileOrDirNotFoundError, \
-    NotDirectoryError, GlusterFileSystemOSError
+    NotDirectoryError, SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
 
@@ -81,7 +81,7 @@ def do_write(fd, buf):
                       fd, len(buf), err, filename)
             raise DiskFileNoSpace()
         else:
-            raise GlusterFileSystemOSError(
+            raise SwiftOnFileSystemOSError(
                 err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
     return cnt
 
@@ -90,7 +90,7 @@ def do_read(fd, n):
     try:
         buf = os.read(fd, n)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
     return buf
 
@@ -109,7 +109,7 @@ def do_ismount(path):
             # It doesn't exist -- so not a mount point :-)
             return False
         else:
-            raise GlusterFileSystemOSError(
+            raise SwiftOnFileSystemOSError(
                 err.errno, '%s, os.lstat("%s")' % (err.strerror, path))
 
     if stat.S_ISLNK(s1.st_mode):
@@ -119,7 +119,7 @@ def do_ismount(path):
     try:
         s2 = os.lstat(os.path.join(path, '..'))
     except os.error as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.lstat("%s")' % (err.strerror,
                                                os.path.join(path, '..')))
 
@@ -146,7 +146,7 @@ def do_listdir(path):
     try:
         buf = os.listdir(path)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.listdir("%s")' % (err.strerror, path))
     return buf
 
@@ -161,7 +161,7 @@ def dir_empty(path):
     try:
         files = do_listdir(path)
         return not files
-    except GlusterFileSystemOSError as err:
+    except SwiftOnFileSystemOSError as err:
         if err.errno == errno.ENOENT:
             raise FileOrDirNotFoundError()
         if err.errno == errno.ENOTDIR:
@@ -173,7 +173,7 @@ def do_rmdir(path):
     try:
         os.rmdir(path)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.rmdir("%s")' % (err.strerror, path))
 
 
@@ -181,7 +181,7 @@ def do_chown(path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.chown("%s", %s, %s)' % (
                 err.strerror, path, uid, gid))
 
@@ -190,7 +190,7 @@ def do_fchown(fd, uid, gid):
     try:
         os.fchown(fd, uid, gid)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fchown(%s, %s, %s)' % (
                 err.strerror, fd, uid, gid))
 
@@ -213,7 +213,7 @@ def do_stat(path):
             if err.errno == errno.ENOENT:
                 stats = None
             else:
-                raise GlusterFileSystemOSError(
+                raise SwiftOnFileSystemOSError(
                     err.errno, '%s, os.stat("%s")[%d attempts]' % (
                         err.strerror, path, i))
         if i > 0:
@@ -222,7 +222,7 @@ def do_stat(path):
                          path, i, 'success' if stats else 'failure')
         return stats
     else:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             serr.errno, '%s, os.stat("%s")[%d attempts]' % (
                 serr.strerror, path, _STAT_ATTEMPTS))
 
@@ -231,7 +231,7 @@ def do_fstat(fd):
     try:
         stats = os.fstat(fd)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fstat(%s)' % (err.strerror, fd))
     return stats
 
@@ -240,7 +240,7 @@ def do_open(path, flags, **kwargs):
     try:
         fd = os.open(path, flags, **kwargs)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.open("%s", %x, %r)' % (
                 err.strerror, path, flags, kwargs))
     return fd
@@ -260,7 +260,7 @@ def do_close(fd):
                       fd, err, filename)
             raise DiskFileNoSpace()
         else:
-            raise GlusterFileSystemOSError(
+            raise SwiftOnFileSystemOSError(
                 err.errno, '%s, os.close(%s)' % (err.strerror, fd))
 
 
@@ -269,7 +269,7 @@ def do_unlink(path, log=True):
         os.unlink(path)
     except OSError as err:
         if err.errno != errno.ENOENT:
-            raise GlusterFileSystemOSError(
+            raise SwiftOnFileSystemOSError(
                 err.errno, '%s, os.unlink("%s")' % (err.strerror, path))
         else:
             logging.warn("fs_utils: os.unlink failed on non-existent path: %s",
@@ -280,7 +280,7 @@ def do_rename(old_path, new_path):
     try:
         os.rename(old_path, new_path)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.rename("%s", "%s")' % (
                 err.strerror, old_path, new_path))
 
@@ -289,7 +289,7 @@ def do_fsync(fd):
     try:
         os.fsync(fd)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
 
 
@@ -299,7 +299,7 @@ def do_fdatasync(fd):
     except AttributeError:
         do_fsync(fd)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
 
 
@@ -319,7 +319,7 @@ def do_lseek(fd, pos, how):
     try:
         os.lseek(fd, pos, how)
     except OSError as err:
-        raise GlusterFileSystemOSError(
+        raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
 
 
@@ -339,7 +339,7 @@ def mkdirs(path):
             do_log_rl("mkdirs(%s) failed: %s", path, err)
             raise DiskFileNoSpace()
         else:
-            raise GlusterFileSystemOSError(
+            raise SwiftOnFileSystemOSError(
                 err.errno, '%s, os.makedirs("%s")' % (err.strerror, path))
 
 

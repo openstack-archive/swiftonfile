@@ -27,7 +27,7 @@ import shutil
 from collections import defaultdict
 from mock import patch
 from swiftonfile.swift.common import utils, Glusterfs
-from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
 #
@@ -349,7 +349,7 @@ class TestUtils(unittest.TestCase):
         try:
             utils.get_object_metadata(
                 os.path.join(tf.name, "doesNotEx1st"))
-        except GlusterFileSystemOSError as e:
+        except SwiftOnFileSystemOSError as e:
             assert e.errno != errno.ENOENT
         else:
             self.fail("Expected exception")

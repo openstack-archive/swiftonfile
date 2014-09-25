@@ -14,33 +14,33 @@
 # limitations under the License.
 
 
-class GlusterFileSystemOSError(OSError):
+class SwiftOnFileSystemOSError(OSError):
     pass
 
 
-class GlusterFileSystemIOError(IOError):
+class SwiftOnFileSystemIOError(IOError):
     pass
 
 
-class GlusterfsException(Exception):
+class SwiftOnFileFsException(Exception):
     pass
 
 
-class FailureToMountError(GlusterfsException):
+class FailureToMountError(SwiftOnFileFsException):
     pass
 
 
-class FileOrDirNotFoundError(GlusterfsException):
+class FileOrDirNotFoundError(SwiftOnFileFsException):
     pass
 
 
-class NotDirectoryError(GlusterfsException):
+class NotDirectoryError(SwiftOnFileFsException):
     pass
 
 
-class AlreadyExistsAsDir(GlusterfsException):
+class AlreadyExistsAsDir(SwiftOnFileFsException):
     pass
 
 
-class AlreadyExistsAsFile(GlusterfsException):
+class AlreadyExistsAsFile(SwiftOnFileFsException):
     pass
