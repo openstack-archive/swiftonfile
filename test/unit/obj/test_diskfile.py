@@ -32,7 +32,7 @@ from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileNotOpen
 from swift.common.utils import ThreadPool
 
-from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 import swiftonfile.swift.common.utils
 from swiftonfile.swift.common.utils import normalize_timestamp
 import swiftonfile.swift.obj.diskfile
@@ -764,7 +764,7 @@ class TestDiskFile(unittest.TestCase):
                         tmppath = dw._tmppath
                         dw.write(body)
                         dw.put(metadata)
-                except GlusterFileSystemOSError:
+                except SwiftOnFileSystemOSError:
                     pass
                 else:
                     self.fail("Expected exception DiskFileError")

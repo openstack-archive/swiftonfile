@@ -21,7 +21,7 @@ import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
-from swiftonfile.swift.common.exceptions import GlusterFileSystemIOError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
 from swiftonfile.swift.common.fs_utils import do_stat, \
     do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
@@ -95,7 +95,7 @@ def read_metadata(path_or_fd):
             else:
                 # Note that we don't touch the keys on errors fetching the
                 # data since it could be a transient state.
-                raise GlusterFileSystemIOError(
+                raise SwiftOnFileSystemIOError(
                     err.errno, 'getxattr("%s", %s)' % (path_or_fd, key))
         else:
             try:
@@ -141,7 +141,7 @@ def write_metadata(path_or_fd, metadata):
                               path_or_fd, err)
                 raise DiskFileNoSpace()
             else:
-                raise GlusterFileSystemIOError(
+                raise SwiftOnFileSystemIOError(
                     err.errno,
                     'setxattr("%s", %s, metastr)' % (path_or_fd, key))
         metastr = metastr[MAX_XATTR_SIZE:]
@@ -156,7 +156,7 @@ def clean_metadata(path_or_fd):
         except IOError as err:
             if err.errno == errno.ENODATA:
                 break
-            raise GlusterFileSystemIOError(
+            raise SwiftOnFileSystemIOError(
                 err.errno, 'removexattr("%s", %s)' % (path_or_fd, key))
         key += 1
 

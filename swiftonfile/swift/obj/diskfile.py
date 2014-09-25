@@ -37,7 +37,7 @@ from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileExpired
 from swift.common.swob import multi_range_iterator
 
-from swiftonfile.swift.common.exceptions import GlusterFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swiftonfile.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
@@ -87,7 +87,7 @@ def make_directory(full_path, uid, gid, metadata=None):
             # not necessary.
             try:
                 stats = do_stat(full_path)
-            except GlusterFileSystemOSError as serr:
+            except SwiftOnFileSystemOSError as serr:
                 # FIXME: Ideally we'd want to return an appropriate error
                 # message and code in the PUT Object REST API response.
                 raise DiskFileError("make_directory: mkdir failed"
@@ -121,7 +121,7 @@ def make_directory(full_path, uid, gid, metadata=None):
             _random_sleep()
             try:
                 stats = do_stat(full_path)
-            except GlusterFileSystemOSError as serr:
+            except SwiftOnFileSystemOSError as serr:
                 if serr.errno == errno.ENOENT:
                     errmsg = "make_directory: mkdir failed on" \
                              " path %s (EIO), and a subsequent stat on" \
@@ -387,7 +387,7 @@ class DiskFileWriter(object):
                                 attempts += 1
                                 continue
                 else:
-                    raise GlusterFileSystemOSError(
+                    raise SwiftOnFileSystemOSError(
                         err.errno, "%s, rename('%s', '%s')" % (
                             err.strerror, self._tmppath, df._data_file))
             else:
@@ -634,7 +634,7 @@ class DiskFile(object):
         # Writes are always performed to a temporary file
         try:
             fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
-        except GlusterFileSystemOSError as err:
+        except SwiftOnFileSystemOSError as err:
             if err.errno in (errno.ENOENT, errno.ENOTDIR):
                 # If the file does exist, or some part of the path does not
                 # exist, raise the expected DiskFileNotExist
@@ -872,7 +872,7 @@ class DiskFile(object):
             try:
                 fd = do_open(tmppath,
                              os.O_WRONLY | os.O_CREAT | os.O_EXCL | O_CLOEXEC)
-            except GlusterFileSystemOSError as gerr:
+            except SwiftOnFileSystemOSError as gerr:
                 if gerr.errno in (errno.ENOSPC, errno.EDQUOT):
                     # Raise DiskFileNoSpace to be handled by upper layers when
                     # there is no space on disk OR when quota is exceeded
