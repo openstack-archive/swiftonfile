@@ -15,7 +15,6 @@
 
 import os
 from swift.common.swob import HTTPBadRequest
-import swift.common.constraints
 
 SOF_MAX_OBJECT_NAME_LENGTH = 221
 # Why 221 ?
@@ -38,12 +37,8 @@ def validate_obj_name_component(obj):
         return 'cannot be . or ..'
     return ''
 
-# Store Swift's check_object_creation method to be invoked later
-swift_check_object_creation = swift.common.constraints.check_object_creation
 
-
-# Define our new one which invokes the original
-def sof_check_object_creation(req, object_name):
+def check_object_creation(req, object_name):
     """
     Check to ensure that everything is alright about an object to be created.
     Monkey patches swift.common.constraints.check_object_creation, invoking
@@ -58,17 +53,14 @@ def sof_check_object_creation(req, object_name):
     :raises HTTPBadRequest: missing or bad content-type header, or
                             bad metadata
     """
-    # Invoke Swift's method
-    ret = swift_check_object_creation(req, object_name)
-
     # SoF's additional checks
-    if ret is None:
-        for obj in object_name.split(os.path.sep):
-            reason = validate_obj_name_component(obj)
-            if reason:
-                bdy = 'Invalid object name "%s", component "%s" %s' \
-                    % (object_name, obj, reason)
-                ret = HTTPBadRequest(body=bdy,
-                                     request=req,
-                                     content_type='text/plain')
+    ret = None
+    for obj in object_name.split(os.path.sep):
+        reason = validate_obj_name_component(obj)
+        if reason:
+            bdy = 'Invalid object name "%s", component "%s" %s' \
+                % (object_name, obj, reason)
+            ret = HTTPBadRequest(body=bdy,
+                                 request=req,
+                                 content_type='text/plain')
     return ret

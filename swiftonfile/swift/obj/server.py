@@ -64,7 +64,7 @@ class ObjectController(server.ObjectController):
     def PUT(self, request):
         try:
             server.check_object_creation = \
-                swiftonfile.swift.common.constraints.sof_check_object_creation
+                swiftonfile.swift.common.constraints.check_object_creation
             return server.ObjectController.PUT(self, request)
         except (AlreadyExistsAsFile, AlreadyExistsAsDir):
             device = \
