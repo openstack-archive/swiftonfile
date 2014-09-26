@@ -47,5 +47,9 @@ setup(
         'paste.app_factory': [
             'object=swiftonfile.swift.obj.server:app_factory',
         ],
+        'paste.filter_factory': [
+            'sof_constraints=swiftonfile.swift.common.middleware.'
+            'check_constraints:filter_factory',
+        ],
     },
 )

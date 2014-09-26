@@ -559,9 +559,9 @@ class DiskFile(object):
     Manage object files on disk.
 
     Object names ending or beginning with a '/' as in /a, a/, /a/b/,
-    etc, or object names with multiple consecutive slahes, like a//b,
-    are not supported.  The proxy server's contraints filter
-    swiftonfile.common.constrains.sof_check_object_creation() should
+    etc, or object names with multiple consecutive slashes, like a//b,
+    are not supported.  The proxy server's constraints filter
+    swiftonfile.common.constrains.check_object_creation() should
     reject such requests.
 
     :param mgr: associated on-disk manager instance
