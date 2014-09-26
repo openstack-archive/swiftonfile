@@ -15,9 +15,9 @@
 
 """ Object Server for Gluster for Swift """
 
-import swiftonfile.swift.common.constraints    # noqa
 from swift.common.swob import HTTPConflict
 from swift.common.utils import public, timing_stats
+from swift.common.request_helpers import get_name_and_placement
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.request_helpers import split_and_validate_path
@@ -25,6 +25,7 @@ from swift.common.request_helpers import split_and_validate_path
 from swift.obj import server
 
 from swiftonfile.swift.obj.diskfile import DiskFileManager
+from swiftonfile.swift.common.constraints import check_object_creation
 
 
 class ObjectController(server.ObjectController):
@@ -63,8 +64,15 @@ class ObjectController(server.ObjectController):
     @timing_stats()
     def PUT(self, request):
         try:
-            server.check_object_creation = \
-                swiftonfile.swift.common.constraints.sof_check_object_creation
+            device, partition, account, container, obj, policy_idx = \
+                get_name_and_placement(request, 5, 5, True)
+
+            # check swiftonfile constraints first
+            error_response = check_object_creation(request, obj)
+            if error_response:
+                return error_response
+
+            # now call swift's PUT method
             return server.ObjectController.PUT(self, request)
         except (AlreadyExistsAsFile, AlreadyExistsAsDir):
             device = \
