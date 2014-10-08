@@ -108,6 +108,11 @@ name = swiftonfile
 # max_object_name_length is the max number of bytes in the utf8 encoding
 # of an object name
 max_object_name_length = 221
+# 221 is in fact the max possible length of the last segment of object name.
+# Each segment is separated by a '/'.
+# For example: If object name is "abc/def/ghi/jkl", then abc,def,ghi are all
+# directories and "jkl" would be the file.
+#
 # Why 221 ?
 # The longest filename supported by XFS in 255.
 # http://lxr.free-electrons.com/source/fs/xfs/xfs_types.h#L125
@@ -115,8 +120,9 @@ max_object_name_length = 221
 # .OBJECT_NAME.<random-string>
 # The random string is 32 character long and and file name has two dots.
 # Hence 255 - 32 - 2 = 221
-# NOTE: This limitation can be sefely raised by having slashes in really long
-# object name. Each segment between slashes ('/') should not exceed 221.
+#
+# NOTE: Each segment between slashes ('/') should not exceed 255 and the last
+# segment should not exceed 221.
 
 
 # max_account_name_length is the max number of bytes in the utf8 encoding
