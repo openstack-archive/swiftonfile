@@ -741,6 +741,9 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(resp.getheader('x-account-meta-two'), '2')
 
     def test_bad_metadata(self):
+
+        raise SkipTest('SOF constraints middleware enforces constraints.')
+
         if tf.skip:
             raise SkipTest
 

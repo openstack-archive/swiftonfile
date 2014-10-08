@@ -59,6 +59,15 @@ Before proceeding forward, please make sure you already have:
        name = swiftonfile
        default = yes
 
+   Added sof_constraints middleware in proxy pipeline
+
+       [pipeline:main]
+       pipeline = catch_errors sof_constraints cache proxy-server
+
+       [filter:sof_constraints]
+       use = egg:swiftonfile#sof_constraints
+       policies=swiftonfile
+
 4. Copied etc/object-server.conf-swiftonfile to /etc/swift/object-server/5.conf
 
 5. Generated ring files for swiftonfile policy.

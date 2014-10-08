@@ -127,7 +127,8 @@ class TestSwiftOnFile(Base):
         file_item.write_random()
         self.assert_status(201)
         file_info = file_item.info()
-        fhOnMountPoint = open(os.path.join(self.env.root_dir,
+        fhOnMountPoint = open(os.path.join(
+                              self.env.root_dir,
                               'AUTH_' + self.env.account.name,
                               self.env.container.name,
                               file_name), 'r')
@@ -158,3 +159,23 @@ class TestSwiftOnFile(Base):
         # Confirm that Etag is present in response headers
         self.assert_(data_hash == object_item.info()['etag'])
         self.assert_status(200)
+
+    def testObjectNameConstraints(self):
+        valid_object_names = ["a/b/c/d",
+                              '/'.join(("1@3%&*0-", "};+=]|")),
+                              '/'.join(('a' * 20, 'b' * 20, 'c' * 20))]
+        for object_name in valid_object_names:
+            file_item = self.env.container.file(object_name)
+            file_item.write_random()
+            self.assert_status(201)
+
+        invalid_object_names = ["a/./b",
+                                "a/b/../d",
+                                "a//b",
+                                "a/c//",
+                                '/'.join(('a' * 256, 'b' * 255, 'c' * 221)),
+                                '/'.join(('a' * 255, 'b' * 255, 'c' * 222))]
+
+        for object_name in invalid_object_names:
+            file_item = self.env.container.file(object_name)
+            self.assertRaises(ResponseError, file_item.write) # 503 or 400

@@ -368,6 +368,9 @@ class TestContainer(unittest.TestCase):
         self.assertEqual(resp.status, 404)
 
     def test_POST_bad_metadata(self):
+
+        raise SkipTest('SOF constraints middleware enforces constraints.')
+
         if tf.skip:
             raise SkipTest
 

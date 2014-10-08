@@ -16,8 +16,16 @@
 import os
 from swift.common.swob import HTTPBadRequest
 
-SOF_MAX_CONTAINER_NAME_LENGTH = 255
-SOF_MAX_OBJECT_NAME_LENGTH = 221
+SOF_MAX_DIR_NAME_LENGTH = 255
+# A container is also a directory on the fileystem with the same name. Hence:
+SOF_MAX_CONTAINER_NAME_LENGTH = SOF_MAX_DIR_NAME_LENGTH
+
+SOF_MAX_OBJECT_FILENAME_LENGTH = 221
+# SOF_MAX_OBJECT_FILENAME_LENGTH is the length of the last segment of object
+# name. Each 'segment/component' is separated by a '/'.
+# For example: If object name is "abc/def/ghi/jkl", then abc,def,ghi are all
+# directories and "jkl" would be the file. This file name cannot exceed
+# SOF_MAX_OBJECT_FILENAME_LENGTH.
 # Why 221 ?
 # The longest filename supported by XFS in 255.
 # http://lxr.free-electrons.com/source/fs/xfs/xfs_types.h#L125
@@ -25,15 +33,19 @@ SOF_MAX_OBJECT_NAME_LENGTH = 221
 # .OBJECT_NAME.<random-string>
 # The random string is 32 character long and and file name has two dots.
 # Hence 255 - 32 - 2 = 221
-# NOTE: This limitation can be sefely raised by having slashes in really long
-# object name. Each segment between slashes ('/') should not exceed 221.
+# NOTE: Each segment between slashes ('/') should not exceed 255 and the last
+# segment should not exceed 221.
 
 
-def validate_obj_name_component(obj):
+def validate_obj_name_component(obj, last_component=False):
     if not obj:
         return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
-    if len(obj) > SOF_MAX_OBJECT_NAME_LENGTH:
-        return 'too long (%d)' % len(obj)
+    if not last_component:
+        if len(obj) > SOF_MAX_DIR_NAME_LENGTH:
+            return 'too long (%d)' % len(obj)
+    else:
+        if len(obj) > SOF_MAX_OBJECT_FILENAME_LENGTH:
+            return 'too long (%d)' % len(obj)
     if obj == '.' or obj == '..':
         return 'cannot be . or ..'
     return ''
@@ -55,8 +67,12 @@ def check_object_creation(req, object_name):
     """
     # SoF's additional checks
     ret = None
-    for obj in object_name.split(os.path.sep):
-        reason = validate_obj_name_component(obj)
+    object_name_components = object_name.split(os.path.sep)
+    last_component = False
+    for i, obj in enumerate(object_name_components):
+        if i == (len(object_name_components) - 1):
+            last_component = True
+        reason = validate_obj_name_component(obj, last_component)
         if reason:
             bdy = 'Invalid object name "%s", component "%s" %s' \
                 % (object_name, obj, reason)

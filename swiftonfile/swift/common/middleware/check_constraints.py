@@ -28,7 +28,7 @@ For example::
     pipeline = catch_errors sof_constraints cache proxy-server
 
     [filter:sof_constraints]
-    use = egg:swift#sof_constraints
+    use = egg:swiftonfile#sof_constraints
     policies=swiftonfile,gold
 """
 
