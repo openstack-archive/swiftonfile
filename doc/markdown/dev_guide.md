@@ -200,10 +200,14 @@ to Gerrit using the following command:
 git review
 ~~~
 
-If 'all goes well' your change will be merged to project swiftonfile. What 'all goes well' means, is this:
+Your change will be merged after:
 
 1. Jenkins passes unit tests and functional tests.
 2. Two core reviewers give +2.
+3. A core reviewer gives a '+1 Approved' for Workflow.
+
+Gerrit will automatically merge the change only after a '+1 Approved'
+for Workflow has been set by one of the core reviewers.
 
 [OpenStack Gerrit Workflow]: https://wiki.openstack.org/wiki/Gerrit_Workflow
 [SSH key]: http://review.openstack.org/#/settings/ssh-keys
