@@ -555,6 +555,11 @@ class File(Base):
         else:
             headers['Content-Type'] = 'application/octet-stream'
 
+        if cfg.get('x_delete_at'):
+            headers['X-Delete-At'] = cfg.get('x_delete_at')
+        if cfg.get('x_delete_after'):
+            headers['X-Delete-After'] = cfg.get('x_delete_after')
+
         for key in self.metadata:
             headers['X-Object-Meta-' + key] = self.metadata[key]
 
@@ -611,7 +616,11 @@ class File(Base):
                   ['last_modified', 'last-modified'],
                   ['etag', 'etag']]
 
-        header_fields = self.header_fields(fields)
+        optional_fields = [['x_delete_at', 'x-delete-at'],
+                           ['x_delete_after', 'x-delete-after']]
+
+        header_fields = self.header_fields(fields,
+                                           optional_fields=optional_fields)
         header_fields['etag'] = header_fields['etag'].strip('"')
         return header_fields
 
@@ -728,7 +737,6 @@ class File(Base):
                         cfg.get('set_content_length')
                 else:
                     headers['Content-Length'] = 0
-
             self.conn.make_request('POST', self.path, hdrs=headers, cfg=cfg)
 
             if self.conn.response.status not in (201, 202):
