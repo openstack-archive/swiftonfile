@@ -18,8 +18,18 @@
 # This program expects to be run by tox in a virtual python environment
 # so that it does not pollute the host development system
 
+EXIT_STATUS=0
+
 # Run functional tests with tempauth as auth middleware
-bash tools/tempauth_functional_tests.sh
+bash tools/tempauth_functional_tests.sh || EXIT_STATUS=$?
 
 # Run functional tests with gswauth as auth middleware
-bash tools/gswauth_functional_tests.sh
+bash tools/gswauth_functional_tests.sh || EXIT_STATUS=$?
+
+# Run object expirer functional tests if gsexpiring volume is found.
+if mount | grep "gsexpiring on /mnt/gluster-object/gsexpiring type fuse.glusterfs"; then
+	echo "Running object expirer functional tests"
+	bash tools/object_expirer_functional.sh || EXIT_STATUS=$?
+fi
+
+exit $EXIT_STATUS
