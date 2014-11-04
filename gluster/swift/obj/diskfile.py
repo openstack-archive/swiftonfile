@@ -447,8 +447,8 @@ class DiskFileWriter(object):
 
         df._threadpool.force_run_in_thread(self._finalize_put, metadata)
 
-        # Avoid the unlink() system call as part of the mkstemp context
-        # cleanup
+        # Avoid the unlink() system call as part of the DiskFile.create()
+        # context cleanup
         self._tmppath = None
 
 
@@ -893,7 +893,7 @@ class DiskFile(object):
                 if attempts >= MAX_OPEN_ATTEMPTS:
                     # We failed after N attempts to create the temporary
                     # file.
-                    raise DiskFileError('DiskFile.mkstemp(): failed to'
+                    raise DiskFileError('DiskFile.create(): failed to'
                                         ' successfully create a temporary file'
                                         ' without running into a name conflict'
                                         ' after %d of %d attempts for: %s' % (
@@ -906,7 +906,7 @@ class DiskFile(object):
                     # FIXME: Possible FUSE issue or race condition, let's
                     # sleep on it and retry the operation.
                     _random_sleep()
-                    logging.warn("DiskFile.mkstemp(): %s ... retrying in"
+                    logging.warn("DiskFile.create(): %s ... retrying in"
                                  " 0.1 secs", gerr)
                     attempts += 1
                 elif not self._obj_path:
@@ -915,7 +915,7 @@ class DiskFile(object):
                     # could be a FUSE issue or some race condition, so let's
                     # sleep a bit and retry.
                     _random_sleep()
-                    logging.warn("DiskFile.mkstemp(): %s ... retrying in"
+                    logging.warn("DiskFile.create(): %s ... retrying in"
                                  " 0.1 secs", gerr)
                     attempts += 1
                 elif attempts > 1:
@@ -923,7 +923,7 @@ class DiskFile(object):
                     # also be a FUSE issue or some race condition, nap and
                     # retry.
                     _random_sleep()
-                    logging.warn("DiskFile.mkstemp(): %s ... retrying in"
+                    logging.warn("DiskFile.create(): %s ... retrying in"
                                  " 0.1 secs" % gerr)
                     attempts += 1
                 else:
