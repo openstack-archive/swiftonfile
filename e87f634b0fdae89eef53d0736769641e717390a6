@@ -1,0 +1,11 @@
+Verified+2: Jenkins
+Code-Review+1: Bill Owen <billowen@us.ibm.com>
+Code-Review+2: Prashanth Pai <ppai@redhat.com>
+Workflow+1: Prashanth Pai <ppai@redhat.com>
+Code-Review+2: Thiago da Silva <thiago@redhat.com>
+Workflow+1: Thiago da Silva <thiago@redhat.com>
+Submitted-by: Jenkins
+Submitted-at: Tue, 04 Nov 2014 08:58:54 +0000
+Reviewed-on: https://review.openstack.org/126931
+Project: stackforge/swiftonfile
+Branch: refs/heads/master
