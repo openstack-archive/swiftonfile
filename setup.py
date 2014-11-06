@@ -64,8 +64,6 @@ setup(
         'paste.filter_factory': [
             'gswauth=gluster.swift.common.middleware.gswauth.swauth.'
             'middleware:filter_factory',
-            'kerbauth=gluster.swift.common.middleware.'
-            'swiftkerbauth.kerbauth:filter_factory',
         ],
     },
 )

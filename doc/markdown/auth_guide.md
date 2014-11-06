@@ -12,13 +12,6 @@
     * [User roles](#gswauth_user_roles)
     * [GSwauth Tools](#gswauth_tools)
     * [Authenticating a user](#gswauth_authenticate)
-* [Swiftkerbauth](#swiftkerbauth)
-    * [Architecture](swiftkerbauth/architecture.md)
-    * [RHEL IPA Server Guide](swiftkerbauth/ipa_server.md)
-    * [RHEL IPA Client Guide](swiftkerbauth/ipa_client.md)
-    * [Windows AD Server Guide](swiftkerbauth/AD_server.md)
-    * [Windows AD Client Guide](swiftkerbauth/AD_client.md)
-    * [Swiftkerbauth Guide](swiftkerbauth/swiftkerbauth_guide.md)
 
 ## <a name="keystone" />Keystone ##
 The Standard Openstack authentication service
@@ -468,12 +461,3 @@ bash-4.2$ swift --os-auth-token=AUTH_tk7e68ef4698f14c7f95af07ab7b298610 --os-sto
 README.md
 ~~~
 **Note:** Reseller admins must always use the second method to acquire a token, in order to be given access to other accounts different than his own. The first method of using the username and password will give them access only to their own accounts.
-
-## <a name="swiftkerbauth" />Swiftkerbauth ##
-Kerberos authentication filter
-
-Carsten Clasohm implemented a new authentication filter for swift
-that uses Kerberos tickets for single sign on authentication, and
-grants administrator permissions based on the users group membership
-in a directory service like Red Hat Enterprise Linux Identity Management
-or Microsoft Active Directory.
