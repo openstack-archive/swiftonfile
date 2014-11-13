@@ -66,45 +66,6 @@ class TestFile(Base):
         self.assertTrue(data == file_item.read())
         self.assert_status(200)
 
-    def testInvalidHeadersPUT(self):
-        #TODO: Although we now support x-delete-at and x-delete-after,
-        #retained this test case as we may add some other header to
-        #unsupported list in future
-        raise SkipTest()
-        file = self.env.container.file(Utils.create_name())
-        self.assertRaises(ResponseError,
-                          file.write_random,
-                          self.env.file_size,
-                          hdrs={'X-Delete-At': '9876545321'})
-        self.assert_status(400)
-        self.assertRaises(ResponseError,
-                          file.write_random,
-                          self.env.file_size,
-                          hdrs={'X-Delete-After': '60'})
-        self.assert_status(400)
-
-    def testInvalidHeadersPOST(self):
-        #TODO: Although we now support x-delete-at and x-delete-after,
-        #retained this test case as we may add some other header to
-        #unsupported list in future
-        raise SkipTest()
-        file = self.env.container.file(Utils.create_name())
-        file.write_random(self.env.file_size)
-        headers = file.make_headers(cfg={})
-        headers.update({ 'X-Delete-At' : '987654321'})
-        # Need to call conn.make_request instead of file.sync_metadata
-        # because sync_metadata calls make_headers.  make_headers()
-        # overwrites any headers in file.metadata as 'user' metadata
-        # by appending 'X-Object-Meta-' to any of the headers
-        # in file.metadata.
-        file.conn.make_request('POST', file.path, hdrs=headers, cfg={})
-        self.assertEqual(400, file.conn.response.status)
-
-        headers = file.make_headers(cfg={})
-        headers.update({ 'X-Delete-After' : '60'})
-        file.conn.make_request('POST', file.path, hdrs=headers, cfg={})
-        self.assertEqual(400, file.conn.response.status)
-
 
 class TestFileUTF8(Base2, TestFile):
     set_up = False

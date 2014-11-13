@@ -91,6 +91,7 @@ export SWIFT_TEST_CONFIG_FILE=/etc/swift/test.conf
 
 # Install the configuration files
 sudo mkdir /etc/swift > /dev/null 2>&1
+sudo cp -r test/functional_auth/common_conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
 sudo cp -r test/functional_auth/gswauth/conf/* /etc/swift || fail "Unable to copy configuration files to /etc/swift"
 sudo_env gluster-swift-gen-builders test test2 gsmetadata || fail "Unable to create ring files"
 
