@@ -1,0 +1,8 @@
+Verified+2: Jenkins
+Code-Review+2: Thiago da Silva <thiago@redhat.com>
+Workflow+1: Thiago da Silva <thiago@redhat.com>
+Submitted-by: Jenkins
+Submitted-at: Mon, 17 Nov 2014 02:30:58 +0000
+Reviewed-on: https://review.openstack.org/132641
+Project: stackforge/swiftonfile
+Branch: refs/heads/icehouse
