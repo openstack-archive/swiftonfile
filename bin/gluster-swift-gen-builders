@@ -68,7 +68,10 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 
-cd /etc/swift
+if ! cd "/etc/swift"; then
+    echo "The path /etc/swift not accessible. Please check if it exists."
+    exit 1
+fi
 
 for builder_file in $builder_files
 do
