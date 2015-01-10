@@ -1,0 +1,4 @@
+include README.md
+include makerpm.sh pkgconfig.py
+graft doc
+graft etc
