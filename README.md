@@ -4,7 +4,7 @@
 Swift-on-File is a Swift Object Server implementation that enables users to
 access the same data, both as an object and as a file. Data can be stored and
 retrieved through Swift's REST interface or as files from NAS interfaces 
-including native GlusterFS, NFS and CIFS.
+including native GlusterFS, GPFS, NFS and CIFS.
 
 Swift-on-File is to be deployed as a Swift [storage policy](http://docs.openstack.org/developer/swift/overview_policies.html),
 which provides the advantages of being able to extend an existing Swift cluster
@@ -26,17 +26,24 @@ protocols is desired. For example, imagine a deployment where video files
 are uploaded as objects over Swift's REST interface and a legacy video transcoding
 software access those videos as files.
 
+Along the same lines, data can be ingested over Swift's REST interface and then
+analytic software like Hadoop can operate directly on the data without having to
+move the data to a separate location.
+
 Another use case is where users might need to migrate data from an existing file
 storage systems to a Swift cluster.
+
+Similarly, scientific applications may process file data and then select some or all
+of the data to publish to outside users through the swift interface.
 
 ## Limitations and Future plans
 Swift-On-File currently works only with Filesystems with extended attributes
 support. It is also recommended that these Filesystems provide data durability
 as Swift-On-File should not use Swift's replication mechanisms. 
 
-GlusterFS is a good example of a Filesystem that works well with Swift-on-File,
-GlusterFS provides a posix interface, global namespace, scalability, data
-replication and support for extended attributes.
+GlusterFS and GPFS are good examples of Filesystems that work well with Swift-on-File.
+Both provide a posix interface, global namespace, scalability, data replication
+and support for extended attributes.
 
 Currently, files added over a NAS protocol (e.g., native GlusterFS), do not show
 up in container listings, still those files would be accessible over Swift's REST
