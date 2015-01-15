@@ -777,6 +777,21 @@ class TestAccount(unittest.TestCase):
         resp.read()
         self.assertEqual(resp.status, 400)
 
+    def test_bad_metadata2(self):
+        if tf.skip:
+            raise SkipTest
+
+        def post(url, token, parsed, conn, extra_headers):
+            headers = {'X-Auth-Token': token}
+            headers.update(extra_headers)
+            conn.request('POST', parsed.path, '', headers)
+            return check_response(conn)
+
+        # TODO: Find the test that adds these and remove them.
+        headers = {'x-remove-account-meta-temp-url-key': 'remove',
+                   'x-remove-account-meta-temp-url-key-2': 'remove'}
+        resp = retry(post, headers)
+
         headers = {}
         for x in xrange(self.max_meta_count):
             headers['X-Account-Meta-%d' % x] = 'v'
@@ -789,6 +804,16 @@ class TestAccount(unittest.TestCase):
         resp = retry(post, headers)
         resp.read()
         self.assertEqual(resp.status, 400)
+
+    def test_bad_metadata3(self):
+        if tf.skip:
+            raise SkipTest
+
+        def post(url, token, parsed, conn, extra_headers):
+            headers = {'X-Auth-Token': token}
+            headers.update(extra_headers)
+            conn.request('POST', parsed.path, '', headers)
+            return check_response(conn)
 
         headers = {}
         header_value = 'k' * self.max_meta_value_length
@@ -810,6 +835,34 @@ class TestAccount(unittest.TestCase):
         resp = retry(post, headers)
         resp.read()
         self.assertEqual(resp.status, 400)
+
+
+class TestAccountInNonDefaultDomain(unittest.TestCase):
+    def setUp(self):
+        if tf.skip or tf.skip2 or tf.skip_if_not_v3:
+            raise SkipTest('AUTH VERSION 3 SPECIFIC TEST')
+
+    def test_project_domain_id_header(self):
+        # make sure account exists (assumes account auto create)
+        def post(url, token, parsed, conn):
+            conn.request('POST', parsed.path, '',
+                         {'X-Auth-Token': token})
+            return check_response(conn)
+
+        resp = retry(post, use_account=4)
+        resp.read()
+        self.assertEqual(resp.status, 204)
+
+        # account in non-default domain should have a project domain id
+        def head(url, token, parsed, conn):
+            conn.request('HEAD', parsed.path, '',
+                         {'X-Auth-Token': token})
+            return check_response(conn)
+
+        resp = retry(head, use_account=4)
+        resp.read()
+        self.assertEqual(resp.status, 204)
+        self.assertTrue('X-Account-Project-Domain-Id' in resp.headers)
 
 
 if __name__ == '__main__':
