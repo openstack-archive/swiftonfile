@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import mock
 import os
 import sys
 import pickle
@@ -30,6 +31,7 @@ from contextlib import closing
 from gzip import GzipFile
 from shutil import rmtree
 from tempfile import mkdtemp
+from swift.common.middleware.memcache import MemcacheMiddleware
 
 from test import get_config
 from test.functional.swift_test_client import Account, Connection, \
@@ -40,15 +42,12 @@ from test.functional.swift_test_client import Account, Connection, \
 from test.unit import debug_logger, FakeMemcache
 
 from swift.common import constraints, utils, ring, storage_policy
-from swift.common.wsgi import monkey_patch_mimetools
-from swift.common.middleware import catch_errors, gatekeeper, healthcheck, \
-    proxy_logging, container_sync, bulk, tempurl, slo, dlo, ratelimit, \
-    tempauth, container_quotas, account_quotas
+from swift.common.ring import Ring
+from swift.common.wsgi import monkey_patch_mimetools, loadapp
 from swift.common.utils import config_true_value
-from swift.proxy import server as proxy_server
 from swift.account import server as account_server
 from swift.container import server as container_server
-from swift.obj import server as object_server
+from swift.obj import server as object_server, mem_server as mem_object_server
 import swift.proxy.controllers.obj
 
 # In order to get the proper blocking behavior of sockets without using
@@ -83,10 +82,13 @@ normalized_urls = None
 # If no config was read, we will fall back to old school env vars
 swift_test_auth_version = None
 swift_test_auth = os.environ.get('SWIFT_TEST_AUTH')
-swift_test_user = [os.environ.get('SWIFT_TEST_USER'), None, None]
-swift_test_key = [os.environ.get('SWIFT_TEST_KEY'), None, None]
-swift_test_tenant = ['', '', '']
-swift_test_perm = ['', '', '']
+swift_test_user = [os.environ.get('SWIFT_TEST_USER'), None, None, '']
+swift_test_key = [os.environ.get('SWIFT_TEST_KEY'), None, None, '']
+swift_test_tenant = ['', '', '', '']
+swift_test_perm = ['', '', '', '']
+swift_test_domain = ['', '', '', '']
+swift_test_user_id = ['', '', '', '']
+swift_test_tenant_id = ['', '', '', '']
 
 skip, skip2, skip3 = False, False, False
 
@@ -100,24 +102,15 @@ in_process = False
 _testdir = _test_servers = _test_sockets = _test_coros = None
 
 
-class FakeMemcacheMiddleware(object):
+class FakeMemcacheMiddleware(MemcacheMiddleware):
     """
-    Caching middleware that fakes out caching in swift.
+    Caching middleware that fakes out caching in swift if memcached
+    does not appear to be running.
     """
 
     def __init__(self, app, conf):
-        self.app = app
+        super(FakeMemcacheMiddleware, self).__init__(app, conf)
         self.memcache = FakeMemcache()
-
-    def __call__(self, env, start_response):
-        env['swift.cache'] = self.memcache
-        return self.app(env, start_response)
-
-
-def fake_memcache_filter_factory(conf):
-    def filter_app(app):
-        return FakeMemcacheMiddleware(app, conf)
-    return filter_app
 
 
 # swift.conf contents for in-process functional test runs
@@ -133,6 +126,16 @@ max_file_size = %d
 
 def in_process_setup(the_object_server=object_server):
     print >>sys.stderr, 'IN-PROCESS SERVERS IN USE FOR FUNCTIONAL TESTS'
+    print >>sys.stderr, 'Using object_server: %s' % the_object_server.__name__
+    _dir = os.path.normpath(os.path.join(os.path.abspath(__file__),
+                            os.pardir, os.pardir, os.pardir))
+    proxy_conf = os.path.join(_dir, 'etc', 'proxy-server.conf-sample')
+    if os.path.exists(proxy_conf):
+        print >>sys.stderr, 'Using proxy-server config from %s' % proxy_conf
+
+    else:
+        print >>sys.stderr, 'Failed to find conf file %s' % proxy_conf
+        return
 
     monkey_patch_mimetools()
 
@@ -159,7 +162,9 @@ def in_process_setup(the_object_server=object_server):
     if constraints.SWIFT_CONSTRAINTS_LOADED:
         # Use the swift constraints that are loaded for the test framework
         # configuration
-        config.update(constraints.EFFECTIVE_CONSTRAINTS)
+        _c = dict((k, str(v))
+                  for k, v in constraints.EFFECTIVE_CONSTRAINTS.items())
+        config.update(_c)
     else:
         # In-process swift constraints were not loaded, somethings wrong
         raise SkipTest
@@ -180,12 +185,9 @@ def in_process_setup(the_object_server=object_server):
         'devices': _testdir,
         'swift_dir': _testdir,
         'mount_check': 'false',
-        'client_timeout': 4,
+        'client_timeout': '4',
         'allow_account_management': 'true',
         'account_autocreate': 'true',
-        'allowed_headers':
-        'content-disposition, content-encoding, x-delete-at,'
-        ' x-object-manifest, x-static-large-object',
         'allow_versions': 'True',
         # Below are values used by the functional test framework, as well as
         # by the various in-process swift servers
@@ -257,7 +259,6 @@ def in_process_setup(the_object_server=object_server):
     # Default to only 4 seconds for in-process functional test runs
     eventlet.wsgi.WRITE_TIMEOUT = 4
 
-    prosrv = proxy_server.Application(config, logger=debug_logger('proxy'))
     acc1srv = account_server.AccountController(
         config, logger=debug_logger('acct1'))
     acc2srv = account_server.AccountController(
@@ -270,35 +271,16 @@ def in_process_setup(the_object_server=object_server):
         config, logger=debug_logger('obj1'))
     obj2srv = the_object_server.ObjectController(
         config, logger=debug_logger('obj2'))
-    global _test_servers
-    _test_servers = \
-        (prosrv, acc1srv, acc2srv, con1srv, con2srv, obj1srv, obj2srv)
 
-    pipeline = [
-        catch_errors.filter_factory,
-        gatekeeper.filter_factory,
-        healthcheck.filter_factory,
-        proxy_logging.filter_factory,
-        fake_memcache_filter_factory,
-        container_sync.filter_factory,
-        bulk.filter_factory,
-        tempurl.filter_factory,
-        slo.filter_factory,
-        dlo.filter_factory,
-        ratelimit.filter_factory,
-        tempauth.filter_factory,
-        container_quotas.filter_factory,
-        account_quotas.filter_factory,
-        proxy_logging.filter_factory,
-    ]
-    app = prosrv
-    import mock
-    for filter_factory in reversed(pipeline):
-        app_filter = filter_factory(config)
-        with mock.patch('swift.common.utils') as mock_utils:
-            mock_utils.get_logger.return_value = None
-            app = app_filter(app)
-        app.logger = prosrv.logger
+    logger = debug_logger('proxy')
+
+    def get_logger(name, *args, **kwargs):
+        return logger
+
+    with mock.patch('swift.common.utils.get_logger', get_logger):
+        with mock.patch('swift.common.middleware.memcache.MemcacheMiddleware',
+                        FakeMemcacheMiddleware):
+            app = loadapp(proxy_conf, global_conf=config)
 
     nl = utils.NullLogger()
     prospa = eventlet.spawn(eventlet.wsgi.server, prolis, app, nl)
@@ -315,7 +297,8 @@ def in_process_setup(the_object_server=object_server):
     # Create accounts "test" and "test2"
     def create_account(act):
         ts = utils.normalize_timestamp(time())
-        partition, nodes = prosrv.account_ring.get_nodes(act)
+        account_ring = Ring(_testdir, ring_name='account')
+        partition, nodes = account_ring.get_nodes(act)
         for node in nodes:
             # Note: we are just using the http_connect method in the object
             # controller here to talk to the account server nodes.
@@ -348,7 +331,13 @@ def get_cluster_info():
         # test.conf data
         pass
     else:
-        eff_constraints.update(cluster_info.get('swift', {}))
+        try:
+            eff_constraints.update(cluster_info['swift'])
+        except KeyError:
+            # Most likely the swift cluster has "expose_info = false" set
+            # in its proxy-server.conf file, so we'll just do the best we
+            # can.
+            print >>sys.stderr, "** Swift Cluster not exposing /info **"
 
     # Finally, we'll allow any constraint present in the swift-constraints
     # section of test.conf to override everything. Note that only those
@@ -402,7 +391,10 @@ def setup_package():
             config.update(get_config('func_test'))
 
     if in_process:
-        in_process_setup()
+        in_mem_obj_env = os.environ.get('SWIFT_TEST_IN_MEMORY_OBJ')
+        in_mem_obj = utils.config_true_value(in_mem_obj_env)
+        in_process_setup(the_object_server=(
+            mem_object_server if in_mem_obj else object_server))
 
     global web_front_end
     web_front_end = config.get('web_front_end', 'integral')
@@ -422,6 +414,7 @@ def setup_package():
     global swift_test_key
     global swift_test_tenant
     global swift_test_perm
+    global swift_test_domain
 
     if config:
         swift_test_auth_version = str(config.get('auth_version', '1'))
@@ -478,8 +471,13 @@ def setup_package():
             swift_test_user[2] = config['username3']
             swift_test_tenant[2] = config['account']
             swift_test_key[2] = config['password3']
+            if 'username4' in config:
+                swift_test_user[3] = config['username4']
+                swift_test_tenant[3] = config['account4']
+                swift_test_key[3] = config['password4']
+                swift_test_domain[3] = config['domain4']
 
-            for _ in range(3):
+            for _ in range(4):
                 swift_test_perm[_] = swift_test_tenant[_] + ':' \
                     + swift_test_user[_]
 
@@ -500,6 +498,15 @@ def setup_package():
     if not skip and skip3:
         print >>sys.stderr, \
             'SKIPPING THIRD ACCOUNT FUNCTIONAL TESTS DUE TO NO CONFIG FOR THEM'
+
+    global skip_if_not_v3
+    skip_if_not_v3 = (swift_test_auth_version != '3'
+                      or not all([not skip,
+                                  swift_test_user[3],
+                                  swift_test_key[3]]))
+    if not skip and skip_if_not_v3:
+        print >>sys.stderr, \
+            'SKIPPING FUNCTIONAL TESTS SPECIFIC TO AUTH VERSION 3'
 
     get_cluster_info()
 
@@ -539,10 +546,10 @@ class InternalServerError(Exception):
     pass
 
 
-url = [None, None, None]
-token = [None, None, None]
-parsed = [None, None, None]
-conn = [None, None, None]
+url = [None, None, None, None]
+token = [None, None, None, None]
+parsed = [None, None, None, None]
+conn = [None, None, None, None]
 
 
 def connection(url):
@@ -569,7 +576,8 @@ def retry(func, *args, **kwargs):
 
     # access our own account by default
     url_account = kwargs.pop('url_account', use_account + 1) - 1
-
+    os_options = {'user_domain_name': swift_test_domain[use_account],
+                  'project_domain_name': swift_test_domain[use_account]}
     while attempts <= retries:
         attempts += 1
         try:
@@ -580,7 +588,7 @@ def retry(func, *args, **kwargs):
                              snet=False,
                              tenant_name=swift_test_tenant[use_account],
                              auth_version=swift_test_auth_version,
-                             os_options={})
+                             os_options=os_options)
                 parsed[use_account] = conn[use_account] = None
             if not parsed[use_account] or not conn[use_account]:
                 parsed[use_account], conn[use_account] = \
