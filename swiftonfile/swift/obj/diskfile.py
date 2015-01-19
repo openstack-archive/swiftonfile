@@ -228,11 +228,6 @@ class DiskFileManager(SwiftDiskFileManager):
     :param conf: caller provided configuration object
     :param logger: caller provided logger
     """
-    def __init__(self, conf, logger):
-        super(DiskFileManager, self).__init__(conf, logger)
-        self.reseller_prefix = \
-            conf.get('reseller_prefix', 'AUTH_').strip()  # Not used, currently
-
     def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx=0, **kwargs):
         dev_path = self.get_dev_path(device)
@@ -583,7 +578,6 @@ class DiskFile(object):
         self._uid = int(uid)
         self._gid = int(gid)
         self._is_dir = False
-        self._logger = mgr.logger
         self._metadata = None
         self._fd = None
         # Don't store a value for data_file until we know it exists.
@@ -822,10 +816,6 @@ class DiskFile(object):
                                     " on subpath: %s" % (full_path, cur_path))
             child = stack.pop() if stack else None
         return True, newmd
-        # Exists, but as a file
-        #raise DiskFileError('DiskFile.put(): directory creation failed'
-        #                    ' since the target, %s, already exists as'
-        #                    ' a file' % df._data_file)
 
     @contextmanager
     def create(self, size=None):

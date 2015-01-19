@@ -47,7 +47,6 @@ class CheckConstraintsMiddleware(object):
     def __init__(self, app, conf):
         self.app = app
         self.logger = get_logger(conf, log_route='constraints')
-        self.swift_dir = conf.get('swift_dir', '/etc/swift')
         self.policies = conf.get('policies', '')
 
     def __call__(self, env, start_response):

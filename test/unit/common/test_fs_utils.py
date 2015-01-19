@@ -23,8 +23,7 @@ from mock import patch, Mock
 from time import sleep
 from tempfile import mkdtemp, mkstemp
 from swiftonfile.swift.common import fs_utils as fs
-from swiftonfile.swift.common.exceptions import NotDirectoryError, \
-    FileOrDirNotFoundError, SwiftOnFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
 
@@ -270,70 +269,6 @@ class TestFsUtils(unittest.TestCase):
             else:
                 self.fail("Expected DiskFileNoSpace exception")
 
-    def test_mkdirs(self):
-        try:
-            subdir = os.path.join('/tmp', str(random.random()))
-            path = os.path.join(subdir, str(random.random()))
-            fs.mkdirs(path)
-            assert os.path.exists(path)
-        finally:
-            shutil.rmtree(subdir)
-
-    def test_mkdirs_already_dir(self):
-        tmpdir = mkdtemp()
-        try:
-            fs.mkdirs(tmpdir)
-        except (SwiftOnFileSystemOSError, OSError):
-            self.fail("Unexpected exception")
-        else:
-            pass
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_mkdirs_existing_file(self):
-        tmpdir = mkdtemp()
-        fd, tmpfile = mkstemp(dir=tmpdir)
-        try:
-            fs.mkdirs(tmpfile)
-        except OSError:
-            pass
-        else:
-            self.fail("Expected SwiftOnFileSystemOSError exception")
-        finally:
-            os.close(fd)
-            shutil.rmtree(tmpdir)
-
-    def test_mkdirs_existing_file_on_path(self):
-        tmpdir = mkdtemp()
-        fd, tmpfile = mkstemp(dir=tmpdir)
-        try:
-            fs.mkdirs(os.path.join(tmpfile, 'b'))
-        except OSError:
-            pass
-        else:
-            self.fail("Expected SwiftOnFileSystemOSError exception")
-        finally:
-            os.close(fd)
-            shutil.rmtree(tmpdir)
-
-    def test_mkdirs_DiskFileNoSpace(self):
-
-        with patch('os.makedirs', mock_os_mkdir_makedirs_enospc):
-            try:
-                fs.mkdirs("blah")
-            except DiskFileNoSpace:
-                pass
-            else:
-                self.fail("Expected DiskFileNoSpace exception")
-
-        with patch('os.makedirs', mock_os_mkdir_makedirs_edquot):
-            try:
-                fs.mkdirs("blah")
-            except DiskFileNoSpace:
-                pass
-            else:
-                self.fail("Expected DiskFileNoSpace exception")
-
     def test_do_mkdir(self):
         try:
             path = os.path.join('/tmp', str(random.random()))
@@ -368,26 +303,6 @@ class TestFsUtils(unittest.TestCase):
                 self.assertEqual(err.errno, errno.EDQUOT)
             else:
                 self.fail("Expected OSError with errno.EDQUOT exception")
-
-    def test_do_listdir(self):
-        tmpdir = mkdtemp()
-        try:
-            subdir = []
-            for i in range(5):
-                subdir.append(mkdtemp(dir=tmpdir).rsplit(os.path.sep, 1)[1])
-
-            assert subdir.sort() == fs.do_listdir(tmpdir).sort()
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_do_listdir_err(self):
-        try:
-            path = os.path.join('/tmp', str(random.random()))
-            fs.do_listdir(path)
-        except SwiftOnFileSystemOSError:
-            pass
-        else:
-            self.fail("SwiftOnFileSystemOSError expected")
 
     def test_do_fstat(self):
         tmpdir = mkdtemp()
@@ -555,48 +470,6 @@ class TestFsUtils(unittest.TestCase):
             pass
         else:
             self.fail("SwiftOnFileSystemOSError expected")
-
-    def test_dir_empty(self):
-        tmpdir = mkdtemp()
-        try:
-            subdir = mkdtemp(dir=tmpdir)
-            assert not fs.dir_empty(tmpdir)
-            assert fs.dir_empty(subdir)
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_dir_empty_err(self):
-        def _mock_os_listdir(path):
-            raise OSError(13, "foo")
-
-        with patch("os.listdir", _mock_os_listdir):
-            try:
-                fs.dir_empty("/tmp")
-            except SwiftOnFileSystemOSError:
-                pass
-            else:
-                self.fail("SwiftOnFileSystemOSError exception expected")
-
-    def test_dir_empty_notfound(self):
-        try:
-            assert fs.dir_empty(os.path.join('/tmp', str(random.random())))
-        except FileOrDirNotFoundError:
-            pass
-        else:
-            self.fail("FileOrDirNotFoundError exception expected")
-
-    def test_dir_empty_notdir(self):
-        fd, tmpfile = mkstemp()
-        try:
-            try:
-                fs.dir_empty(tmpfile)
-            except NotDirectoryError:
-                pass
-            else:
-                self.fail("NotDirectoryError exception expected")
-        finally:
-            os.close(fd)
-            os.unlink(tmpfile)
 
     def test_do_rmdir(self):
         tmpdir = mkdtemp()
