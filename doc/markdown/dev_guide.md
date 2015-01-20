@@ -209,7 +209,7 @@ Your change will be merged after:
 Gerrit will automatically merge the change only after a '+1 Approved'
 for Workflow has been set by one of the core reviewers.
 
-[OpenStack Gerrit Workflow]: https://wiki.openstack.org/wiki/Gerrit_Workflow
+[OpenStack Gerrit Workflow]: http://docs.openstack.org/infra/manual/developers.html#development-workflow
 [SSH key]: http://review.openstack.org/#/settings/ssh-keys
 [PEP8]: http://www.python.org/dev/peps/pep-0008
 [Git Commit Messages]: https://wiki.openstack.org/wiki/GitCommitMessages
