@@ -15,16 +15,50 @@
 
 """ Tests for swiftonfile.swift.obj.server subclass """
 
+import os
+from tempfile import mkdtemp
+from shutil import rmtree
+from eventlet import tpool
+
+from swift.common.swob import Request
+
+from swiftonfile.swift.obj import server as object_server
+from swiftonfile.swift.obj import diskfile
+
 import unittest
-from nose import SkipTest
-
-import swiftonfile.swift.obj.server as server
+from test.unit import debug_logger
 
 
-class TestObjServer(unittest.TestCase):
-    """
-    Tests for object server subclass.
-    """
+class TestObjectController(unittest.TestCase):
+    """Test swiftonfile.swift.obj.server.ObjectController"""
 
-    def test_constructor(self):
-        raise SkipTest
+    def setUp(self):
+        self.tmpdir = mkdtemp()
+        self.testdir = os.path.join(self.tmpdir,
+                                    'tmp_test_sof_TestObjectController')
+        conf = {'devices': self.testdir, 'mount_check': 'false'}
+        self.object_controller = object_server.ObjectController(
+            conf, logger=debug_logger())
+        self.object_controller.bytes_per_sync = 1
+        self._orig_tpool_exc = tpool.execute
+        tpool.execute = lambda f, *args, **kwargs: f(*args, **kwargs)
+        self.df_mgr = diskfile.DiskFileManager(conf,
+                                               self.object_controller.logger)
+
+    def tearDown(self):
+        rmtree(self.tmpdir)
+        tpool.execute = self._orig_tpool_exc
+
+    def test_REPLICATE(self):
+        req = Request.blank('/sda1/p/suff',
+                            environ={'REQUEST_METHOD': 'REPLICATE'},
+                            headers={})
+        resp = req.get_response(self.object_controller)
+        self.assertEquals(resp.status_int, 501)  # HTTPNotImplemented
+
+    def test_REPLICATION(self):
+        req = Request.blank('/sda1/p/suff',
+                            environ={'REQUEST_METHOD': 'REPLICATION'},
+                            headers={})
+        resp = req.get_response(self.object_controller)
+        self.assertEquals(resp.status_int, 501)  # HTTPNotImplemented
