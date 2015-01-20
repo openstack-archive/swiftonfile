@@ -15,8 +15,8 @@
 
 """ Object Server for Gluster for Swift """
 
-from swift.common.swob import HTTPConflict
-from swift.common.utils import public, timing_stats
+from swift.common.swob import HTTPConflict, HTTPMethodNotAllowed
+from swift.common.utils import public, timing_stats, replication
 from swift.common.request_helpers import get_name_and_placement
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
@@ -78,6 +78,27 @@ class ObjectController(server.ObjectController):
             device = \
                 split_and_validate_path(request, 1, 5, True)
             return HTTPConflict(drive=device, request=request)
+
+    @public
+    @replication
+    @timing_stats(sample_rate=0.1)
+    def REPLICATE(self, request):
+        """
+        In Swift, this method handles REPLICATE requests for the Swift
+        Object Server.  This is used by the object replicator to get hashes
+        for directories.
+
+        Swiftonfile does not support this as it expects the underlying
+        filesystem to take care of replication. Also, swiftonfile has no
+        notion of hashes for directories.
+        """
+        return HTTPMethodNotAllowed(request=request)
+
+    @public
+    @replication
+    @timing_stats(sample_rate=0.1)
+    def REPLICATION(self, request):
+        return HTTPMethodNotAllowed(request=request)
 
 
 def app_factory(global_conf, **local_conf):
