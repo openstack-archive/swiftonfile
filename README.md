@@ -45,21 +45,29 @@ GlusterFS and GPFS are good examples of Filesystems that work well with Swift-on
 Both provide a posix interface, global namespace, scalability, data replication
 and support for extended attributes.
 
-Currently, files added over a NAS protocol (e.g., native GlusterFS), do not show
+Currently, files added over a file interface (e.g., native GlusterFS), do not show
 up in container listings, still those files would be accessible over Swift's REST
 interface with a GET request. We are working to provide a solution to this limitation.
+
+Because Swift-On-File relies on the data replication support of the filesystem the Swift
+Object replicator process does not have any role for containers using the Swift-on-File
+storage policy.  This means that Swift geo replication is not available to objects in
+in containers using the Swift-on-File storage policy.  Multi-site replication for these
+objects must be provide by the filesystem.
 
 Future plans includes adding support for Filesystems without extended attributes,
 which should extend the ability to migrate data for legacy storage systems.
  
 ## Get involved:
-To learn more about Swift-On-File, you can watch this presentation given at 
-the Atlanta Openstack Summit: [Breaking the Mold with Openstack Swift and GlusterFS](http://youtu.be/pSWdzjA8WuA).
-Presentation slides can be found [here](http://lpabon.github.io/openstack-summit-2014).
+To learn more about Swift-On-File, you can watch the presentation given at
+the Paris OpenStack Summit: [Deploying Swift on a File System](http://youtu.be/vPn2uZF4yWo).
+The Paris presentation slides can be found [here](https://github.com/thiagol11/openstack-fall-summit-2014)
+Also see the presentation given at the Atlanta Openstack Summit: [Breaking the Mold with Openstack Swift and GlusterFS](http://youtu.be/pSWdzjA8WuA).
+The Atlanta presentation slides can be found [here](http://lpabon.github.io/openstack-summit-2014).
 
 Join us in contributing to the project. Feel free to file bugs, help with documentation
-or work directly on the code. You can communicate with us using GitHub [issues](https://github.com/swiftonfile/swiftonfile/issues) or find
-us in the #swiftonfile channel on Freenode.
+or work directly on the code. You can communicate with us using GitHub bugs and blueprints on [launchpad](https://launchpad.net/swiftonfile)
+or find us in the #swiftonfile channel on Freenode.
 
 # Guides to get started:
 1. [Quick Start Guide with XFS/GlusterFS](doc/markdown/quick_start_guide.md)
