@@ -26,7 +26,7 @@ import tarfile
 import shutil
 from collections import defaultdict
 from mock import patch
-from swiftonfile.swift.common import utils, Glusterfs
+from swiftonfile.swift.common import utils
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
@@ -434,11 +434,11 @@ class TestUtils(unittest.TestCase):
             os.rmdir(td)
 
     def test_validate_object_empty(self):
-        ret = utils.validate_object({})
+        ret = utils.validate_object({}, None)
         assert not ret
 
     def test_validate_object_missing_keys(self):
-        ret = utils.validate_object({'foo': 'bar'})
+        ret = utils.validate_object({'foo': 'bar'}, None)
         assert not ret
 
     def test_validate_object_bad_type(self):
@@ -448,17 +448,41 @@ class TestUtils(unittest.TestCase):
               utils.X_CONTENT_LENGTH: 'na',
               utils.X_TYPE: 'bad',
               utils.X_OBJECT_TYPE: 'na'}
-        ret = utils.validate_object(md)
+        ret = utils.validate_object(md, None)
         assert not ret
 
-    def test_validate_object_good_type(self):
+    def test_validate_object_stats(self):
         md = {utils.X_TIMESTAMP: 'na',
               utils.X_CONTENT_TYPE: 'na',
               utils.X_ETAG: 'bad',
               utils.X_CONTENT_LENGTH: 'na',
               utils.X_TYPE: utils.OBJECT,
               utils.X_OBJECT_TYPE: 'na'}
-        ret = utils.validate_object(md)
+        ret = utils.validate_object(md, None)
+        assert not ret
+
+    def test_validate_object_bad_time(self):
+        tf = tempfile.NamedTemporaryFile()
+        ts = os.stat(tf.name)
+        md = {utils.X_TIMESTAMP: 'na',
+              utils.X_CONTENT_TYPE: 'na', 
+              utils.X_ETAG: utils._get_etag(tf.name),
+              utils.X_CONTENT_LENGTH: 0,
+              utils.X_TYPE: utils.OBJECT,
+              utils.X_OBJECT_TYPE: 'na'}
+        ret = utils.validate_object(md, ts)
+        assert not ret
+
+    def test_validate_object_good_type(self):
+        tf = tempfile.NamedTemporaryFile()
+        ts = os.stat(tf.name)
+        md = {utils.X_TIMESTAMP: ts.st_mtime,
+              utils.X_CONTENT_TYPE: 'na', 
+              utils.X_ETAG: 'na',
+              utils.X_CONTENT_LENGTH: 'na',
+              utils.X_TYPE: utils.OBJECT,
+              utils.X_OBJECT_TYPE: 'na'}
+        ret = utils.validate_object(md, ts)
         assert ret
 
     def test_write_pickle(self):

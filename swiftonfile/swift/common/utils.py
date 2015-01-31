@@ -161,7 +161,7 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata):
+def validate_object(metadata, stats):
     if not metadata:
         return False
 
@@ -171,6 +171,16 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
+        logging.warn('validate_object: object does not contain all of the '
+                     'required metadata values, recalulate metadata')
+        return False
+
+    if not stats:
+        return False
+
+    if metadata[X_TIMESTAMP] != stats.st_mtime:
+        logging.warn('validate_object: object has been modified, recalculate '
+                     'metadata')
         return False
 
     if metadata[X_TYPE] == OBJECT:

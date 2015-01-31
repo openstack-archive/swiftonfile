@@ -219,12 +219,15 @@ class TestDiskFile(unittest.TestCase):
         os.makedirs(the_path)
         with open(the_file, "wb") as fd:
             fd.write("1234")
+        file_size = os.path.getsize(the_file)
+        file_etag = swiftonfile.swift.common.utils._get_etag(the_file)
+        file_stat = os.stat(the_file)
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'file',
-            'Content-Length': 5,
-            'ETag': 'etag',
-            'X-Timestamp': 'ts',
+            'Content-Length': file_size,
+            'ETag': file_etag,
+            'X-Timestamp': file_stat.st_mtime,
             'Content-Type': 'application/loctet-stream'}
         _metadata[_mapit(the_file)] = ini_md
         exp_md = ini_md.copy()
@@ -265,13 +268,14 @@ class TestDiskFile(unittest.TestCase):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
         the_dir = os.path.join(the_path, "d")
         os.makedirs(the_dir)
+        file_stat = os.stat(the_dir)
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'dir',
-            'Content-Length': 5,
-            'ETag': 'etag',
-            'X-Timestamp': 'ts',
-            'Content-Type': 'application/loctet-stream'}
+            'Content-Length': 0,
+            'ETag': md5().hexdigest(),
+            'X-Timestamp': file_stat.st_mtime,
+            'Content-Type': 'application/directory'}
         _metadata[_mapit(the_dir)] = ini_md
         exp_md = ini_md.copy()
         del exp_md['X-Type']
@@ -282,7 +286,7 @@ class TestDiskFile(unittest.TestCase):
         with gdf.open():
             assert gdf._is_dir
             assert gdf._data_file == the_dir
-            assert gdf._metadata == exp_md
+            assert gdf._metadata == exp_md, "%r != %r" % (gdf._metadata, exp_md)
 
     def _create_and_get_diskfile(self, dev, par, acc, con, obj, fsize=256):
         # FIXME: assumes account === volume
