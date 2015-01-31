@@ -161,7 +161,7 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata):
+def validate_object(metadata, stats):
     if not metadata:
         return False
 
@@ -171,6 +171,17 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
+        logging.warn('validate_object: object does not contain all of the '
+                     'required metadata values, recalulate metadata')
+        return False
+
+    if not stats:
+        return False
+
+    if normalize_timestamp(metadata[X_TIMESTAMP]) != \
+            normalize_timestamp(stats.st_mtime):
+        logging.warn('validate_object: object has been modified, recalculate '
+                     'metadata')
         return False
 
     if metadata[X_TYPE] == OBJECT:
@@ -242,7 +253,7 @@ def get_object_metadata(obj_path_or_fd):
         is_dir = stat.S_ISDIR(stats.st_mode)
         metadata = {
             X_TYPE: OBJECT,
-            X_TIMESTAMP: normalize_timestamp(stats.st_ctime),
+            X_TIMESTAMP: normalize_timestamp(stats.st_mtime),
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
             X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
