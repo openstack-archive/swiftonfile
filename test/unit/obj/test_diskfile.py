@@ -165,7 +165,6 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._datadir == gdf._put_datadir
         assert gdf._data_file == os.path.join(self.td, "vol0", "ufo47", "bar", "z")
         assert gdf._is_dir is False
-        assert gdf._logger == self.lg
         assert gdf._fd is None
 
     def test_constructor_leadtrail_slash(self):

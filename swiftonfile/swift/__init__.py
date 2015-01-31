@@ -42,9 +42,7 @@ class PkgInfo(object):
             return '%s-dev' % (self.canonical_version,)
 
 
-###
-### Change the Package version here
-###
+# Change the Package version here
 _pkginfo = PkgInfo('2.1.0', '0', 'swiftonfile', False)
 __version__ = _pkginfo.pretty_version
 __canonical_version__ = _pkginfo.canonical_version

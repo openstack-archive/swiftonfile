@@ -25,34 +25,8 @@ from itertools import repeat
 import ctypes
 from eventlet import sleep
 from swift.common.utils import load_libc_function
-from swiftonfile.swift.common.exceptions import FileOrDirNotFoundError, \
-    NotDirectoryError, SwiftOnFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
-
-
-def do_exists(path):
-    return os.path.exists(path)
-
-
-def do_touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
-
-
-def do_getctime(path):
-    return os.path.getctime(path)
-
-
-def do_getmtime(path):
-    return os.path.getmtime(path)
-
-
-def do_isdir(path):
-    return os.path.isdir(path)
-
-
-def do_getsize(path):
-    return os.path.getsize(path)
 
 
 def do_getxattr(path, key):
@@ -140,33 +114,6 @@ def do_ismount(path):
 
 def do_mkdir(path):
     os.mkdir(path)
-
-
-def do_listdir(path):
-    try:
-        buf = os.listdir(path)
-    except OSError as err:
-        raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.listdir("%s")' % (err.strerror, path))
-    return buf
-
-
-def dir_empty(path):
-    """
-    Return true if directory is empty (or does not exist), false otherwise.
-
-    :param path: Directory path
-    :returns: True/False
-    """
-    try:
-        files = do_listdir(path)
-        return not files
-    except SwiftOnFileSystemOSError as err:
-        if err.errno == errno.ENOENT:
-            raise FileOrDirNotFoundError()
-        if err.errno == errno.ENOTDIR:
-            raise NotDirectoryError()
-        raise
 
 
 def do_rmdir(path):
@@ -321,26 +268,6 @@ def do_lseek(fd, pos, how):
     except OSError as err:
         raise SwiftOnFileSystemOSError(
             err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
-
-
-def mkdirs(path):
-    """
-    Ensures the path is a directory or makes it if not. Errors if the path
-    exists but is a file or on permissions failure.
-
-    :param path: path to create
-    """
-    try:
-        os.makedirs(path)
-    except OSError as err:
-        if err.errno == errno.EEXIST and os.path.isdir(path):
-            return
-        elif err.errno in (errno.ENOSPC, errno.EDQUOT):
-            do_log_rl("mkdirs(%s) failed: %s", path, err)
-            raise DiskFileNoSpace()
-        else:
-            raise SwiftOnFileSystemOSError(
-                err.errno, '%s, os.makedirs("%s")' % (err.strerror, path))
 
 
 def get_filename_from_fd(fd, verify=False):

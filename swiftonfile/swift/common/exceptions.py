@@ -30,14 +30,6 @@ class FailureToMountError(SwiftOnFileFsException):
     pass
 
 
-class FileOrDirNotFoundError(SwiftOnFileFsException):
-    pass
-
-
-class NotDirectoryError(SwiftOnFileFsException):
-    pass
-
-
 class AlreadyExistsAsDir(SwiftOnFileFsException):
     pass
 
