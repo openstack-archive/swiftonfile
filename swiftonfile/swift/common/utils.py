@@ -17,16 +17,15 @@ import os
 import stat
 import errno
 import random
-import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
 from swiftonfile.swift.common.fs_utils import do_stat, \
-    do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
+    do_walk, do_rmdir, do_log_rl, get_filename_from_fd, \
     do_getxattr, do_setxattr, do_removexattr, do_read, \
-    do_close, do_dup, do_lseek, do_fstat, do_fsync, do_rename
+    do_dup, do_lseek, do_fsync, do_rename
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -34,6 +33,7 @@ X_TIMESTAMP = 'X-Timestamp'
 X_TYPE = 'X-Type'
 X_ETAG = 'ETag'
 X_OBJECT_TYPE = 'X-Object-Type'
+X_MTIME = 'X-Object-PUT-Mtime'
 DIR_TYPE = 'application/directory'
 METADATA_KEY = 'user.swift.metadata'
 MAX_XATTR_SIZE = 65536
@@ -164,26 +164,6 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata):
-    if not metadata:
-        return False
-
-    if X_TIMESTAMP not in metadata.keys() or \
-       X_CONTENT_TYPE not in metadata.keys() or \
-       X_ETAG not in metadata.keys() or \
-       X_CONTENT_LENGTH not in metadata.keys() or \
-       X_TYPE not in metadata.keys() or \
-       X_OBJECT_TYPE not in metadata.keys():
-        return False
-
-    if metadata[X_TYPE] == OBJECT:
-        return True
-
-    logging.warn('validate_object: metadata type is not OBJECT (%r)',
-                 metadata[X_TYPE])
-    return False
-
-
 def _read_for_etag(fp):
     etag = md5()
     while True:
@@ -201,7 +181,7 @@ def _read_for_etag(fp):
     return etag.hexdigest()
 
 
-def _get_etag(path_or_fd):
+def get_etag(fd):
     """
     FIXME: It would be great to have a translator that returns the md5sum() of
     the file as an xattr that can be simply fetched.
@@ -209,68 +189,30 @@ def _get_etag(path_or_fd):
     Since we don't have that we should yield after each chunk read and
     computed so that we don't consume the worker thread.
     """
-    if isinstance(path_or_fd, int):
-        # We are given a file descriptor, so this is an invocation from the
-        # DiskFile.open() method.
-        fd = path_or_fd
-        etag = _read_for_etag(do_dup(fd))
-        do_lseek(fd, 0, os.SEEK_SET)
-    else:
-        # We are given a path to the object when the DiskDir.list_objects_iter
-        # method invokes us.
-        path = path_or_fd
-        fd = do_open(path, os.O_RDONLY)
-        etag = _read_for_etag(fd)
-        do_close(fd)
-
+    if not isinstance(fd, int):
+        raise ValueError("FD must be an integer")
+    etag = _read_for_etag(do_dup(fd))
+    do_lseek(fd, 0, os.SEEK_SET)
     return etag
 
 
-def get_object_metadata(obj_path_or_fd):
+def get_dir_object_metadata(dirpath):
     """
-    Return metadata of object.
+    Return metadata of dir object.
     """
-    if isinstance(obj_path_or_fd, int):
-        # We are given a file descriptor, so this is an invocation from the
-        # DiskFile.open() method.
-        stats = do_fstat(obj_path_or_fd)
-    else:
-        # We are given a path to the object when the DiskDir.list_objects_iter
-        # method invokes us.
-        stats = do_stat(obj_path_or_fd)
-
-    if not stats:
+    assert isinstance(dirpath, basestring)
+    stats = do_stat(dirpath)
+    if not stats or not stat.S_ISDIR(stats.st_mode):
         metadata = {}
     else:
-        is_dir = stat.S_ISDIR(stats.st_mode)
         metadata = {
             X_TYPE: OBJECT,
-            X_TIMESTAMP: normalize_timestamp(stats.st_ctime),
-            X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
-            X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
-            X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
-            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path_or_fd)}
+            X_TIMESTAMP: normalize_timestamp(stats.st_mtime),
+            X_CONTENT_TYPE: DIR_TYPE,
+            X_OBJECT_TYPE: DIR_NON_OBJECT,
+            X_CONTENT_LENGTH: 0,
+            X_ETAG: md5().hexdigest()}
     return metadata
-
-
-def restore_metadata(path, metadata):
-    meta_orig = read_metadata(path)
-    if meta_orig:
-        meta_new = meta_orig.copy()
-        meta_new.update(metadata)
-    else:
-        meta_new = metadata
-    if meta_orig != meta_new:
-        write_metadata(path, meta_new)
-    return meta_new
-
-
-def create_object_metadata(obj_path_or_fd):
-    # We must accept either a path or a file descriptor as an argument to this
-    # method, as the diskfile modules uses a file descriptior and the DiskDir
-    # module (for container operations) uses a path.
-    metadata = get_object_metadata(obj_path_or_fd)
-    return restore_metadata(obj_path_or_fd, metadata)
 
 
 # The following dir_xxx calls should definitely be replaced
