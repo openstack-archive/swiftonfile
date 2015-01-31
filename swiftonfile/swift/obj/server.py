@@ -15,12 +15,13 @@
 
 """ Object Server for Gluster for Swift """
 
-from swift.common.swob import HTTPConflict
-from swift.common.utils import public, timing_stats
+from swift.common.swob import HTTPConflict, HeaderKeyDict
+from swift.common.utils import public, timing_stats, csv_append
 from swift.common.request_helpers import get_name_and_placement
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.request_helpers import split_and_validate_path
+from swift.common.ring import Ring
 
 from swift.obj import server
 
@@ -30,10 +31,7 @@ from swiftonfile.swift.common.constraints import check_object_creation
 
 class ObjectController(server.ObjectController):
     """
-    Subclass of the object server's ObjectController which replaces the
-    container_update method with one that is a no-op (information is simply
-    stored on disk and already updated by virtue of performing the file system
-    operations directly).
+    Subclass of the object server's ObjectController.
     """
     def setup(self, conf):
         """
@@ -46,6 +44,14 @@ class ObjectController(server.ObjectController):
         # Common on-disk hierarchy shared across account, container and object
         # servers.
         self._diskfile_mgr = DiskFileManager(conf, self.logger)
+        self.swift_dir = conf.get('swift_dir', '/etc/swift')
+        self.container_ring = None
+
+    def get_container_ring(self):
+        """Get the container ring.  Load it, if it hasn't been yet."""
+        if not self.container_ring:
+            self.container_ring = Ring(self.swift_dir, ring_name='container')
+        return self.container_ring
 
     def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx, **kwargs):
@@ -78,6 +84,48 @@ class ObjectController(server.ObjectController):
             device = \
                 split_and_validate_path(request, 1, 5, True)
             return HTTPConflict(drive=device, request=request)
+
+    @public
+    @timing_stats()
+    def GET(self, request):
+        # Call Swift's GET method
+        resp = server.ObjectController.GET(self, request)
+
+        # SOF specific metadata is set in DiskFile.open()._filter_metadata()
+        # This is a hack to avoid modifying upstream Swift code.
+        if 'X-Object-Sysmeta-Update-Container' in resp.headers:
+            device, partition, account, container, obj, policy_idx = \
+                get_name_and_placement(request, 5, 5, True)
+
+            # The container_update() method requires certain container
+            # specific headers. The proxy object controller appends these
+            # headers for PUT backend request but not for GET requests.
+            # Thus, we populate the required information in request
+            # and then invoke container_update()
+            container_partition, container_nodes = \
+                self.get_container_ring().get_nodes(account, container)
+            request.headers['X-Container-Partition'] = container_partition
+            for node in container_nodes:
+                request.headers['X-Container-Host'] = csv_append(
+                    request.headers.get('X-Container-Host'),
+                    '%(ip)s:%(port)s' % node)
+                request.headers['X-Container-Device'] = csv_append(
+                    request.headers.get('X-Container-Device'), node['device'])
+
+            self.container_update(
+                'PUT', account, container, obj, request,
+                HeaderKeyDict({
+                    'x-size': resp.headers['Content-Length'],
+                    'x-content-type': resp.headers['Content-Type'],
+                    'x-timestamp': resp.headers['X-Timestamp'],
+                    'x-etag': resp.headers['ETag']}),
+                device, policy_idx)
+
+            # Remove SOF specific metadata as it's no longer required.
+            resp.headers.pop('X-Object-Sysmeta-Update-Container', None)
+
+        # Return Swift's original GET response to proxy server
+        return resp
 
 
 def app_factory(global_conf, **local_conf):
