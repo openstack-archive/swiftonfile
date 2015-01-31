@@ -187,7 +187,7 @@ else:
     _use_put_mount = False
 
 
-def _adjust_metadata(metadata):
+def _adjust_metadata(fd, metadata):
     # Fix up the metadata to ensure it has a proper value for the
     # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
     # metadata values.
@@ -206,6 +206,10 @@ def _adjust_metadata(metadata):
             metadata[X_OBJECT_TYPE] = DIR_OBJECT
         else:
             metadata[X_OBJECT_TYPE] = FILE
+
+    # stat.st_mtime does not change after last write(). We set this to later
+    # detect if the object was changed from filesystem interface (non Swift)
+    metadata[X_TIMESTAMP] = normalize_timestamp(do_fstat(fd).st_mtime)
 
     metadata[X_TYPE] = OBJECT
     return metadata
@@ -403,7 +407,7 @@ class DiskFileWriter(object):
                                      name
         """
         assert self._tmppath is not None
-        metadata = _adjust_metadata(metadata)
+        metadata = _adjust_metadata(self._fd, metadata)
         df = self._disk_file
 
         if dir_is_object(metadata):
@@ -642,7 +646,7 @@ class DiskFile(object):
             obj_size = stats.st_size
 
         self._metadata = read_metadata(fd)
-        if not validate_object(self._metadata):
+        if not validate_object(self._metadata, stats):
             create_object_metadata(fd)
             self._metadata = read_metadata(fd)
         assert self._metadata is not None
