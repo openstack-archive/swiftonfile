@@ -180,14 +180,13 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("1234")
         stats = os.stat(the_file)
-        ts = normalize_timestamp(stats.st_ctime)
-        etag = md5()
-        etag.update("1234")
-        etag = etag.hexdigest()
+        ts = normalize_timestamp(stats.st_mtime)
+        etag = md5("1234").hexdigest()
         exp_md = {
             'Content-Length': 4,
             'ETag': etag,
             'X-Timestamp': ts,
+            'X-Object-Sysmeta-Update-Container': True,
             'Content-Type': 'application/octet-stream'}
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         assert gdf._obj == "z"
@@ -198,6 +197,7 @@ class TestDiskFile(unittest.TestCase):
             assert gdf._data_file == the_file
             assert not gdf._is_dir
             assert gdf._fd is not None
+            print gdf._metadata, exp_md
             assert gdf._metadata == exp_md
         self.assertRaises(DiskFileNotOpen, gdf.get_metadata)
         self.assertRaises(DiskFileNotOpen, gdf.reader)
@@ -219,13 +219,16 @@ class TestDiskFile(unittest.TestCase):
         os.makedirs(the_path)
         with open(the_file, "wb") as fd:
             fd.write("1234")
+        file_size = os.path.getsize(the_file)
+        file_etag = md5("1234").hexdigest()
+        file_stat = os.stat(the_file)
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'file',
-            'Content-Length': 5,
-            'ETag': 'etag',
-            'X-Timestamp': 'ts',
-            'Content-Type': 'application/loctet-stream'}
+            'Content-Length': file_size,
+            'ETag': file_etag,
+            'X-Timestamp': file_stat.st_mtime,
+            'Content-Type': 'application/octet-stream'}
         _metadata[_mapit(the_file)] = ini_md
         exp_md = ini_md.copy()
         del exp_md['X-Type']
@@ -250,7 +253,7 @@ class TestDiskFile(unittest.TestCase):
         inv_md = {
             'Content-Length': 5,
             'ETag': 'etag',
-            'X-Timestamp': 'ts',
+            'X-Timestamp': '1234',
             'Content-Type': 'application/loctet-stream'}
         _metadata[_mapit(the_file)] = inv_md
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
@@ -265,13 +268,14 @@ class TestDiskFile(unittest.TestCase):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
         the_dir = os.path.join(the_path, "d")
         os.makedirs(the_dir)
+        file_stat = os.stat(the_dir)
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'dir',
-            'Content-Length': 5,
-            'ETag': 'etag',
-            'X-Timestamp': 'ts',
-            'Content-Type': 'application/loctet-stream'}
+            'Content-Length': 0,
+            'ETag': md5().hexdigest(),
+            'X-Timestamp': file_stat.st_mtime,
+            'Content-Type': 'application/directory'}
         _metadata[_mapit(the_dir)] = ini_md
         exp_md = ini_md.copy()
         del exp_md['X-Type']
@@ -282,7 +286,7 @@ class TestDiskFile(unittest.TestCase):
         with gdf.open():
             assert gdf._is_dir
             assert gdf._data_file == the_dir
-            assert gdf._metadata == exp_md
+            assert gdf._metadata == exp_md, "%r != %r" % (gdf._metadata, exp_md)
 
     def _create_and_get_diskfile(self, dev, par, acc, con, obj, fsize=256):
         # FIXME: assumes account === volume
@@ -490,7 +494,7 @@ class TestDiskFile(unittest.TestCase):
             'X-Object-Type': 'file',
             'Content-Length': 4,
             'ETag': 'etag',
-            'X-Timestamp': 'ts',
+            'X-Timestamp': '1234',
             'Content-Type': 'application/loctet-stream'}
         _metadata[_mapit(the_file)] = ini_md
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
@@ -519,7 +523,7 @@ class TestDiskFile(unittest.TestCase):
             'Content-Length': 4,
             'name': 'z',
             'ETag': 'etag',
-            'X-Timestamp': 'ts'}
+            'X-Timestamp': '1234'}
         _metadata[_mapit(the_file)] = ini_md
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
 
@@ -545,7 +549,7 @@ class TestDiskFile(unittest.TestCase):
             'X-Type': 'Object',
             'Content-Length': 0,
             'ETag': 'etag',
-            'X-Timestamp': 'ts',
+            'X-Timestamp': '1234',
             'X-Object-Meta-test':'test',
             'Content-Type': 'application/directory'}
         _metadata[_mapit(the_dir)] = init_md
@@ -622,7 +626,7 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._metadata is None
         newmd = {
             'ETag': 'etag',
-            'X-Timestamp': 'ts',
+            'X-Timestamp': '1234',
             'Content-Type': 'application/directory'}
         with gdf.create() as dw:
             dw.put(newmd)

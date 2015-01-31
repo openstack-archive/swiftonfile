@@ -42,12 +42,11 @@ from swiftonfile.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
 from swiftonfile.swift.common.utils import read_metadata, write_metadata, \
-    validate_object, create_object_metadata, rmobjdir, dir_is_object, \
-    get_object_metadata, write_pickle
+    rmobjdir, dir_is_object, get_dir_object_metadata, write_pickle, get_etag
 from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
-    X_ETAG, X_CONTENT_LENGTH
+    X_ETAG, X_CONTENT_LENGTH, X_MTIME
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
 from swift.obj.diskfile import get_async_dir
@@ -165,7 +164,7 @@ def make_directory(full_path, uid, gid, metadata=None):
     else:
         if metadata:
             # We were asked to set the initial metadata for this object.
-            metadata_orig = get_object_metadata(full_path)
+            metadata_orig = get_dir_object_metadata(full_path)
             metadata_orig.update(metadata)
             write_metadata(full_path, metadata_orig)
             metadata = metadata_orig
@@ -187,7 +186,7 @@ else:
     _use_put_mount = False
 
 
-def _adjust_metadata(metadata):
+def _adjust_metadata(fd, metadata):
     # Fix up the metadata to ensure it has a proper value for the
     # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
     # metadata values.
@@ -206,6 +205,10 @@ def _adjust_metadata(metadata):
             metadata[X_OBJECT_TYPE] = DIR_OBJECT
         else:
             metadata[X_OBJECT_TYPE] = FILE
+
+    # stat.st_mtime does not change after last write(). We set this to later
+    # detect if the object was changed from filesystem interface (non Swift)
+    metadata[X_MTIME] = normalize_timestamp(do_fstat(fd).st_mtime)
 
     metadata[X_TYPE] = OBJECT
     return metadata
@@ -403,7 +406,7 @@ class DiskFileWriter(object):
                                      name
         """
         assert self._tmppath is not None
-        metadata = _adjust_metadata(metadata)
+        metadata = _adjust_metadata(self._fd, metadata)
         df = self._disk_file
 
         if dir_is_object(metadata):
@@ -590,6 +593,12 @@ class DiskFile(object):
         self._is_dir = False
         self._metadata = None
         self._fd = None
+        # Save stat info as internal variable to avoid multiple stat() calls
+        self._stat = None
+        # Save md5sum of object as internal variable to avoid reading the
+        # entire object more than once.
+        self._etag = None
+        self._file_has_changed = False
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
@@ -622,8 +631,7 @@ class DiskFile(object):
         Open the object.
 
         This implementation opens the data file representing the object, reads
-        the associated metadata in the extended attributes, additionally
-        combining metadata from fast-POST `.meta` files.
+        the associated metadata in the extended attributes.
 
         .. note::
 
@@ -635,7 +643,6 @@ class DiskFile(object):
         :raises DiskFileExpired: if the object has expired
         :returns: itself for use as a context manager
         """
-        # Writes are always performed to a temporary file
         try:
             fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
         except SwiftOnFileSystemOSError as err:
@@ -644,31 +651,125 @@ class DiskFile(object):
                 # exist, raise the expected DiskFileNotExist
                 raise DiskFileNotExist
             raise
-        else:
-            stats = do_fstat(fd)
-            if not stats:
-                return
-            self._is_dir = stat.S_ISDIR(stats.st_mode)
-            obj_size = stats.st_size
 
+        self._stat = do_fstat(fd)
+        self._is_dir = stat.S_ISDIR(self._stat.st_mode)
+
+        if self._is_dir:
+            # Is a directory
+            self._obj_size = 0
+        else:
+            # Is a file
+            self._obj_size = self._stat.st_size
+
+        # Fetch current metadata if it exists
         self._metadata = read_metadata(fd)
-        if not validate_object(self._metadata):
-            create_object_metadata(fd)
-            self._metadata = read_metadata(fd)
-        assert self._metadata is not None
+
+        # If metadata does not exist or is stale or is incomplete, fix that
+        if not self._validate_object_metadata(fd):
+            self._create_object_metadata(fd)
+
+        # Remove/Add SOF specific keys to metadata
         self._filter_metadata()
 
         if self._is_dir:
+            # Is a directory and all fd operations are done
             do_close(fd)
-            obj_size = 0
             self._fd = -1
         else:
-            if self._is_object_expired(self._metadata):
-                raise DiskFileExpired(metadata=self._metadata)
+            # Is a file
             self._fd = fd
 
-        self._obj_size = obj_size
+        if self._is_object_expired(self._metadata):
+            raise DiskFileExpired(metadata=self._metadata)
+
         return self
+
+    def _validate_object_metadata(self, fd):
+
+        # Has no Swift specific metadata saved as xattr. Probably because
+        # object was added/replaced through filesystem interface.
+        if not self._metadata:
+            self._file_has_changed = True
+            return False
+
+        required_keys = \
+            (X_TIMESTAMP, X_CONTENT_TYPE, X_CONTENT_LENGTH, X_ETAG,
+             # SOF specific keys
+             X_TYPE, X_OBJECT_TYPE)
+
+        if not all(k in self._metadata for k in required_keys):
+            # At least one of the required keys does not exist
+            return False
+
+        if not self._is_dir:
+            # X_MTIME is a new key added recently, newer objects will
+            # have the key set during PUT.
+            if X_MTIME in self._metadata:
+                # Check if the file has been modified through filesystem
+                # interface by comparing mtime stored in xattr during PUT
+                # and current mtime of file.
+                if normalize_timestamp(self._metadata[X_MTIME]) != \
+                        normalize_timestamp(self._stat.st_mtime):
+                    self._file_has_changed = True
+                    return False
+            else:
+                # Without X_MTIME key, comparing md5sum is the only way
+                # to determine if file has changed or not. This is inefficient
+                # but there's no other way!
+                self._etag = get_etag(fd)
+                if self._etag != self._metadata[X_ETAG]:
+                    self._file_has_changed = True
+                    return False
+                else:
+                    # Checksums are same; File has not changed. For the next
+                    # GET request on same file, we don't compute md5sum again!
+                    # This is achieved by setting X_MTIME to mtime in
+                    # _create_object_metadata()
+                    return False
+
+        if self._metadata[X_TYPE] == OBJECT:
+            return True
+
+        return False
+
+    def _create_object_metadata(self, fd):
+
+        if self._etag is None:
+            self._etag = md5().hexdigest() if self._is_dir \
+                else get_etag(fd)
+
+        if self._file_has_changed or (X_TIMESTAMP not in self._metadata):
+            timestamp = normalize_timestamp(self._stat.st_mtime)
+        else:
+            timestamp = self._metadata[X_TIMESTAMP]
+
+        metadata = {
+            X_TYPE: OBJECT,
+            X_TIMESTAMP: timestamp,
+            X_CONTENT_TYPE: DIR_TYPE if self._is_dir else FILE_TYPE,
+            X_OBJECT_TYPE: DIR_NON_OBJECT if self._is_dir else FILE,
+            X_CONTENT_LENGTH: 0 if self._is_dir else self._stat.st_size,
+            X_ETAG: self._etag}
+
+        # Add X_MTIME key if object is a file
+        if not self._is_dir:
+            metadata[X_MTIME] = normalize_timestamp(self._stat.st_mtime)
+
+        meta_new = self._metadata.copy()
+        meta_new.update(metadata)
+        if self._metadata != meta_new:
+            write_metadata(fd, meta_new)
+            # Avoid additional read_metadata() later
+            self._metadata = meta_new
+
+    def _filter_metadata(self):
+        for key in (X_TYPE, X_OBJECT_TYPE, X_MTIME):
+            self._metadata.pop(key, None)
+        if self._file_has_changed:
+            # Really ugly hack to let SOF's GET() wrapper know that we need
+            # to update the container database
+            self._metadata['X-Object-Sysmeta-Update-Container'] = True
 
     def _is_object_expired(self, metadata):
         try:
@@ -684,12 +785,6 @@ class DiskFile(object):
             if x_delete_at <= time.time():
                 return True
         return False
-
-    def _filter_metadata(self):
-        if X_TYPE in self._metadata:
-            self._metadata.pop(X_TYPE)
-        if X_OBJECT_TYPE in self._metadata:
-            self._metadata.pop(X_OBJECT_TYPE)
 
     def __enter__(self):
         """
