@@ -161,7 +161,7 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata):
+def validate_object(metadata, fd):
     if not metadata:
         return False
 
@@ -171,6 +171,26 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
+        return False
+
+    if not fd:
+        return False
+
+    stats = do_fstat(fd)
+    if not stats:
+        return False
+
+    if stat.S_ISDIR(stats.st_mode):
+        expected_etag = md5().hexdigest()
+        expected_size = 0
+    else:
+        expected_etag = _get_etag(fd)
+        expected_size = stats.st_size
+
+    if metadata[X_CONTENT_LENGTH] != expected_size:
+        return False
+
+    if metadata[X_ETAG] != expected_etag:
         return False
 
     if metadata[X_TYPE] == OBJECT:

@@ -219,11 +219,13 @@ class TestDiskFile(unittest.TestCase):
         os.makedirs(the_path)
         with open(the_file, "wb") as fd:
             fd.write("1234")
+        file_size = os.path.getsize(the_file)
+        file_etag = swiftonfile.swift.common.utils._get_etag(the_file)
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'file',
-            'Content-Length': 5,
-            'ETag': 'etag',
+            'Content-Length': file_size,
+            'ETag': file_etag,
             'X-Timestamp': 'ts',
             'Content-Type': 'application/loctet-stream'}
         _metadata[_mapit(the_file)] = ini_md
@@ -268,10 +270,10 @@ class TestDiskFile(unittest.TestCase):
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'dir',
-            'Content-Length': 5,
-            'ETag': 'etag',
+            'Content-Length': 0,
+            'ETag': md5().hexdigest(),
             'X-Timestamp': 'ts',
-            'Content-Type': 'application/loctet-stream'}
+            'Content-Type': 'application/directory'}
         _metadata[_mapit(the_dir)] = ini_md
         exp_md = ini_md.copy()
         del exp_md['X-Type']
@@ -280,6 +282,8 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._obj == "d"
         assert gdf._is_dir is False
         with gdf.open():
+            print '>>> gdf metadata', gdf._metadata
+            print '>>> exp_md', exp_md
             assert gdf._is_dir
             assert gdf._data_file == the_dir
             assert gdf._metadata == exp_md
