@@ -37,9 +37,19 @@ SOF_MAX_OBJECT_FILENAME_LENGTH = 221
 # segment should not exceed 221.
 
 
-def validate_obj_name_component(obj, last_component=False):
+def validate_obj_name_component(obj, req, last_component=False):
     if not obj:
-        return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
+        if last_component and req.headers.get('content-type', '_junk').lower()\
+                == 'application/directory':
+            # Allow directory marker objects if it ends with slash
+            pass  # Check further for length of object name , don't return yet
+        elif last_component and req.headers.get('content-type',
+                                                '_junk').lower() !=\
+                'application/directory':
+            return 'can end with a slash only if it is a directory marker'\
+                ' object with "content-type: application/directory" header'
+        else:
+            return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
     if not last_component:
         if len(obj) > SOF_MAX_DIR_NAME_LENGTH:
             return 'too long (%d)' % len(obj)
@@ -72,11 +82,12 @@ def check_object_creation(req, object_name):
     for i, obj in enumerate(object_name_components):
         if i == (len(object_name_components) - 1):
             last_component = True
-        reason = validate_obj_name_component(obj, last_component)
+        reason = validate_obj_name_component(obj, req, last_component)
         if reason:
-            bdy = 'Invalid object name "%s", component "%s" %s' \
+            bdy = 'Invalid object name "%s", object component "%s" %s' \
                 % (object_name, obj, reason)
             ret = HTTPBadRequest(body=bdy,
                                  request=req,
                                  content_type='text/plain')
+            break
     return ret

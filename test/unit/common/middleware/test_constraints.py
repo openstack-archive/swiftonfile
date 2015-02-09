@@ -101,7 +101,8 @@ class TestConstraintsMiddleware(unittest.TestCase):
                                  ).get_response(self.test_check)
             self.assertEquals(resp.status_int, 400)
             self.assertTrue('Invalid object name' in resp.body)
-            self.assertTrue('cannot begin, end, or have' in resp.body)
+            self.assertTrue('can end with a slash only if it is a directory'
+                            in resp.body)
 
     def test_PUT_object_named_dot(self):
         path = '/V1.0/a/c2/.'
