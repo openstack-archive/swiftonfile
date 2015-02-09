@@ -37,17 +37,37 @@ SOF_MAX_OBJECT_FILENAME_LENGTH = 221
 # segment should not exceed 221.
 
 
-def validate_obj_name_component(obj, last_component=False):
+def validate_obj_name_component(obj, req, last_component=False):
+
+    marker_dir = False
+    if req.headers.get('content-type', None):
+        marker_dir = req.headers.get('content-type', '').lower()\
+            == 'application/directory'
+
     if not obj:
-        return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
-    if not last_component:
+        # Encountered extra slash somewhere, so obj component is empty
+        if last_component:
+            if marker_dir:
+                # Allow directory marker objects if it ends with slash
+                pass  # Check further for length, don't return yet
+            else:
+                return 'can end with a slash only if it is a directory marker'\
+                    ' object with "Content-Type: application/directory" header'
+        else:
+            return 'cannot begin, end, or have contiguous %s\'s' % os.path.sep
+
+    if not last_component or (last_component and marker_dir):
+        # Will result in directory creation
         if len(obj) > SOF_MAX_DIR_NAME_LENGTH:
-            return 'too long (%d)' % len(obj)
+            return 'has component %s too long (%d)' % (obj, len(obj))
     else:
+        # Last component: will result in file creation
         if len(obj) > SOF_MAX_OBJECT_FILENAME_LENGTH:
-            return 'too long (%d)' % len(obj)
+            return 'has component %s too long (%d)' % (obj, len(obj))
+
     if obj == '.' or obj == '..':
-        return 'cannot be . or ..'
+        return 'cannot have . or ..'
+
     return ''
 
 
@@ -72,11 +92,14 @@ def check_object_creation(req, object_name):
     for i, obj in enumerate(object_name_components):
         if i == (len(object_name_components) - 1):
             last_component = True
-        reason = validate_obj_name_component(obj, last_component)
+        reason = validate_obj_name_component(obj, req, last_component)
         if reason:
-            bdy = 'Invalid object name "%s", component "%s" %s' \
-                % (object_name, obj, reason)
+            bdy = 'Invalid object name "%s", object path %s' \
+                % (object_name, reason)
             ret = HTTPBadRequest(body=bdy,
                                  request=req,
                                  content_type='text/plain')
+            # Return on first invalid component, does not check rest of
+            # the object path
+            break
     return ret
