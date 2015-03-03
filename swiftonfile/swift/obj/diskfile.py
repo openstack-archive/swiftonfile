@@ -43,7 +43,7 @@ from swiftonfile.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
 from swiftonfile.swift.common.utils import read_metadata, write_metadata, \
     validate_object, create_object_metadata, rmobjdir, dir_is_object, \
-    get_object_metadata, write_pickle
+    get_object_metadata, write_pickle, tempinode, flink
 from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
@@ -326,6 +326,13 @@ class DiskFileWriter(object):
         # swift.common.utils.renamer(), which makes the directory path and
         # adds extra stat() calls.
         df = self._disk_file
+
+        if df.atomic_object_put:
+            # TODO: Handle EEXIST. flink() cannot overwrite object
+            flink(self._fd, df._data_file)
+            self.close()
+            return
+
         attempts = 1
         while True:
             try:
@@ -607,6 +614,13 @@ class DiskFile(object):
             self._put_datadir = self._datadir
         self._data_file = os.path.join(self._put_datadir, self._obj)
 
+        if hasattr(self._mgr, 'atomic_object_put'):
+            if self._mgr.atomic_object_put:
+                self.atomic_object_put = self._mgr.atomic_object_put
+                self.create = self.create2
+        else:
+            self.atomic_object_put = False
+
     def open(self):
         """
         Open the object.
@@ -658,6 +672,7 @@ class DiskFile(object):
             self._fd = fd
 
         self._obj_size = obj_size
+
         return self
 
     def _is_object_expired(self, metadata):
@@ -816,6 +831,22 @@ class DiskFile(object):
                                     " on subpath: %s" % (full_path, cur_path))
             child = stack.pop() if stack else None
         return True, newmd
+
+    @contextmanager
+    def create2(self, size=None):
+        try:
+            os.makedirs(self._put_datadir)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                raise
+        dw = None
+        fd = tempinode(self._put_datadir)
+        try:
+            do_fchown(fd, self._uid, self._gid)
+            dw = DiskFileWriter(fd, "_junk", self)
+            yield dw
+        finally:
+            dw.close()
 
     @contextmanager
     def create(self, size=None):

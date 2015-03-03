@@ -15,12 +15,14 @@
 
 """ Object Server for Gluster for Swift """
 
+import platform
 from swift.common.swob import HTTPConflict
-from swift.common.utils import public, timing_stats
+from swift.common.utils import public, timing_stats, config_true_value
 from swift.common.request_helpers import get_name_and_placement
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.request_helpers import split_and_validate_path
+from swiftonfile.swift.common.bindings import linkat
 
 from swift.obj import server
 
@@ -46,6 +48,15 @@ class ObjectController(server.ObjectController):
         # Common on-disk hierarchy shared across account, container and object
         # servers.
         self._diskfile_mgr = DiskFileManager(conf, self.logger)
+
+        # TODO: Better name ?
+        self._diskfile_mgr.atomic_object_put = False
+        # O_TMPFILE was added in Linux 3.11 but
+        # XFS support was added only in Linux 3.15.
+        linux_version = float(".".join(platform.release().split('.')[0:2]))
+        if config_true_value(conf.get('atomic_object_put', 'false')) and\
+                linkat.available and linux_version >= 3.15:
+            self._diskfile_mgr.atomic_object_put = True
 
     def get_diskfile(self, device, partition, account, container, obj,
                      policy_idx, **kwargs):

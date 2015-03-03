@@ -27,6 +27,7 @@ from swiftonfile.swift.common.fs_utils import do_stat, \
     do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
     do_getxattr, do_setxattr, do_removexattr, do_read, \
     do_close, do_dup, do_lseek, do_fstat, do_fsync, do_rename
+from swiftonfile.swift.common.bindings import linkat
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -382,3 +383,41 @@ def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
         fo.flush()
         do_fsync(fo)
     do_rename(tmppath, dest)
+
+
+def tempinode(dirpath):
+    """
+    See: man 2 open
+
+    Context manager to create an anonymous/nameless file.
+    """
+
+    if hasattr(os, 'O_TMPFILE'):
+        # Absent in Python 2.7
+        O_TMPFILE = os.O_TMPFILE
+    else:
+        # From include/uapi/asm-generic/fcntl.h
+        O_TMPFILE = (0o20000000 | os.O_DIRECTORY)
+
+    return os.open(dirpath, O_TMPFILE | os.O_WRONLY)
+
+
+def flink(fd, path):
+    """
+    See: man 2 linkat
+
+    The caller of this method should ensure:
+    * Parent directory of path exists before calling flink()
+    * EEXIST is properly handled. Unlike os.rename(), the linkat() sys call
+      does not support overwriting destination path that already exists.
+    * Close fd
+    """
+
+    assert(isinstance(fd, int))
+
+    # From include/uapi/linux/fcntl.h
+    AT_FDCWD = -100
+    AT_SYMLINK_FOLLOW = 1024
+
+    return linkat(AT_FDCWD, "/proc/self/fd/%s" % (fd), AT_FDCWD, path,
+                  AT_SYMLINK_FOLLOW)
