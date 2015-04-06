@@ -159,19 +159,16 @@ class TestDiskFile(unittest.TestCase):
         assert isinstance(gdf._threadpool, ThreadPool)
         assert gdf._uid == DEFAULT_UID
         assert gdf._gid == DEFAULT_GID
-        assert gdf._obj == "z"
-        assert gdf._obj_path == ""
-        assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar"), gdf._datadir
-        assert gdf._datadir == gdf._put_datadir
+        assert gdf._filename == "z"
+        assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar"), gdf._put_datadir
         assert gdf._data_file == os.path.join(self.td, "vol0", "ufo47", "bar", "z")
         assert gdf._is_dir is False
         assert gdf._fd is None
 
     def test_constructor_leadtrail_slash(self):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "/b/a/z/")
-        assert gdf._obj == "z"
-        assert gdf._obj_path == "b/a"
-        assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "b", "a"), gdf._datadir
+        assert gdf._filename == "z"
+        assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "b", "a"), gdf._put_datadir
 
     def test_open_no_metadata(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -190,7 +187,7 @@ class TestDiskFile(unittest.TestCase):
             'X-Timestamp': ts,
             'Content-Type': 'application/octet-stream'}
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._fd is None
         assert gdf._metadata is None
         assert not gdf._is_dir
@@ -231,7 +228,7 @@ class TestDiskFile(unittest.TestCase):
         del exp_md['X-Type']
         del exp_md['X-Object-Type']
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._fd is None
         assert gdf._metadata is None
         assert not gdf._is_dir
@@ -254,7 +251,7 @@ class TestDiskFile(unittest.TestCase):
             'Content-Type': 'application/loctet-stream'}
         _metadata[_mapit(the_file)] = inv_md
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert not gdf._is_dir
         assert gdf._fd is None
         with gdf.open():
@@ -277,7 +274,7 @@ class TestDiskFile(unittest.TestCase):
         del exp_md['X-Type']
         del exp_md['X-Object-Type']
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "d")
-        assert gdf._obj == "d"
+        assert gdf._filename == "d"
         assert gdf._is_dir is False
         with gdf.open():
             assert gdf._is_dir
@@ -294,7 +291,7 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("y" * fsize)
         gdf = self._get_diskfile(dev, par, acc, con, obj)
-        assert gdf._obj == base_obj
+        assert gdf._filename == base_obj
         assert not gdf._is_dir
         assert gdf._fd is None
         return gdf
@@ -401,9 +398,9 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar",
                                  os.path.join(the_dir, "z"))
         # Not created, dir object path is different, just checking
-        assert gdf._obj == "z"
-        gdf._create_dir_object(the_dir)
+        assert gdf._filename == "z"
         full_dir_path = os.path.join(the_cont, the_dir)
+        gdf._create_dir_object(full_dir_path)
         assert os.path.isdir(full_dir_path)
         assert _mapit(full_dir_path) not in _metadata
 
@@ -414,11 +411,11 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar",
                                  os.path.join(the_dir, "z"))
         # Not created, dir object path is different, just checking
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         dir_md = {'Content-Type': 'application/directory',
                   X_OBJECT_TYPE: DIR_OBJECT}
-        gdf._create_dir_object(the_dir, dir_md)
         full_dir_path = os.path.join(the_cont, the_dir)
+        gdf._create_dir_object(full_dir_path, dir_md)
         assert os.path.isdir(full_dir_path)
         assert _mapit(full_dir_path) in _metadata
 
@@ -430,7 +427,7 @@ class TestDiskFile(unittest.TestCase):
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir/z")
         # Not created, dir object path is different, just checking
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
 
         def _mock_do_chown(p, u, g):
             assert u == DEFAULT_UID
@@ -452,7 +449,7 @@ class TestDiskFile(unittest.TestCase):
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir/z")
         # Not created, dir object path is different, just checking
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
 
         def _mock_do_chown(p, u, g):
             assert u == DEFAULT_UID
@@ -666,10 +663,9 @@ class TestDiskFile(unittest.TestCase):
         the_cont = os.path.join(self.td, "vol0", "ufo47", "bar")
         os.makedirs(the_cont)
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
-        assert gdf._obj_path == ""
+        assert gdf._filename == "z"
         assert gdf._container_path == os.path.join(self.td, "vol0", "ufo47", "bar")
-        assert gdf._datadir == the_cont
+        assert gdf._put_datadir == the_cont
         assert gdf._data_file == os.path.join(self.td, "vol0", "ufo47", "bar", "z")
 
         body = '1234\n'
@@ -696,10 +692,9 @@ class TestDiskFile(unittest.TestCase):
         the_cont = os.path.join(self.td, "vol0", "ufo47", "bar")
         os.makedirs(the_cont)
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
-        assert gdf._obj_path == ""
+        assert gdf._filename == "z"
         assert gdf._container_path == os.path.join(self.td, "vol0", "ufo47", "bar")
-        assert gdf._datadir == the_cont
+        assert gdf._put_datadir == the_cont
         assert gdf._data_file == os.path.join(self.td, "vol0", "ufo47", "bar", "z")
 
         body = '1234\n'
@@ -731,10 +726,9 @@ class TestDiskFile(unittest.TestCase):
         the_cont = os.path.join(self.td, "vol0", "ufo47", "bar")
         os.makedirs(the_cont)
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
-        assert gdf._obj_path == ""
+        assert gdf._filename == "z"
         assert gdf._container_path == os.path.join(self.td, "vol0", "ufo47", "bar")
-        assert gdf._datadir == the_cont
+        assert gdf._put_datadir == the_cont
         assert gdf._data_file == os.path.join(self.td, "vol0", "ufo47", "bar", "z")
 
         body = '1234\n'
@@ -772,10 +766,9 @@ class TestDiskFile(unittest.TestCase):
         the_obj_path = os.path.join("b", "a")
         the_file = os.path.join(the_obj_path, "z")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", the_file)
-        assert gdf._obj == "z"
-        assert gdf._obj_path == the_obj_path
+        assert gdf._filename == "z"
         assert gdf._container_path == os.path.join(self.td, "vol0", "ufo47", "bar")
-        assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "b", "a")
+        assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "b", "a")
         assert gdf._data_file == os.path.join(
             self.td, "vol0", "ufo47", "bar", "b", "a", "z")
 
@@ -806,13 +799,13 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._data_file == the_file
         assert not gdf._is_dir
         later = float(gdf.read_metadata()['X-Timestamp']) + 1
         gdf.delete(normalize_timestamp(later))
-        assert os.path.isdir(gdf._datadir)
-        assert not os.path.exists(os.path.join(gdf._datadir, gdf._obj))
+        assert os.path.isdir(gdf._put_datadir)
+        assert not os.path.exists(os.path.join(gdf._put_datadir, gdf._filename))
 
     def test_delete_same_timestamp(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -821,13 +814,13 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._data_file == the_file
         assert not gdf._is_dir
         now = float(gdf.read_metadata()['X-Timestamp'])
         gdf.delete(normalize_timestamp(now))
-        assert os.path.isdir(gdf._datadir)
-        assert os.path.exists(os.path.join(gdf._datadir, gdf._obj))
+        assert os.path.isdir(gdf._put_datadir)
+        assert os.path.exists(os.path.join(gdf._put_datadir, gdf._filename))
 
     def test_delete_file_not_found(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -836,7 +829,7 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._data_file == the_file
         assert not gdf._is_dir
         later = float(gdf.read_metadata()['X-Timestamp']) + 1
@@ -845,8 +838,8 @@ class TestDiskFile(unittest.TestCase):
         os.unlink(the_file)
 
         gdf.delete(normalize_timestamp(later))
-        assert os.path.isdir(gdf._datadir)
-        assert not os.path.exists(os.path.join(gdf._datadir, gdf._obj))
+        assert os.path.isdir(gdf._put_datadir)
+        assert not os.path.exists(os.path.join(gdf._put_datadir, gdf._filename))
 
     def test_delete_file_unlink_error(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -855,7 +848,7 @@ class TestDiskFile(unittest.TestCase):
         with open(the_file, "wb") as fd:
             fd.write("1234")
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
-        assert gdf._obj == "z"
+        assert gdf._filename == "z"
         assert gdf._data_file == the_file
         assert not gdf._is_dir
 
@@ -879,8 +872,8 @@ class TestDiskFile(unittest.TestCase):
         finally:
             os.chmod(the_path, stats.st_mode)
 
-        assert os.path.isdir(gdf._datadir)
-        assert os.path.exists(os.path.join(gdf._datadir, gdf._obj))
+        assert os.path.isdir(gdf._put_datadir)
+        assert os.path.exists(os.path.join(gdf._put_datadir, gdf._filename))
 
     def test_delete_is_dir(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -890,18 +883,18 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._data_file == the_dir
         later = float(gdf.read_metadata()['X-Timestamp']) + 1
         gdf.delete(normalize_timestamp(later))
-        assert os.path.isdir(gdf._datadir)
-        assert not os.path.exists(os.path.join(gdf._datadir, gdf._obj))
+        assert os.path.isdir(gdf._put_datadir)
+        assert not os.path.exists(os.path.join(gdf._put_datadir, gdf._filename))
 
     def test_create(self):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir/z")
         saved_tmppath = ''
         saved_fd = None
         with gdf.create() as dw:
-            assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
-            assert os.path.isdir(gdf._datadir)
+            assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
+            assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
-            assert os.path.dirname(saved_tmppath) == gdf._datadir
+            assert os.path.dirname(saved_tmppath) == gdf._put_datadir
             assert os.path.basename(saved_tmppath)[:3] == '.z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")
@@ -921,10 +914,10 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir/z")
         saved_tmppath = ''
         with gdf.create() as dw:
-            assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
-            assert os.path.isdir(gdf._datadir)
+            assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
+            assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
-            assert os.path.dirname(saved_tmppath) == gdf._datadir
+            assert os.path.dirname(saved_tmppath) == gdf._put_datadir
             assert os.path.basename(saved_tmppath)[:3] == '.z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")
@@ -936,10 +929,10 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir/z")
         saved_tmppath = ''
         with gdf.create() as dw:
-            assert gdf._datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
-            assert os.path.isdir(gdf._datadir)
+            assert gdf._put_datadir == os.path.join(self.td, "vol0", "ufo47", "bar", "dir")
+            assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
-            assert os.path.dirname(saved_tmppath) == gdf._datadir
+            assert os.path.dirname(saved_tmppath) == gdf._put_datadir
             assert os.path.basename(saved_tmppath)[:3] == '.z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")

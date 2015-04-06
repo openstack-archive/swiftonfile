@@ -24,20 +24,21 @@ except ImportError:
 import logging
 import time
 from socket import gethostname
-from hashlib import md5
 from eventlet import sleep
-from greenlet import getcurrent
+from uuid import uuid4
 from contextlib import contextmanager
-from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
-    AlreadyExistsAsDir
-from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
+
+from swift.common.utils import ThreadPool, hash_path, \
     normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
 from swift.common.swob import multi_range_iterator
+from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
+from swift.obj.diskfile import get_async_dir
 
-from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError, \
+    AlreadyExistsAsFile, AlreadyExistsAsDir
 from swiftonfile.swift.common.fs_utils import do_fstat, do_open, do_close, \
     do_unlink, do_chown, do_fsync, do_fchown, do_stat, do_write, do_read, \
     do_fadvise64, do_rename, do_fdatasync, do_lseek, do_mkdir
@@ -48,9 +49,6 @@ from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
-from ConfigParser import ConfigParser, NoSectionError, NoOptionError
-from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
-from swift.obj.diskfile import get_async_dir
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
@@ -174,17 +172,6 @@ def make_directory(full_path, uid, gid, metadata=None):
         # ownership.
         do_chown(full_path, uid, gid)
         return True, metadata
-
-
-_fs_conf = ConfigParser()
-if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
-    try:
-        _use_put_mount = _fs_conf.get('DEFAULT', 'use_put_mount', "no") \
-            in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        _use_put_mount = False
-else:
-    _use_put_mount = False
 
 
 def _adjust_metadata(metadata):
@@ -580,32 +567,28 @@ class DiskFile(object):
         self._is_dir = False
         self._metadata = None
         self._fd = None
-        # Don't store a value for data_file until we know it exists.
+        self._put_datadir = None
         self._data_file = None
 
         # Account name contains resller_prefix which is retained and not
         # stripped. This to conform to Swift's behavior where account name
-        # entry in Account DBs contain resller_prefix.
+        # entry in Account DBs contain reseller_prefix.
         self._account = account
         self._container = container
 
         self._container_path = \
             os.path.join(self._device_path, self._account, self._container)
-        obj = obj.strip(os.path.sep)
-        obj_path, self._obj = os.path.split(obj)
-        if obj_path:
-            self._obj_path = obj_path.strip(os.path.sep)
-            self._datadir = os.path.join(self._container_path, self._obj_path)
-        else:
-            self._obj_path = ''
-            self._datadir = self._container_path
 
-        if _use_put_mount:
-            self._put_datadir = os.path.join(
-                self._device_path + '_PUT', container, self._obj_path)
+        obj = obj.strip(os.path.sep)
+        obj_path, self._filename = os.path.split(obj)
+        if obj_path:
+            obj_path = obj_path.strip(os.path.sep)
+            self._put_datadir = os.path.join(self._container_path, obj_path)
         else:
-            self._put_datadir = self._datadir
-        self._data_file = os.path.join(self._put_datadir, self._obj)
+            self._put_datadir = self._container_path
+
+        # Full path to object file in filesystem
+        self._data_file = os.path.join(self._put_datadir, self._filename)
 
     def open(self):
         """
@@ -767,7 +750,7 @@ class DiskFile(object):
         see if the directory object already exists, that is left to the caller
         (this avoids a potentially duplicate stat() system call).
 
-        The "dir_path" must be relative to its container, self._container_path.
+        The "dir_path" must be absolute path.
 
         The "metadata" object is an optional set of metadata to apply to the
         newly created directory object. If not present, no initial metadata is
@@ -787,11 +770,10 @@ class DiskFile(object):
              the missing parents are successively created, finally creating
              the target directory
         """
-        full_path = os.path.join(self._container_path, dir_path)
-        cur_path = full_path
+        cur_path = dir_path
         stack = []
         while True:
-            md = None if cur_path != full_path else metadata
+            md = metadata
             ret, newmd = make_directory(cur_path, self._uid, self._gid, md)
             if ret:
                 break
@@ -800,7 +782,7 @@ class DiskFile(object):
             if os.path.sep not in cur_path:
                 raise DiskFileError("DiskFile._create_dir_object(): failed to"
                                     " create directory path while exhausting"
-                                    " path elements to create: %s" % full_path)
+                                    " path elements to create: %s" % dir_path)
             cur_path, child = cur_path.rsplit(os.path.sep, 1)
             assert child
             stack.append(child)
@@ -808,12 +790,12 @@ class DiskFile(object):
         child = stack.pop() if stack else None
         while child:
             cur_path = os.path.join(cur_path, child)
-            md = None if cur_path != full_path else metadata
+            md = metadata
             ret, newmd = make_directory(cur_path, self._uid, self._gid, md)
             if not ret:
                 raise DiskFileError("DiskFile._create_dir_object(): failed to"
                                     " create directory path to target, %s,"
-                                    " on subpath: %s" % (full_path, cur_path))
+                                    " on subpath: %s" % (dir_path, cur_path))
             child = stack.pop() if stack else None
         return True, newmd
 
@@ -827,7 +809,7 @@ class DiskFile(object):
         the "rsync-friendly" .NAME.random naming. If we find that some path to
         the file does not exist, we then create that path and then create the
         temporary file again. If we get file name conflict, we'll retry using
-        different random suffixes 1,000 times before giving up.
+        different uuid 10 times before giving up.
 
         .. note::
 
@@ -841,23 +823,13 @@ class DiskFile(object):
         :raises AlreadyExistsAsFile: if path or part of a path is not a \
                                      directory
         """
-        # Create /account/container directory structure on mount point root
-        try:
-            os.makedirs(self._container_path)
-        except OSError as err:
-            if err.errno != errno.EEXIST:
-                raise
-
-        data_file = os.path.join(self._put_datadir, self._obj)
+        data_file = os.path.join(self._put_datadir, self._filename)
 
         # Assume the full directory path exists to the file already, and
         # construct the proper name for the temporary file.
         attempts = 1
-        cur_thread = str(getcurrent())
         while True:
-            postfix = md5(self._obj + _cur_host + _cur_pid + cur_thread
-                          + str(random.random())).hexdigest()
-            tmpfile = '.' + self._obj + '.' + postfix
+            tmpfile = '.' + self._filename + '.' + uuid4().hex
             tmppath = os.path.join(self._put_datadir, tmpfile)
             try:
                 fd = do_open(tmppath,
@@ -873,8 +845,7 @@ class DiskFile(object):
                                               ' path is not a directory'
                                               % (tmppath))
 
-                if gerr.errno not in (errno.ENOENT, errno.EEXIST, errno.EIO):
-                    # FIXME: Other cases we should handle?
+                if gerr.errno not in (errno.ENOENT, errno.EEXIST):
                     raise
                 if attempts >= MAX_OPEN_ATTEMPTS:
                     # We failed after N attempts to create the temporary
@@ -886,23 +857,7 @@ class DiskFile(object):
                                             attempts, MAX_OPEN_ATTEMPTS,
                                             data_file))
                 if gerr.errno == errno.EEXIST:
-                    # Retry with a different random number.
-                    attempts += 1
-                elif gerr.errno == errno.EIO:
-                    # FIXME: Possible FUSE issue or race condition, let's
-                    # sleep on it and retry the operation.
-                    _random_sleep()
-                    logging.warn("DiskFile.mkstemp(): %s ... retrying in"
-                                 " 0.1 secs", gerr)
-                    attempts += 1
-                elif not self._obj_path:
-                    # No directory hierarchy and the create failed telling us
-                    # the container or volume directory does not exist. This
-                    # could be a FUSE issue or some race condition, so let's
-                    # sleep a bit and retry.
-                    _random_sleep()
-                    logging.warn("DiskFile.mkstemp(): %s ... retrying in"
-                                 " 0.1 secs", gerr)
+                    # Retry with a different uuid.
                     attempts += 1
                 elif attempts > 1:
                     # Got ENOENT after previously making the path. This could
@@ -916,8 +871,9 @@ class DiskFile(object):
                     # It looks like the path to the object does not already
                     # exist; don't count this as an attempt, though, since
                     # we perform the open() system call optimistically.
-                    self._create_dir_object(self._obj_path)
+                    self._create_dir_object(self._put_datadir)
             else:
+                # Open was successful
                 break
         dw = None
         try:
@@ -944,7 +900,7 @@ class DiskFile(object):
                             errors as the `create()` method.
         """
         metadata = self._keep_sys_metadata(metadata)
-        data_file = os.path.join(self._put_datadir, self._obj)
+        data_file = os.path.join(self._put_datadir, self._filename)
         self._threadpool.run_in_thread(
             write_metadata, data_file, metadata)
 
