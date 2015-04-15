@@ -30,8 +30,7 @@ from greenlet import getcurrent
 from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
-from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
-    normalize_timestamp
+from swift.common.utils import ThreadPool, hash_path, normalize_timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
@@ -48,7 +47,6 @@ from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
     X_ETAG, X_CONTENT_LENGTH
-from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
 from swift.obj.diskfile import get_async_dir
 
@@ -174,17 +172,6 @@ def make_directory(full_path, uid, gid, metadata=None):
         # ownership.
         do_chown(full_path, uid, gid)
         return True, metadata
-
-
-_fs_conf = ConfigParser()
-if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
-    try:
-        _use_put_mount = _fs_conf.get('DEFAULT', 'use_put_mount', "no") \
-            in TRUE_VALUES
-    except (NoSectionError, NoOptionError):
-        _use_put_mount = False
-else:
-    _use_put_mount = False
 
 
 def _adjust_metadata(metadata):
@@ -595,16 +582,12 @@ class DiskFile(object):
         obj_path, self._obj = os.path.split(obj)
         if obj_path:
             self._obj_path = obj_path.strip(os.path.sep)
-            self._datadir = os.path.join(self._container_path, self._obj_path)
+            self._put_datadir = os.path.join(self._container_path,
+                                             self._obj_path)
         else:
             self._obj_path = ''
-            self._datadir = self._container_path
+            self._put_datadir = self._container_path
 
-        if _use_put_mount:
-            self._put_datadir = os.path.join(
-                self._device_path + '_PUT', container, self._obj_path)
-        else:
-            self._put_datadir = self._datadir
         self._data_file = os.path.join(self._put_datadir, self._obj)
 
     def open(self):
