@@ -23,10 +23,8 @@ except ImportError:
     import random
 import logging
 import time
-from socket import gethostname
-from hashlib import md5
+from uuid import uuid4
 from eventlet import sleep
-from greenlet import getcurrent
 from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
@@ -58,9 +56,6 @@ O_CLOEXEC = 02000000
 
 MAX_RENAME_ATTEMPTS = 10
 MAX_OPEN_ATTEMPTS = 10
-
-_cur_pid = str(os.getpid())
-_cur_host = str(gethostname())
 
 
 def _random_sleep():
@@ -853,11 +848,11 @@ class DiskFile(object):
         # Assume the full directory path exists to the file already, and
         # construct the proper name for the temporary file.
         attempts = 1
-        cur_thread = str(getcurrent())
         while True:
-            postfix = md5(self._obj + _cur_host + _cur_pid + cur_thread
-                          + str(random.random())).hexdigest()
-            tmpfile = '.' + self._obj + '.' + postfix
+            # To know more about why following temp file naming convention is
+            # used, please read this GlusterFS doc:
+            # https://github.com/gluster/glusterfs/blob/master/doc/features/dht.md#rename-optimizations  # noqa
+            tmpfile = '.' + self._obj + '.' + uuid4().hex
             tmppath = os.path.join(self._put_datadir, tmpfile)
             try:
                 fd = do_open(tmppath,
