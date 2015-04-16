@@ -96,7 +96,8 @@ def read_metadata(path_or_fd):
                 # Note that we don't touch the keys on errors fetching the
                 # data since it could be a transient state.
                 raise SwiftOnFileSystemIOError(
-                    err.errno, 'getxattr("%s", %s)' % (path_or_fd, key))
+                    err.errno, '%s, getxattr("%s", %s)' % (err.strerror,
+                                                           path_or_fd, key))
         else:
             try:
                 # If this key provides all or the remaining part of the pickle
@@ -143,7 +144,8 @@ def write_metadata(path_or_fd, metadata):
             else:
                 raise SwiftOnFileSystemIOError(
                     err.errno,
-                    'setxattr("%s", %s, metastr)' % (path_or_fd, key))
+                    '%s, setxattr("%s", %s, metastr)' % (err.strerror,
+                                                         path_or_fd, key))
         metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
 
@@ -157,7 +159,8 @@ def clean_metadata(path_or_fd):
             if err.errno == errno.ENODATA:
                 break
             raise SwiftOnFileSystemIOError(
-                err.errno, 'removexattr("%s", %s)' % (path_or_fd, key))
+                err.errno, '%s, removexattr("%s", %s)' % (err.strerror,
+                                                          path_or_fd, key))
         key += 1
 
 

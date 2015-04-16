@@ -65,7 +65,7 @@ def do_read(fd, n):
         buf = os.read(fd, n)
     except OSError as err:
         raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.write("%s", ...)' % (err.strerror, fd))
+            err.errno, '%s, os.read("%s", ...)' % (err.strerror, fd))
     return buf
 
 
@@ -94,8 +94,8 @@ def do_ismount(path):
         s2 = os.lstat(os.path.join(path, '..'))
     except os.error as err:
         raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.lstat("%s")' % (err.strerror,
-                                               os.path.join(path, '..')))
+            err.errno, '%s, os.path.join("%s")' % (err.strerror,
+                                                   os.path.join(path, '..')))
 
     dev1 = s1.st_dev
     dev2 = s2.st_dev
@@ -247,7 +247,7 @@ def do_fdatasync(fd):
         do_fsync(fd)
     except OSError as err:
         raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
+            err.errno, '%s, os.fdatasync("%s")' % (err.strerror, fd))
 
 
 _posix_fadvise = None
@@ -267,7 +267,7 @@ def do_lseek(fd, pos, how):
         os.lseek(fd, pos, how)
     except OSError as err:
         raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.fsync("%s")' % (err.strerror, fd))
+            err.errno, '%s, os.lseek("%s")' % (err.strerror, fd))
 
 
 def get_filename_from_fd(fd, verify=False):
