@@ -48,7 +48,7 @@ class ObjectController(server.ObjectController):
         self._diskfile_mgr = DiskFileManager(conf, self.logger)
 
     def get_diskfile(self, device, partition, account, container, obj,
-                     policy_idx, **kwargs):
+                     **kwargs):
         """
         Utility method for instantiating a DiskFile object supporting a given
         REST API.
@@ -56,15 +56,27 @@ class ObjectController(server.ObjectController):
         An implementation of the object server that wants to use a different
         DiskFile class would simply over-ride this method to provide that
         behavior.
+
+        NOTE: The Swift API call args were changed recently. The named arg
+        "policy_idx" was changed to "policy". We try to keep backwards
+        compatibility here so that the code works with both new and older
+        versions of Swift.
         """
+        policy_arg = None
+        if 'policy_idx' in kwargs:
+            policy_arg = kwargs.pop('policy_idx')
+        if 'policy' in kwargs:
+            policy_arg = kwargs.pop('policy')
+
         return self._diskfile_mgr.get_diskfile(
-            device, partition, account, container, obj, policy_idx, **kwargs)
+            device, partition, account, container, obj, policy=policy_arg,
+            **kwargs)
 
     @public
     @timing_stats()
     def PUT(self, request):
         try:
-            device, partition, account, container, obj, policy_idx = \
+            device, partition, account, container, obj, policy = \
                 get_name_and_placement(request, 5, 5, True)
 
             # check swiftonfile constraints first
