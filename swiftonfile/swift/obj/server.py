@@ -28,6 +28,18 @@ from swiftonfile.swift.obj.diskfile import DiskFileManager
 from swiftonfile.swift.common.constraints import check_object_creation
 
 
+class SwiftOnFileDiskFileRouter(object):
+    """
+    Replacement for Swift's DiskFileRouter object.
+    Always returns SwiftOnFile's DiskFileManager implementation.
+    """
+    def __init__(self, *args, **kwargs):
+        self.manager_cls = DiskFileManager(*args, **kwargs)
+
+    def __getitem__(self, policy):
+        return self.manager_cls
+
+
 class ObjectController(server.ObjectController):
     """
     Subclass of the object server's ObjectController which replaces the
@@ -43,28 +55,14 @@ class ObjectController(server.ObjectController):
 
         :param conf: WSGI configuration parameter
         """
-        # Common on-disk hierarchy shared across account, container and object
-        # servers.
-        self._diskfile_mgr = DiskFileManager(conf, self.logger)
-
-    def get_diskfile(self, device, partition, account, container, obj,
-                     policy_idx, **kwargs):
-        """
-        Utility method for instantiating a DiskFile object supporting a given
-        REST API.
-
-        An implementation of the object server that wants to use a different
-        DiskFile class would simply over-ride this method to provide that
-        behavior.
-        """
-        return self._diskfile_mgr.get_diskfile(
-            device, partition, account, container, obj, policy_idx, **kwargs)
+        # Replaces Swift's DiskFileRouter object reference with ours.
+        self._diskfile_router = SwiftOnFileDiskFileRouter(conf, self.logger)
 
     @public
     @timing_stats()
     def PUT(self, request):
         try:
-            device, partition, account, container, obj, policy_idx = \
+            device, partition, account, container, obj, policy = \
                 get_name_and_placement(request, 5, 5, True)
 
             # check swiftonfile constraints first

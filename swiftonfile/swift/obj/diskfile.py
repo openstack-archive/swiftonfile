@@ -229,20 +229,20 @@ class DiskFileManager(SwiftDiskFileManager):
     :param logger: caller provided logger
     """
     def get_diskfile(self, device, partition, account, container, obj,
-                     policy_idx=0, **kwargs):
-        dev_path = self.get_dev_path(device)
+                     policy=None, **kwargs):
+        dev_path = self.get_dev_path(device, self.mount_check)
         if not dev_path:
             raise DiskFileDeviceUnavailable()
         return DiskFile(self, dev_path, self.threadpools[device],
                         partition, account, container, obj,
-                        policy_idx=policy_idx, **kwargs)
+                        policy=policy, **kwargs)
 
     def pickle_async_update(self, device, account, container, obj, data,
-                            timestamp, policy_idx):
+                            timestamp, policy):
         # This method invokes swiftonfile's writepickle method.
         # Is patching just write_pickle and calling parent method better ?
         device_path = self.construct_dev_path(device)
-        async_dir = os.path.join(device_path, get_async_dir(policy_idx))
+        async_dir = os.path.join(device_path, get_async_dir(policy))
         ohash = hash_path(account, container, obj)
         self.threadpools[device].run_in_thread(
             write_pickle,
@@ -426,6 +426,16 @@ class DiskFileWriter(object):
         # cleanup
         self._tmppath = None
 
+    def commit(self, timestamp):
+        """
+        Perform any operations necessary to mark the object as durable. For
+        replication policy type this is a no-op.
+
+        :param timestamp: object put timestamp, an instance of
+                          :class:`~swift.common.utils.Timestamp`
+        """
+        pass
+
 
 class DiskFileReader(object):
     """
@@ -570,8 +580,8 @@ class DiskFile(object):
     """
     def __init__(self, mgr, dev_path, threadpool, partition,
                  account=None, container=None, obj=None,
-                 policy_idx=0, uid=DEFAULT_UID, gid=DEFAULT_GID):
-        # Variables partition and policy_idx is currently unused.
+                 policy=None, uid=DEFAULT_UID, gid=DEFAULT_GID):
+        # Variables partition and policy is currently unused.
         self._mgr = mgr
         self._device_path = dev_path
         self._threadpool = threadpool or ThreadPool(nthreads=0)
