@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.utils import TRUE_VALUES, ThreadPool, hash_path, \
-    normalize_timestamp
+    normalize_timestamp, fallocate
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
@@ -921,17 +921,22 @@ class DiskFile(object):
                 break
         dw = None
         try:
+            if size is not None and size > 0:
+                try:
+                    fallocate(fd, size)
+                except OSError as err:
+                    if err.errno in (errno.ENOSPC, errno.EDQUOT):
+                        raise DiskFileNoSpace()
+                    raise
             # Ensure it is properly owned before we make it available.
             do_fchown(fd, self._uid, self._gid)
-            # NOTE: we do not perform the fallocate() call at all. We ignore
-            # it completely since at the time of this writing FUSE does not
-            # support it.
             dw = DiskFileWriter(fd, tmppath, self)
             yield dw
         finally:
-            dw.close()
-            if dw._tmppath:
-                do_unlink(dw._tmppath)
+            if dw:
+                dw.close()
+                if dw._tmppath:
+                    do_unlink(dw._tmppath)
 
     def write_metadata(self, metadata):
         """
