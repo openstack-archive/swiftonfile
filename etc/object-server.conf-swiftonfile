@@ -20,8 +20,13 @@ max_clients = 1024
 # If not doing the above, setting this value initially to match the number of
 # CPUs is a good starting point for determining the right value.
 workers = 1
-# Override swift's default behaviour for fallocate.
-disable_fallocate = true
+# You can set disable_fallocate to true to turn off usage of fallocate()
+# sys call to reserve space during a PUT operation.
+# disable_fallocate = false
+#
+# You can set fallocate_reserve to the number of bytes you'd like fallocate to
+# reserve, whether there is space for the given file size or not.
+# fallocate_reserve = 0
 
 [pipeline:main]
 pipeline = object-server

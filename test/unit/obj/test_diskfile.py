@@ -88,6 +88,10 @@ def _mock_do_fsync(fd):
     return
 
 
+def _mock_fallocate(fd, size):
+    return
+
+
 class MockRenamerCalled(Exception):
     pass
 
@@ -133,6 +137,8 @@ class TestDiskFile(unittest.TestCase):
         swiftonfile.swift.common.utils.read_metadata = _mock_read_metadata
         self._saved_do_fsync = swiftonfile.swift.obj.diskfile.do_fsync
         swiftonfile.swift.obj.diskfile.do_fsync = _mock_do_fsync
+        self._saved_fallocate = swiftonfile.swift.obj.diskfile.fallocate
+        swiftonfile.swift.obj.diskfile.fallocate = _mock_fallocate
         self.td = tempfile.mkdtemp()
         self.conf = dict(devices=self.td, mb_per_sync=2,
                          keep_cache_size=(1024 * 1024), mount_check=False)
@@ -147,6 +153,7 @@ class TestDiskFile(unittest.TestCase):
         swiftonfile.swift.common.utils.write_metadata = self._saved_ut_wm
         swiftonfile.swift.common.utils.read_metadata = self._saved_ut_rm
         swiftonfile.swift.obj.diskfile.do_fsync = self._saved_do_fsync
+        swiftonfile.swift.obj.diskfile.fallocate = self._saved_fallocate
         shutil.rmtree(self.td)
 
     def _get_diskfile(self, d, p, a, c, o, **kwargs):
