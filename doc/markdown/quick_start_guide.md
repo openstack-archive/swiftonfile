@@ -28,7 +28,7 @@ This guide will not provide detailed information on how to prepare a SAIO setup 
 ### Install SwiftOnfile
 
 1. `cd $HOME; git clone https://github.com/swiftonfile/swiftonfile.git`
-1. `cd $HOME/swiftonfile; python setup.py develop; cd $HOME`
+1. `cd $HOME/swiftonfile; sudo chmod +x setup.py; python setup.py develop; cd $HOME`
  
 ### Configure SwiftOnFile as Storage Policy
 
