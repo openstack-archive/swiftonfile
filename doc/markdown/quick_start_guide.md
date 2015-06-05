@@ -121,7 +121,7 @@ You can now place an object in the container you have just created:
 
 ~~~
 echo "Hello World" > mytestfile
-curl -v -X PUT -T mytestfile 'X-Auth-Token: AUTH_XXXX' http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
+curl -v -X PUT -T mytestfile -H 'X-Auth-Token: AUTH_XXXX' http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
 ~~~
 
 To confirm that the object has been written correctly, you can compare the
@@ -136,7 +136,7 @@ Now you can retreive the object and inspect its contents using the
 following commands:
 
 ~~~
-curl -v -X GET -o newfile http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
+curl -v -X GET -o newfile -H 'X-Auth-Token: AUTH_XXXX' http://localhost:8080/v1/AUTH_test/mycontainer/mytestfile
 cat newfile
 ~~~
 
