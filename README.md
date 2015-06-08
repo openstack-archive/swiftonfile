@@ -3,7 +3,7 @@
 # Swift-on-File
 Swift-on-File is a Swift Object Server implementation that enables users to
 access the same data, both as an object and as a file. Data can be stored and
-retrieved through Swift's REST interface or as files from NAS interfaces 
+retrieved through Swift's REST interface or as files from NAS interfaces
 including native GlusterFS, GPFS, NFS and CIFS.
 
 Swift-on-File is to be deployed as a Swift [storage policy](http://docs.openstack.org/developer/swift/overview_policies.html),
@@ -49,6 +49,10 @@ Currently, files added over a file interface (e.g., native GlusterFS), do not sh
 up in container listings, still those files would be accessible over Swift's REST
 interface with a GET request. We are working to provide a solution to this limitation.
 
+There is also subtle but very important difference in the implementation of
+[last write wins](doc/markdown/last_write_wins.md) behaviour when compared to
+OpenStack Swift.
+
 Because Swift-On-File relies on the data replication support of the filesystem the Swift
 Object replicator process does not have any role for containers using the Swift-on-File
 storage policy.  This means that Swift geo replication is not available to objects in
@@ -72,4 +76,4 @@ or find us in the #swiftonfile channel on Freenode.
 
 # Guides to get started:
 1. [Quick Start Guide with XFS/GlusterFS](doc/markdown/quick_start_guide.md)
-1. [Developer Guide](doc/markdown/dev_guide.md)
+2. [Developer Guide](doc/markdown/dev_guide.md)
