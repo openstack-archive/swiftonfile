@@ -162,7 +162,7 @@ def dir_empty(path):
         files = do_listdir(path)
         return not files
     except GlusterFileSystemOSError as err:
-        if err.errno == errno.ENOENT:
+        if err.errno in (errno.ENOENT, errno.ESTALE):
             raise FileOrDirNotFoundError()
         if err.errno == errno.ENOTDIR:
             raise NotDirectoryError()
@@ -210,7 +210,7 @@ def do_stat(path):
                 serr = err
                 sleep(random.uniform(0.001, 0.005))
                 continue
-            if err.errno == errno.ENOENT:
+            if err.errno in (errno.ENOENT, errno.ESTALE):
                 stats = None
             else:
                 raise GlusterFileSystemOSError(
@@ -268,7 +268,7 @@ def do_unlink(path, log=True):
     try:
         os.unlink(path)
     except OSError as err:
-        if err.errno != errno.ENOENT:
+        if err.errno not in (errno.ENOENT, errno.ESTALE):
             raise GlusterFileSystemOSError(
                 err.errno, '%s, os.unlink("%s")' % (err.strerror, path))
         else:
