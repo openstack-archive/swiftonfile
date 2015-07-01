@@ -675,12 +675,13 @@ class DiskFile(object):
             # Something went wrong. Context manager will not call
             # __exit__. So we close the fd manually here.
             self._close_fd()
-            if hasattr(err, 'errno') and err.errno == errno.ENOENT:
-                # Handle races: ENOENT can be raised by read_metadata()
+            if hasattr(err, 'errno') and \
+                    err.errno in (errno.ENOENT, errno.ESTALE):
+                # Handle races: ENOENT/ESTALE can be raised by read_metadata()
                 # call in GlusterFS if file gets deleted by another
                 # client after do_open() succeeds
                 logging.warn("open(%s) succeeded but one of the subsequent "
-                             "syscalls failed with ENOENT. Raising "
+                             "syscalls failed with ENOENT/ESTALE. Raising "
                              "DiskFileNotExist." % (self._data_file))
                 raise DiskFileNotExist
             else:
