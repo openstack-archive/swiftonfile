@@ -177,7 +177,12 @@ class DiskCommon(object):
     def _dir_exists_read_metadata(self):
         self._dir_exists = do_exists(self.datadir)
         if self._dir_exists:
-            self.metadata = _read_metadata(self.datadir)
+            try:
+                self.metadata = _read_metadata(self.datadir)
+            except GlusterFileSystemIOError as err:
+                if err.errno in (errno.ENOENT, errno.ESTALE):
+                    return False
+                raise
         return self._dir_exists
 
     def is_deleted(self):
@@ -366,7 +371,7 @@ class DiskDir(DiskCommon):
             try:
                 metadata = read_metadata(obj_path)
             except GlusterFileSystemIOError as err:
-                if err.errno == errno.ENOENT:
+                if err.errno in (errno.ENOENT, errno.ESTALE):
                     # obj might have been deleted by another process
                     # since the objects list was originally built
                     continue
@@ -382,7 +387,7 @@ class DiskDir(DiskCommon):
                 except OSError as e:
                     # FIXME - total hack to get upstream swift ported unit
                     # test cases working for now.
-                    if e.errno != errno.ENOENT:
+                    if e.errno not in (errno.ENOENT, errno.ESTALE):
                         raise
             if not Glusterfs._implicit_dir_objects and metadata \
                     and metadata[X_CONTENT_TYPE] == DIR_TYPE \
@@ -681,7 +686,7 @@ class DiskAccount(DiskCommon):
                 except OSError as e:
                     # FIXME - total hack to get upstream swift ported unit
                     # test cases working for now.
-                    if e.errno != errno.ENOENT:
+                    if e.errno not in (errno.ENOENT, errno.ESTALE):
                         raise
             if metadata:
                 list_item.append(metadata[X_OBJECTS_COUNT][0])
