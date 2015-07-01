@@ -246,7 +246,7 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
                 metadata = \
                     read_metadata(os.path.join(cont_path, obj_path, obj_name))
             except GlusterFileSystemIOError as err:
-                if err.errno == errno.ENOENT:
+                if err.errno in (errno.ENOENT, errno.ESTALE):
                     # object might have been deleted by another process
                     # since the src_list was originally built
                     continue
@@ -484,7 +484,7 @@ def rmobjdir(dir_path):
     try:
         do_rmdir(dir_path)
     except OSError as err:
-        if err.errno == errno.ENOENT:
+        if err.errno in (errno.ENOENT, errno.ESTALE):
             # No such directory exists
             return False
         if err.errno != errno.ENOTEMPTY:
@@ -503,7 +503,7 @@ def rmobjdir(dir_path):
             try:
                 metadata = read_metadata(fullpath)
             except GlusterFileSystemIOError as err:
-                if err.errno == errno.ENOENT:
+                if err.errno in (errno.ENOENT, errno.ESTALE):
                     # Ignore removal from another entity.
                     continue
                 raise
@@ -521,7 +521,7 @@ def rmobjdir(dir_path):
                 if err.errno == errno.ENOTEMPTY:
                     # Directory is not empty, it might have objects in it
                     return False
-                if err.errno == errno.ENOENT:
+                if err.errno in (errno.ENOENT, errno.ESTALE):
                     # No such directory exists, already removed, ignore
                     continue
                 raise
@@ -532,7 +532,7 @@ def rmobjdir(dir_path):
         if err.errno == errno.ENOTEMPTY:
             # Directory is not empty, race with object creation
             return False
-        if err.errno == errno.ENOENT:
+        if err.errno in (errno.ENOENT, errno.ESTALE):
             # No such directory exists, already removed, ignore
             return True
         raise
