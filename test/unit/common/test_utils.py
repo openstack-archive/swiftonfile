@@ -26,7 +26,7 @@ import tarfile
 import shutil
 from collections import defaultdict
 from mock import patch
-from swiftonfile.swift.common import utils, Glusterfs
+from swiftonfile.swift.common import utils
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
 
