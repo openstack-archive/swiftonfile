@@ -1,4 +1,6 @@
 include README.md
-include makerpm.sh pkgconfig.py
+include .functests .unittests tox.ini requirements.txt test-requirements.txt
+include makerpm.sh pkgconfig.py swiftonfile.spec
 graft doc
 graft etc
+graft test

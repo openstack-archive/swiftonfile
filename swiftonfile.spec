@@ -59,30 +59,18 @@ rm -rf %{buildroot}
 mkdir -p      %{buildroot}/%{_confdir}/
 cp -r etc/*   %{buildroot}/%{_confdir}/
 
-# Man Pages
-install -d -m 755 %{buildroot}%{_mandir}/man8
-for page in doc/man/*.8; do
-    install -p -m 0644 $page %{buildroot}%{_mandir}/man8
-done
-
 # Remove tests
 %{__rm} -rf %{buildroot}/%{python_sitelib}/test
 
 %files
 %defattr(-,root,root)
 %{python_sitelib}/swiftonfile
-%{python_sitelib}/swiftonfile-%{_version}_*.egg-info
+%{python_sitelib}/swiftonfile-%{_version}*.egg-info
 %{_bindir}/swiftonfile-print-metadata
-%{_mandir}/man8/*
 
 %dir %{_confdir}
-%config(noreplace) %{_confdir}/account-server.conf-gluster
-%config(noreplace) %{_confdir}/container-server.conf-gluster
-%config(noreplace) %{_confdir}/object-server.conf-gluster
-%config(noreplace) %{_confdir}/swift.conf-gluster
-%config(noreplace) %{_confdir}/proxy-server.conf-gluster
-%config(noreplace) %{_confdir}/fs.conf-gluster
-%config(noreplace) %{_confdir}/object-expirer.conf-gluster
+%config(noreplace) %{_confdir}/object-server.conf-swiftonfile
+%config(noreplace) %{_confdir}/swift.conf-swiftonfile
 
 %changelog
 * Mon Oct 28 2013 Luis Pabon <lpabon@redhat.com> - 1.10.1-0
