@@ -92,7 +92,7 @@ def _get_unique_id():
                 # own the lock.
                 continue
             raise
-        except:
+        except Exception:
             os.close(fd)
             raise
         else:

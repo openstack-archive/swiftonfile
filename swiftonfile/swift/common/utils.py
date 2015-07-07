@@ -107,7 +107,7 @@ def read_metadata(path_or_fd):
                 # keys sizes we are shooting for N = 1.
                 metadata = pickle.loads(metadata_s)
                 assert isinstance(metadata, dict)
-            except EOFError, pickle.UnpicklingError:
+            except (EOFError, pickle.UnpicklingError):
                 # We still are not able recognize this existing data collected
                 # as a pickled object. Make sure we loop around to try to get
                 # more from another xattr key.
