@@ -627,45 +627,57 @@ class DiskFile(object):
         :returns: itself for use as a context manager
         """
         try:
-            fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
+            self._fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
         except SwiftOnFileSystemOSError as err:
             if err.errno in (errno.ENOENT, errno.ENOTDIR):
                 # If the file does exist, or some part of the path does not
                 # exist, raise the expected DiskFileNotExist
                 raise DiskFileNotExist
             raise
+        try:
+            self._stat = do_fstat(self._fd)
+            self._is_dir = stat.S_ISDIR(self._stat.st_mode)
 
-        self._stat = do_fstat(fd)
-        self._is_dir = stat.S_ISDIR(self._stat.st_mode)
+            if self._is_dir:
+                # Is a directory
+                self._obj_size = 0
+            else:
+                # Is a file
+                self._obj_size = self._stat.st_size
 
-        if self._is_dir:
-            # Is a directory
-            self._obj_size = 0
-        else:
-            # Is a file
-            self._obj_size = self._stat.st_size
+            # Fetch current metadata if it exists
+            self._metadata = read_metadata(self._fd)
 
-        # Fetch current metadata if it exists
-        self._metadata = read_metadata(fd)
+            # If metadata does not exist or is stale or is incomplete, fix that
+            if not self._validate_object_metadata(self._fd):
+                self._create_object_metadata(self._fd)
 
-        # If metadata does not exist or is stale or is incomplete, fix that
-        if not self._validate_object_metadata(fd):
-            self._create_object_metadata(fd)
+            # Remove/Add SOF specific keys to metadata
+            self._filter_metadata()
 
-        # Remove/Add SOF specific keys to metadata
-        self._filter_metadata()
+            if self._is_dir:
+                # Is a directory and all fd operations are done
+                do_close(self._fd)
+                # Guard against double close
+                self._fd = -1
 
-        if self._is_dir:
-            # Is a directory and all fd operations are done
-            do_close(fd)
-            self._fd = -1
-        else:
-            # Is a file
-            self._fd = fd
-
-        if self._is_object_expired(self._metadata):
-            raise DiskFileExpired(metadata=self._metadata)
-
+            if self._is_object_expired(self._metadata):
+                raise DiskFileExpired(metadata=self._metadata)
+        except Exception as err:
+            # Something went wrong. Context manager will not call
+            # __exit__. So we close the fd manually here.
+            self._close_fd()
+            if hasattr(err, 'errno') and err.errno == errno.ENOENT:
+                # Handle races: ENOENT can be raised by read_metadata()
+                # call in GlusterFS if file gets deleted by another
+                # client after do_open() succeeds
+                logging.warn("open(%s) succeeded but one of the subsequent "
+                             "syscalls failed with ENOENT. Raising "
+                             "DiskFileNotExist." % (self._data_file))
+                raise DiskFileNotExist
+            else:
+                # Re-raise the original exception after fd has been closed
+                raise err
         return self
 
     def _validate_object_metadata(self, fd):
@@ -783,6 +795,12 @@ class DiskFile(object):
             raise DiskFileNotOpen()
         return self
 
+    def _close_fd(self):
+        if self._fd is not None:
+            fd, self._fd = self._fd, None
+            if fd > -1:
+                do_close(fd)
+
     def __exit__(self, t, v, tb):
         """
         Context exit.
@@ -794,10 +812,7 @@ class DiskFile(object):
             responsibility of the implementation to properly handle that.
         """
         self._metadata = None
-        if self._fd is not None:
-            fd, self._fd = self._fd, None
-            if fd > -1:
-                do_close(fd)
+        self._close_fd()
 
     def get_metadata(self):
         """
