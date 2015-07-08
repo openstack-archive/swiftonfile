@@ -253,7 +253,7 @@ def rmobjdir(dir_path):
 
             try:
                 metadata = read_metadata(fullpath)
-            except OSError as err:
+            except IOError as err:
                 if err.errno == errno.ENOENT:
                     # Ignore removal from another entity.
                     continue
