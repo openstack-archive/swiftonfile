@@ -13,3 +13,5 @@ oslosphinx
 sphinx>=1.1.2,<1.2
 mock>=1.0
 python-swiftclient
+
+PyECLib>=1.0.9
