@@ -27,7 +27,8 @@ import shutil
 from collections import defaultdict
 from mock import patch
 from swiftonfile.swift.common import utils
-from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
+from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError, \
+    SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
 
 #
@@ -579,7 +580,8 @@ class TestUtilsDirObjects(unittest.TestCase):
         def _mock_rm(path):
             print "_mock_rm-metadata_enoent(%s)" % path
             shutil.rmtree(path)
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+            raise SwiftOnFileSystemIOError(errno.ENOENT,
+                                           os.strerror(errno.ENOENT))
 
         # Remove the files
         for f in self.files:
@@ -590,8 +592,8 @@ class TestUtilsDirObjects(unittest.TestCase):
         try:
             try:
                 self.assertTrue(utils.rmobjdir(self.rootdir))
-            except OSError:
-                self.fail("Unexpected OSError")
+            except IOError:
+                self.fail("Unexpected IOError")
             else:
                 pass
         finally:
