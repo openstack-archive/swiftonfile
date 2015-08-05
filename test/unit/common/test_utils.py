@@ -27,7 +27,8 @@ import shutil
 from collections import defaultdict
 from mock import patch
 from gluster.swift.common import utils, Glusterfs
-from gluster.swift.common.exceptions import GlusterFileSystemOSError
+from gluster.swift.common.exceptions import GlusterFileSystemOSError,\
+	GlusterFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
 
 #
@@ -794,7 +795,8 @@ class TestUtilsDirObjects(unittest.TestCase):
         def _mock_rm(path):
             print "_mock_rm-metadata_enoent(%s)" % path
             shutil.rmtree(path)
-            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+            raise GlusterFileSystemIOError(errno.ENOENT,
+                                           os.strerror(errno.ENOENT))
 
         # Remove the files
         for f in self.files:
@@ -805,7 +807,7 @@ class TestUtilsDirObjects(unittest.TestCase):
         try:
             try:
                 self.assertTrue(utils.rmobjdir(self.rootdir))
-            except OSError:
+            except IOError:
                 self.fail("Unexpected OSError")
             else:
                 pass
