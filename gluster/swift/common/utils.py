@@ -242,8 +242,16 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
         if not reg_file and not Glusterfs._implicit_dir_objects:
             # Now check if this is a dir object or a gratuiously crated
             # directory
-            metadata = \
-                read_metadata(os.path.join(cont_path, obj_path, obj_name))
+            try:
+                metadata = \
+                    read_metadata(os.path.join(cont_path, obj_path, obj_name))
+            except GlusterFileSystemIOError as err:
+                if err.errno == errno.ENOENT:
+                    # object might have been deleted by another process
+                    # since the src_list was originally built
+                    continue
+                else:
+                    raise err
             if not dir_is_object(metadata):
                 continue
 
@@ -494,7 +502,7 @@ def rmobjdir(dir_path):
 
             try:
                 metadata = read_metadata(fullpath)
-            except OSError as err:
+            except GlusterFileSystemIOError as err:
                 if err.errno == errno.ENOENT:
                     # Ignore removal from another entity.
                     continue
