@@ -26,7 +26,8 @@ from gluster.swift.common.utils import validate_account, validate_container, \
     X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_ETAG, X_OBJECTS_COUNT, \
     X_BYTES_USED, X_CONTAINER_COUNT, DIR_TYPE, rmobjdir, dir_is_object
 from gluster.swift.common import Glusterfs
-from gluster.swift.common.exceptions import FileOrDirNotFoundError
+from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
+    GlusterFileSystemIOError
 
 
 DATADIR = 'containers'
@@ -362,7 +363,15 @@ class DiskDir(DiskCommon):
         count = 0
         for obj in objects:
             obj_path = os.path.join(self.datadir, obj)
-            metadata = read_metadata(obj_path)
+            try:
+                metadata = read_metadata(obj_path)
+            except GlusterFileSystemIOError as err:
+                if err.errno == errno.ENOENT:
+                    # obj might have been deleted by another process
+                    # since the objects list was originally built
+                    continue
+                else:
+                    raise err
             if not metadata or not validate_object(metadata):
                 if delimiter == '/' and obj_path[-1] == delimiter:
                     clean_obj_path = obj_path[:-1]
