@@ -834,9 +834,9 @@ class DiskFile(object):
             child = stack.pop() if stack else None
         return True, newmd
         # Exists, but as a file
-        #raise DiskFileError('DiskFile.put(): directory creation failed'
-        #                    ' since the target, %s, already exists as'
-        #                    ' a file' % df._data_file)
+        # raise DiskFileError('DiskFile.put(): directory creation failed'
+        #                     ' since the target, %s, already exists as'
+        #                     ' a file' % df._data_file)
 
     @contextmanager
     def create(self, size=None):

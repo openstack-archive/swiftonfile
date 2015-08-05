@@ -241,7 +241,7 @@ class Swauth(object):
                     version, rest = split_path(env.get('PATH_INFO', ''),
                                                1, 2, True)
                 except ValueError:
-                    version, rest = None, None
+                    rest = None
                 if rest and rest.startswith(self.reseller_prefix):
                     # Handle anonymous access to accounts I'm the definitive
                     # auth for.
@@ -693,7 +693,7 @@ class Swauth(object):
             return HTTPBadRequest(request=req)
         try:
             new_services = json.loads(req.body)
-        except ValueError, err:
+        except ValueError as err:
             return HTTPBadRequest(body=str(err))
         # Get the current services information
         path = quote('/v1/%s/%s/.services' % (self.auth_account, account))
@@ -1405,7 +1405,7 @@ class Swauth(object):
                 memcache_key,
                 (self.itoken_expires,
                  '%s,.reseller_admin,%s' % (self.metadata_volume,
-                 self.auth_account)),
+                                            self.auth_account)),
                 timeout=self.token_life)
         return self.itoken
 
@@ -1589,19 +1589,20 @@ class Swauth(object):
         if getattr(req, 'client_disconnect', False) or \
                 getattr(response, 'client_disconnect', False):
             status_int = 499
-        self.logger.info(
-            ' '.join(quote(str(x)) for x in (client or '-',
-            req.remote_addr or '-', strftime('%d/%b/%Y/%H/%M/%S', gmtime()),
-            req.method, the_request, req.environ['SERVER_PROTOCOL'],
-            status_int, req.referer or '-', req.user_agent or '-',
-            req.headers.get(
-                'x-auth-token',
-                req.headers.get('x-auth-admin-user', '-')),
-            getattr(req, 'bytes_transferred', 0) or '-',
-            getattr(response, 'bytes_transferred', 0) or '-',
-            req.headers.get('etag', '-'),
-            req.headers.get('x-trans-id', '-'), logged_headers or '-',
-            trans_time)))
+        self.logger.info(' '.join(quote(str(x)) for x in
+                         (client or '-',
+                         req.remote_addr or '-', strftime('%d/%b/%Y/%H/%M/%S',
+                                                          gmtime()),
+                         req.method, the_request,
+                         req.environ['SERVER_PROTOCOL'], status_int,
+                         req.referer or '-', req.user_agent or '-',
+                         req.headers.get('x-auth-token', req.headers.get(
+                                         'x-auth-admin-user', '-')),
+                         getattr(req, 'bytes_transferred', 0) or '-',
+                         getattr(response, 'bytes_transferred', 0) or '-',
+                         req.headers.get('etag', '-'),
+                         req.headers.get('x-trans-id', '-'), logged_headers
+                         or '-', trans_time)))
 
 
 def filter_factory(global_conf, **local_conf):
