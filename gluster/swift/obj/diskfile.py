@@ -644,37 +644,48 @@ class DiskFile(object):
         """
         # Writes are always performed to a temporary file
         try:
-            fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
+            self._fd = do_open(self._data_file, os.O_RDONLY | O_CLOEXEC)
         except GlusterFileSystemOSError as err:
             if err.errno in (errno.ENOENT, errno.ENOTDIR):
                 # If the file does exist, or some part of the path does not
                 # exist, raise the expected DiskFileNotExist
                 raise DiskFileNotExist
             raise
-        else:
-            stats = do_fstat(fd)
-            if not stats:
-                return
+        try:
+            stats = do_fstat(self._fd)
             self._is_dir = stat.S_ISDIR(stats.st_mode)
             obj_size = stats.st_size
 
-        self._metadata = read_metadata(fd)
-        if not validate_object(self._metadata):
-            create_object_metadata(fd)
-            self._metadata = read_metadata(fd)
-        assert self._metadata is not None
-        self._filter_metadata()
+            self._metadata = read_metadata(self._fd)
+            if not validate_object(self._metadata):
+                create_object_metadata(self._fd)
+                self._metadata = read_metadata(self._fd)
+            assert self._metadata is not None
+            self._filter_metadata()
 
-        if self._is_dir:
-            do_close(fd)
-            obj_size = 0
-            self._fd = -1
-        else:
-            if self._is_object_expired(self._metadata):
-                raise DiskFileExpired(metadata=self._metadata)
-            self._fd = fd
-
-        self._obj_size = obj_size
+            if self._is_dir:
+                do_close(self._fd)
+                obj_size = 0
+                self._fd = -1
+            else:
+                if self._is_object_expired(self._metadata):
+                    raise DiskFileExpired(metadata=self._metadata)
+            self._obj_size = obj_size
+        except (OSError, IOError, DiskFileExpired) as err:
+            # Something went wrong. Context manager will not call
+            # __exit__. So we close the fd manually here.
+            self._close_fd()
+            if hasattr(err, 'errno') and err.errno == errno.ENOENT:
+                # Handle races: ENOENT can be raised by read_metadata()
+                # call in GlusterFS if file gets deleted by another
+                # client after do_open() succeeds
+                logging.warn("open(%s) succeeded but one of the subsequent "
+                             "syscalls failed with ENOENT. Raising "
+                             "DiskFileNotExist." % (self._data_file))
+                raise DiskFileNotExist
+            else:
+                # Re-raise the original exception after fd has been closed
+                raise err
         return self
 
     def _is_object_expired(self, metadata):
@@ -712,6 +723,12 @@ class DiskFile(object):
             raise DiskFileNotOpen()
         return self
 
+    def _close_fd(self):
+        if self._fd is not None:
+            fd, self._fd = self._fd, None
+            if fd > -1:
+                do_close(fd)
+
     def __exit__(self, t, v, tb):
         """
         Context exit.
@@ -723,10 +740,7 @@ class DiskFile(object):
             responsibility of the implementation to properly handle that.
         """
         self._metadata = None
-        if self._fd is not None:
-            fd, self._fd = self._fd, None
-            if fd > -1:
-                do_close(fd)
+        self._close_fd()
 
     def get_metadata(self):
         """
@@ -834,7 +848,7 @@ class DiskFile(object):
             child = stack.pop() if stack else None
         return True, newmd
         # Exists, but as a file
-        #raise DiskFileError('DiskFile.put(): directory creation failed'
+        # raise DiskFileError('DiskFile.put(): directory creation failed'
         #                    ' since the target, %s, already exists as'
         #                    ' a file' % df._data_file)
 
