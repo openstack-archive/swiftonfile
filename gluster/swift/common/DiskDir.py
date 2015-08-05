@@ -201,7 +201,7 @@ class DiskCommon(object):
         except FileOrDirNotFoundError:
             return True
 
-    def update_metadata(self, metadata):
+    def update_metadata(self, metadata, validate_metadata=False):
         assert self.metadata, "Valid container/account metadata should have " \
             "been created by now"
         if metadata:
