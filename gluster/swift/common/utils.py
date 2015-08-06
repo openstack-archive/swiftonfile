@@ -47,6 +47,7 @@ DIR_NON_OBJECT = 'dir'
 DIR_OBJECT = 'marker_dir'
 TEMP_DIR = 'tmp'
 ASYNCDIR = 'async_pending'  # Keep in sync with swift.obj.server.ASYNCDIR
+TRASHCAN = '.trashcan'
 FILE = 'file'
 FILE_TYPE = 'application/octet-stream'
 OBJECT = 'Object'
@@ -312,6 +313,7 @@ def get_account_details(acc_path):
         for name in do_listdir(acc_path):
             if name.lower() == TEMP_DIR \
                     or name.lower() == ASYNCDIR \
+                    or name.lower() == TRASHCAN \
                     or not do_isdir(os.path.join(acc_path, name)):
                 continue
             container_count += 1
