@@ -14,10 +14,7 @@
 # limitations under the License.
 
 import os
-try:
-    from webob.exc import HTTPBadRequest
-except ImportError:
-    from swift.common.swob import HTTPBadRequest
+from swift.common.swob import HTTPBadRequest
 import swift.common.constraints
 import swift.common.ring as _ring
 from gluster.swift.common import Glusterfs, ring
