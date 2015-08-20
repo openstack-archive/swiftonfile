@@ -344,3 +344,49 @@ class TestMultiProtocolAccess(Base):
         md5_returned = hashlib.md5(data_read_from_mountP).hexdigest()
         self.assertEquals(md5_returned,file_info['etag'])
         fhOnMountPoint.close()
+
+    def testObjectMetadataWhenFileModified(self):
+        data = "I'm whatever Gotham needs me to be "
+        data_hash = hashlib.md5(data).hexdigest()
+        # Create an object through object interface
+        object_name = Utils.create_name()
+        object_item = self.env.container.file(object_name)
+        object_item.write(data)
+        # Make sure GET works
+        self.assertEqual(data, object_item.read())
+        self.assert_status(200)
+        # Check Etag is right
+        self.assertEqual(data_hash, object_item.info()['etag'])
+        self.assert_status(200)
+
+        # Extend/append more data to file from filesystem interface
+        file_path = os.path.join(self.env.root_dir,
+                                 self.env.container.name,
+                                 object_name)
+        more_data = "- Batman"
+        with open(file_path, 'a') as f:
+            f.write(more_data)
+        total_data = data + more_data
+        total_data_hash = hashlib.md5(total_data).hexdigest()
+        # Make sure GET works
+        self.assertEqual(total_data, object_item.read())
+        self.assert_status(200)
+        # Check Etag and content-length is right
+        metadata = object_item.info()
+        self.assert_status(200)
+        self.assertEqual(total_data_hash, metadata['etag'])
+        self.assertEqual(len(total_data), int(metadata['content_length']))
+
+        # Re-write the file to be shorter
+        new_data = "I am Batman"
+        new_data_hash = hashlib.md5(new_data).hexdigest()
+        with open(file_path, 'w') as f:
+            f.write(new_data)
+        # Make sure GET works
+        self.assertEqual(new_data, object_item.read())
+        self.assert_status(200)
+        # Check Etag and content-length is right
+        metadata = object_item.info()
+        self.assert_status(200)
+        self.assertEqual(new_data_hash, metadata['etag'])
+        self.assertEqual(len(new_data), int(metadata['content_length']))

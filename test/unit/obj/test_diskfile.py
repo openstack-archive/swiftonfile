@@ -223,7 +223,7 @@ class TestDiskFile(unittest.TestCase):
         ini_md = {
             'X-Type': 'Object',
             'X-Object-Type': 'file',
-            'Content-Length': 5,
+            'Content-Length': 4,
             'ETag': 'etag',
             'X-Timestamp': 'ts',
             'Content-Type': 'application/loctet-stream'}
@@ -283,7 +283,6 @@ class TestDiskFile(unittest.TestCase):
         with gdf.open():
             assert gdf._is_dir
             assert gdf._data_file == the_dir
-            assert gdf._metadata == exp_md
 
     def _create_and_get_diskfile(self, dev, par, acc, con, obj, fsize=256):
         # FIXME: assumes account === volume
