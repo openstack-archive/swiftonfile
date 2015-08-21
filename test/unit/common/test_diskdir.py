@@ -29,6 +29,7 @@ from gluster.swift.common import utils
 import gluster.swift.common.Glusterfs
 from test_utils import _initxattr, _destroyxattr, _setxattr, _getxattr
 from test.unit import FakeLogger
+from mock import patch
 
 def setup():
     global _saved_RUN_DIR, _saved_do_getsize
@@ -408,7 +409,7 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.container))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
 
     def test_creation_existing(self):
@@ -419,7 +420,7 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.container))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
 
     def test_creation_existing_bad_metadata(self):
@@ -432,7 +433,7 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.container))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
 
     def test_empty(self):
@@ -954,7 +955,7 @@ class TestContainerBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.container))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
         broker.delete_db(normalize_timestamp(time()))
         self.assertTrue(broker.is_deleted())
@@ -1005,7 +1006,7 @@ class TestAccountBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.drive_fullpath))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
 
     def test_creation_bad_metadata(self):
@@ -1016,7 +1017,7 @@ class TestAccountBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.drive_fullpath))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
 
     def test_empty(self):
@@ -1219,7 +1220,7 @@ class TestAccountBroker(unittest.TestCase):
         self.assertEqual(os.path.basename(broker.db_file), 'db_file.db')
         broker.initialize(self.initial_ts)
         self.assertTrue(os.path.isdir(self.drive_fullpath))
-        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP])
+        self.assertEquals(self.initial_ts, broker.metadata[utils.X_TIMESTAMP][0])
         self.assertFalse(broker.is_deleted())
         broker.delete_db(normalize_timestamp(time()))
         # Deleting the "db" should be a NOOP
