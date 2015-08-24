@@ -28,6 +28,8 @@ from gluster.swift.common.utils import validate_account, validate_container, \
 from gluster.swift.common import Glusterfs
 from gluster.swift.common.exceptions import FileOrDirNotFoundError, \
     GlusterFileSystemIOError
+from swift.common.constraints import MAX_META_COUNT, MAX_META_OVERALL_SIZE
+from swift.common.swob import HTTPBadRequest
 
 
 DATADIR = 'containers'
@@ -201,12 +203,41 @@ class DiskCommon(object):
         except FileOrDirNotFoundError:
             return True
 
+    def validate_metadata(self, metadata):
+        """
+        Validates that metadata falls within acceptable limits.
+
+        :param metadata: to be validated
+        :raises: HTTPBadRequest if MAX_META_COUNT or MAX_META_OVERALL_SIZE
+                 is exceeded
+        """
+        meta_count = 0
+        meta_size = 0
+        for key, (value, timestamp) in metadata.iteritems():
+            key = key.lower()
+            if value != '' and (key.startswith('x-account-meta') or
+                                key.startswith('x-container-meta')):
+                prefix = 'x-account-meta-'
+                if key.startswith('x-container-meta-'):
+                    prefix = 'x-container-meta-'
+                key = key[len(prefix):]
+                meta_count = meta_count + 1
+                meta_size = meta_size + len(key) + len(value)
+        if meta_count > MAX_META_COUNT:
+            raise HTTPBadRequest('Too many metadata items; max %d'
+                                 % MAX_META_COUNT)
+        if meta_size > MAX_META_OVERALL_SIZE:
+            raise HTTPBadRequest('Total metadata too large; max %d'
+                                 % MAX_META_OVERALL_SIZE)
+
     def update_metadata(self, metadata, validate_metadata=False):
         assert self.metadata, "Valid container/account metadata should have " \
             "been created by now"
         if metadata:
             new_metadata = self.metadata.copy()
             new_metadata.update(metadata)
+            if validate_metadata:
+                self.validate_metadata(new_metadata)
             if new_metadata != self.metadata:
                 write_metadata(self.datadir, new_metadata)
                 self.metadata = new_metadata
@@ -464,7 +495,7 @@ class DiskDir(DiskCommon):
             # If we create it, ensure we own it.
             do_chown(self.datadir, self.uid, self.gid)
         metadata = get_container_metadata(self.datadir)
-        metadata[X_TIMESTAMP] = timestamp
+        metadata[X_TIMESTAMP] = (timestamp, 0)
         write_metadata(self.datadir, metadata)
         self.metadata = metadata
         self._dir_exists = True
@@ -576,7 +607,7 @@ class DiskAccount(DiskCommon):
         :param metadata: Metadata to write.
         """
         metadata = get_account_metadata(self.datadir)
-        metadata[X_TIMESTAMP] = timestamp
+        metadata[X_TIMESTAMP] = (timestamp, 0)
         write_metadata(self.datadir, metadata)
         self.metadata = metadata
 
