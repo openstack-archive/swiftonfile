@@ -26,18 +26,19 @@ from eventlet import tpool
 from mock import Mock, patch
 from hashlib import md5
 from copy import deepcopy
+from contextlib import nested
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsDir, \
     AlreadyExistsAsFile
-from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
-    DiskFileNoSpace, DiskFileNotOpen
+from swift.common.exceptions import DiskFileNoSpace, DiskFileNotOpen, \
+    DiskFileNotExist, DiskFileExpired
 from swift.common.utils import ThreadPool
 
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 import swiftonfile.swift.common.utils
 from swiftonfile.swift.common.utils import normalize_timestamp
 import swiftonfile.swift.obj.diskfile
-from swiftonfile.swift.obj.diskfile import DiskFileWriter, DiskFile, DiskFileManager
-from swiftonfile.swift.common.utils import DEFAULT_UID, DEFAULT_GID, X_TYPE, \
+from swiftonfile.swift.obj.diskfile import DiskFileWriter, DiskFileManager
+from swiftonfile.swift.common.utils import DEFAULT_UID, DEFAULT_GID, \
     X_OBJECT_TYPE, DIR_OBJECT
 
 from test.unit.common.test_utils import _initxattr, _destroyxattr
@@ -972,3 +973,70 @@ class TestDiskFile(unittest.TestCase):
 
         assert os.path.exists(gdf._data_file)  # Real file exists
         assert not os.path.exists(tmppath)  # Temp file does not exist
+
+    def test_fd_closed_when_diskfile_open_raises_exception_race(self):
+        # do_open() succeeds but read_metadata() fails(GlusterFS)
+        _m_do_open = Mock(return_value=999)
+        _m_do_fstat = Mock(return_value=
+                           os.stat_result((33261, 2753735, 2053, 1, 1000,
+                                           1000, 6873, 1431415969,
+                                           1376895818, 1433139196)))
+        _m_rmd = Mock(side_effect=IOError(errno.ENOENT,
+                                          os.strerror(errno.ENOENT)))
+        _m_do_close = Mock()
+        _m_log = Mock()
+
+        with nested(
+                patch("swiftonfile.swift.obj.diskfile.do_open", _m_do_open),
+                patch("swiftonfile.swift.obj.diskfile.do_fstat", _m_do_fstat),
+                patch("swiftonfile.swift.obj.diskfile.read_metadata", _m_rmd),
+                patch("swiftonfile.swift.obj.diskfile.do_close", _m_do_close),
+                patch("swiftonfile.swift.obj.diskfile.logging.warn", _m_log)):
+            gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+            try:
+                with gdf.open():
+                    pass
+            except DiskFileNotExist:
+                pass
+            else:
+                self.fail("Expecting DiskFileNotExist")
+            _m_do_fstat.assert_called_once_with(999)
+            _m_rmd.assert_called_once_with(999)
+            _m_do_close.assert_called_once_with(999)
+            self.assertFalse(gdf._fd)
+            # Make sure ENOENT failure is logged
+            self.assertTrue("failed with ENOENT" in _m_log.call_args[0][0])
+
+    def test_fd_closed_when_diskfile_open_raises_DiskFileExpired(self):
+        # A GET/DELETE on an expired object should close fd
+        the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
+        the_file = os.path.join(the_path, "z")
+        os.makedirs(the_path)
+        with open(the_file, "w") as fd:
+            fd.write("1234")
+        md = {
+            'X-Type': 'Object',
+            'X-Object-Type': 'file',
+            'Content-Length': str(os.path.getsize(the_file)),
+            'ETag': md5("1234").hexdigest(),
+            'X-Timestamp': os.stat(the_file).st_mtime,
+            'X-Delete-At': 0,  # This is in the past
+            'Content-Type': 'application/octet-stream'}
+        _metadata[_mapit(the_file)] = md
+
+        _m_do_close = Mock()
+
+        with patch("swiftonfile.swift.obj.diskfile.do_close", _m_do_close):
+            gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+            try:
+                with gdf.open():
+                    pass
+            except DiskFileExpired:
+                # Confirm that original exception is re-raised
+                pass
+            else:
+                self.fail("Expecting DiskFileExpired")
+            self.assertEqual(_m_do_close.call_count, 1)
+            self.assertFalse(gdf._fd)
+            # Close the actual fd, as we had mocked do_close
+            os.close(_m_do_close.call_args[0][0])
