@@ -25,7 +25,7 @@ import hashlib
 import tarfile
 import shutil
 from collections import defaultdict
-from mock import patch
+from mock import patch, Mock
 from swiftonfile.swift.common import utils
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 from swift.common.exceptions import DiskFileNoSpace
@@ -460,6 +460,18 @@ class TestUtils(unittest.TestCase):
               utils.X_OBJECT_TYPE: 'na'}
         ret = utils.validate_object(md)
         assert ret
+
+    def test_validate_object_with_stat(self):
+        md = {utils.X_TIMESTAMP: 'na',
+              utils.X_CONTENT_TYPE: 'na',
+              utils.X_ETAG: 'bad',
+              utils.X_CONTENT_LENGTH: '12345',
+              utils.X_TYPE: utils.OBJECT,
+              utils.X_OBJECT_TYPE: 'na'}
+        fake_stat = Mock(st_size=12346)
+        self.assertFalse(utils.validate_object(md, fake_stat))
+        fake_stat = Mock(st_size=12345)
+        self.assertTrue(utils.validate_object(md, fake_stat))
 
     def test_write_pickle(self):
         td = tempfile.mkdtemp()

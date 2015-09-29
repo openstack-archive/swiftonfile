@@ -572,6 +572,7 @@ class DiskFile(object):
         self._is_dir = False
         self._metadata = None
         self._fd = None
+        self._stat = None
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
 
@@ -623,12 +624,12 @@ class DiskFile(object):
                 raise DiskFileNotExist
             raise
         try:
-            stats = do_fstat(self._fd)
-            self._is_dir = stat.S_ISDIR(stats.st_mode)
-            obj_size = stats.st_size
+            self._stat = do_fstat(self._fd)
+            self._is_dir = stat.S_ISDIR(self._stat.st_mode)
+            obj_size = self._stat.st_size
 
             self._metadata = read_metadata(self._fd)
-            if not validate_object(self._metadata):
+            if not validate_object(self._metadata, self._stat):
                 create_object_metadata(self._fd)
                 self._metadata = read_metadata(self._fd)
             assert self._metadata is not None

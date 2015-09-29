@@ -164,7 +164,7 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata):
+def validate_object(metadata, stat=None):
     if not metadata:
         return False
 
@@ -174,6 +174,12 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
+        return False
+
+    if stat and (int(metadata[X_CONTENT_LENGTH]) != stat.st_size):
+        # File length has changed.
+        # TODO: Handle case where file content has changed but the length
+        # remains the same.
         return False
 
     if metadata[X_TYPE] == OBJECT:
