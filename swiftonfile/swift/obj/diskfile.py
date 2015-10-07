@@ -44,7 +44,7 @@ from swiftonfile.swift.common.utils import read_metadata, write_metadata, \
 from swiftonfile.swift.common.utils import X_CONTENT_TYPE, \
     X_TIMESTAMP, X_TYPE, X_OBJECT_TYPE, FILE, OBJECT, DIR_TYPE, \
     FILE_TYPE, DEFAULT_UID, DEFAULT_GID, DIR_NON_OBJECT, DIR_OBJECT, \
-    X_ETAG, X_CONTENT_LENGTH
+    X_ETAG, X_CONTENT_LENGTH, X_MTIME
 from swift.obj.diskfile import DiskFileManager as SwiftDiskFileManager
 from swift.obj.diskfile import get_async_dir
 
@@ -169,7 +169,7 @@ def make_directory(full_path, uid, gid, metadata=None):
         return True, metadata
 
 
-def _adjust_metadata(metadata):
+def _adjust_metadata(fd, metadata):
     # Fix up the metadata to ensure it has a proper value for the
     # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
     # metadata values.
@@ -188,6 +188,12 @@ def _adjust_metadata(metadata):
             metadata[X_OBJECT_TYPE] = DIR_OBJECT
         else:
             metadata[X_OBJECT_TYPE] = FILE
+
+    # stat.st_mtime does not change after last write(). We set this to later
+    # detect if the object was changed from filesystem interface (non Swift)
+    statinfo = do_fstat(fd)
+    if stat.S_ISREG(statinfo.st_mode):
+        metadata[X_MTIME] = normalize_timestamp(statinfo.st_mtime)
 
     metadata[X_TYPE] = OBJECT
     return metadata
@@ -385,7 +391,7 @@ class DiskFileWriter(object):
                                      name
         """
         assert self._tmppath is not None
-        metadata = _adjust_metadata(metadata)
+        metadata = _adjust_metadata(self._fd, metadata)
         df = self._disk_file
 
         if dir_is_object(metadata):

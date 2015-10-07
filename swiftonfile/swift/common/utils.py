@@ -34,6 +34,7 @@ X_TIMESTAMP = 'X-Timestamp'
 X_TYPE = 'X-Type'
 X_ETAG = 'ETag'
 X_OBJECT_TYPE = 'X-Object-Type'
+X_MTIME = 'X-Object-PUT-Mtime'
 DIR_TYPE = 'application/directory'
 METADATA_KEY = 'user.swift.metadata'
 MAX_XATTR_SIZE = 65536
@@ -164,7 +165,7 @@ def clean_metadata(path_or_fd):
         key += 1
 
 
-def validate_object(metadata, stat=None):
+def validate_object(metadata, statinfo=None):
     if not metadata:
         return False
 
@@ -176,11 +177,17 @@ def validate_object(metadata, stat=None):
        X_OBJECT_TYPE not in metadata.keys():
         return False
 
-    if stat and (int(metadata[X_CONTENT_LENGTH]) != stat.st_size):
-        # File length has changed.
-        # TODO: Handle case where file content has changed but the length
-        # remains the same.
-        return False
+    if statinfo and stat.S_ISREG(statinfo.st_mode):
+
+        # File length has changed
+        if int(metadata[X_CONTENT_LENGTH]) != statinfo.st_size:
+            return False
+
+        # File might have changed with length being the same.
+        if X_MTIME in metadata and \
+                normalize_timestamp(metadata[X_MTIME]) != \
+                normalize_timestamp(statinfo.st_mtime):
+            return False
 
     if metadata[X_TYPE] == OBJECT:
         return True
@@ -255,6 +262,7 @@ def get_object_metadata(obj_path_or_fd):
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
             X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
+            X_MTIME: 0 if is_dir else normalize_timestamp(stats.st_mtime),
             X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path_or_fd)}
     return metadata
 
