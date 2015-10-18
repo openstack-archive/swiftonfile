@@ -357,7 +357,7 @@ class TestUtils(unittest.TestCase):
             # pickled
             md = utils.deserialize_metadata(pickled_md)
             self.assertTrue(_m_pickle_loads.called)
-            self.assertTrue(isinstance(md, dict))
+            self.assertIsInstance(md, dict)
             _m_pickle_loads.reset_mock()
             # not pickled
             utils.deserialize_metadata("not_pickle")
@@ -371,7 +371,8 @@ class TestUtils(unittest.TestCase):
             # malformed pickle
             _m_pickle_loads.side_effect = pickle.UnpicklingError
             md = utils.deserialize_metadata("malformed_pickle")
-            self.assertTrue(isinstance(md, dict))
+            self.assertIsInstance(md, dict)
+
 
     def test_deserialize_metadata_json(self):
         _m_json_loads = Mock(return_value={})
