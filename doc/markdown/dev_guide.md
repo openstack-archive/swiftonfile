@@ -39,14 +39,14 @@ git config --global user.email "your_email@youremail.com"
 ### Clone the source
 You can clone the swiftonfile repo from Gerrit:
 ~~~
-git clone ssh://<your-gerrit-username>@review.openstack.org:29418/stackforge/swiftonfile
+git clone ssh://<your-gerrit-username>@review.openstack.org:29418/openstack/swiftonfile
 ~~~
 
 Alternatively, if you just want to clone the source for trying things out,
 without setting up lp or Gerrit account or SSH keys, you can clone from the
 github mirror.
 ~~~
-git clone git://github.com/stackforge/swiftonfile
+git clone https://github.com/openstack/swiftonfile
 ~~~
 
 ### Git Review
@@ -79,7 +79,7 @@ If there is no output, then everything is setup correctly.  If the output
 contains the string *We don't know where your gerrit is*, then you need to
 manually setup a remote repo with the name `gerrit`.
 ~~~
-git remote add gerrit ssh://<your-gerrit-username>@review.openstack.org:29418/stackforge/swiftonfile
+git remote add gerrit ssh://<your-gerrit-username>@review.openstack.org:29418/openstack/swiftonfile
 git remote -v
 ~~~
 
