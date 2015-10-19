@@ -183,13 +183,13 @@ def do_fstat(fd):
     return stats
 
 
-def do_open(path, flags, **kwargs):
+def do_open(path, flags, mode=0o777):
     try:
-        fd = os.open(path, flags, **kwargs)
+        fd = os.open(path, flags, mode)
     except OSError as err:
         raise SwiftOnFileSystemOSError(
-            err.errno, '%s, os.open("%s", %x, %r)' % (
-                err.strerror, path, flags, kwargs))
+            err.errno, '%s, os.open("%s", %x, %o)' % (
+                err.strerror, path, flags, mode))
     return fd
 
 
