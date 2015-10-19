@@ -9,7 +9,7 @@ Name     : %{_name}
 Version  : %{_version}
 Release  : %{_release}%{?dist}
 Group    : Applications/System
-URL      : https://github.com/stackforge/swiftonfile
+URL      : https://github.com/openstack/swiftonfile
 Source0  : %{_name}-%{_version}-%{_release}.tar.gz
 License  : ASL 2.0
 BuildArch: noarch
