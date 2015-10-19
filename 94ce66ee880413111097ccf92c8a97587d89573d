@@ -1,0 +1,10 @@
+Verified+2: Jenkins
+Code-Review+2: Thiago da Silva <thiago@redhat.com>
+Workflow+1: Thiago da Silva <thiago@redhat.com>
+Code-Review+1: venkatamahesh <venkatamaheshkotha@gmail.com>
+Code-Review+1: Clint Adams <clint@gcfm.net>
+Submitted-by: Jenkins
+Submitted-at: Mon, 19 Oct 2015 17:52:50 +0000
+Reviewed-on: https://review.openstack.org/236601
+Project: openstack/swiftonfile
+Branch: refs/heads/master
