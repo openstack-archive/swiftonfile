@@ -46,5 +46,17 @@ disk_chunk_size = 65536
 # This will provide a reasonable starting point for tuning this value.
 network_chunk_size = 65536
 
+# In older versions of swiftonfile, metadata stored as xattrs of files
+# were serialized using PICKLE format. The PICKLE format is vulnerable to
+# exploits in deployments where a user has access to backend filesystem.
+# Deserializing pickled metadata can result in malicious code being
+# executed if an attacker has stored malicious code as xattr from filesystem
+# interface. Although, new metadata is always serialized using JSON format,
+# existing metadata already stored in PICKLE format are loaded by default.
+# You can turn this option to 'off' once you have migrated all your metadata
+# from PICKLE format to JSON format using swiftonfile-migrate-metadata tool.
+# This conf option will be deprecated and eventualy removed in future releases
+# read_pickled_metadata = on
+
 [object-updater]
 user = <your-user-name>

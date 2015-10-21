@@ -15,14 +15,18 @@
 
 import os
 import stat
+import json
 import errno
 import random
 import logging
 from hashlib import md5
 from eventlet import sleep
 import cPickle as pickle
+from cStringIO import StringIO
+import pickletools
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
+from swift.common.db import utf8encodekeys
 from swiftonfile.swift.common.fs_utils import do_stat, \
     do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
     do_getxattr, do_setxattr, do_removexattr, do_read, \
@@ -47,6 +51,8 @@ DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
 CHUNK_SIZE = 65536
 
+read_pickled_metadata = False
+
 
 def normalize_timestamp(timestamp):
     """
@@ -63,8 +69,41 @@ def normalize_timestamp(timestamp):
     return "%016.05f" % (float(timestamp))
 
 
+class SafeUnpickler(object):
+    """
+    Loading a pickled stream is potentially unsafe and exploitable because
+    the loading process can import modules/classes (via GLOBAL opcode) and
+    run any callable (via REDUCE opcode). As the metadata stored in Swift
+    is just a dictionary, we take away these powerful "features", thus
+    making the loading process safe. Hence, this is very Swift specific
+    and is not a general purpose safe unpickler.
+    """
+
+    __slots__ = 'OPCODE_BLACKLIST'
+    OPCODE_BLACKLIST = ('GLOBAL', 'REDUCE', 'BUILD', 'OBJ', 'NEWOBJ', 'INST',
+                        'EXT1', 'EXT2', 'EXT4')
+
+    @classmethod
+    def find_class(self, module, name):
+        # Do not allow importing of ANY module. This is really redundant as
+        # we block those OPCODEs that results in invocation of this method.
+        raise pickle.UnpicklingError('Potentially unsafe pickle')
+
+    @classmethod
+    def loads(self, string):
+        for opcode in pickletools.genops(string):
+            if opcode[0].name in self.OPCODE_BLACKLIST:
+                raise pickle.UnpicklingError('Potentially unsafe pickle')
+        orig_unpickler = pickle.Unpickler(StringIO(string))
+        orig_unpickler.find_global = self.find_class
+        return orig_unpickler.load()
+
+
+pickle.loads = SafeUnpickler.loads
+
+
 def serialize_metadata(metadata):
-    return pickle.dumps(metadata, PICKLE_PROTOCOL)
+    return json.dumps(metadata, separators=(',', ':'))
 
 
 def deserialize_metadata(metastr):
@@ -72,14 +111,24 @@ def deserialize_metadata(metastr):
     Returns dict populated with metadata if deserializing is successful.
     Returns empty dict if deserialzing fails.
     """
-    if metastr.startswith('\x80\x02}') and metastr.endswith('.'):
-        # Assert that the metadata was indeed pickled before attempting
-        # to unpickle. This only *reduces* risk of malicious shell code
-        # being executed. However, it does NOT fix anything.
+    global read_pickled_metadata
+
+    if metastr.startswith('\x80\x02}') and metastr.endswith('.') and \
+            read_pickled_metadata:
+        # Assert that the serialized metadata is pickled using
+        # pickle protocol 2.
         try:
             return pickle.loads(metastr)
-        except (pickle.UnpicklingError, EOFError, AttributeError,
-                IndexError, ImportError, AssertionError):
+        except Exception:
+            logging.warning("pickle.loads() failed.", exc_info=True)
+            return {}
+    elif metastr.startswith('{') and metastr.endswith('}'):
+        try:
+            metadata = json.loads(metastr)
+            utf8encodekeys(metadata)
+            return metadata
+        except (UnicodeDecodeError, ValueError):
+            logging.warning("json.loads() failed.", exc_info=True)
             return {}
     else:
         return {}
