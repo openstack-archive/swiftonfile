@@ -63,68 +63,72 @@ def normalize_timestamp(timestamp):
     return "%016.05f" % (float(timestamp))
 
 
+def serialize_metadata(metadata):
+    return pickle.dumps(metadata, PICKLE_PROTOCOL)
+
+
+def deserialize_metadata(metastr):
+    """
+    Returns dict populated with metadata if deserializing is successful.
+    Returns empty dict if deserialzing fails.
+    """
+    if metastr.startswith('\x80\x02}') and metastr.endswith('.'):
+        # Assert that the metadata was indeed pickled before attempting
+        # to unpickle. This only *reduces* risk of malicious shell code
+        # being executed. However, it does NOT fix anything.
+        try:
+            return pickle.loads(metastr)
+        except (pickle.UnpicklingError, EOFError, AttributeError,
+                IndexError, ImportError, AssertionError):
+            return {}
+    else:
+        return {}
+
+
 def read_metadata(path_or_fd):
     """
-    Helper function to read the pickled metadata from a File/Directory.
+    Helper function to read the serialized metadata from a File/Directory.
 
     :param path_or_fd: File/Directory path or fd from which to read metadata.
 
     :returns: dictionary of metadata
     """
-    metadata = None
-    metadata_s = ''
+    metastr = ''
     key = 0
-    while metadata is None:
-        try:
-            metadata_s += do_getxattr(path_or_fd,
-                                      '%s%s' % (METADATA_KEY, (key or '')))
-        except IOError as err:
-            if err.errno == errno.ENODATA:
-                if key > 0:
-                    # No errors reading the xattr keys, but since we have not
-                    # been able to find enough chunks to get a successful
-                    # unpickle operation, we consider the metadata lost, and
-                    # drop the existing data so that the internal state can be
-                    # recreated.
-                    clean_metadata(path_or_fd)
-                # We either could not find any metadata key, or we could find
-                # some keys, but were not successful in performing the
-                # unpickling (missing keys perhaps)? Either way, just report
-                # to the caller we have no metadata.
-                metadata = {}
-            else:
-                # Note that we don't touch the keys on errors fetching the
-                # data since it could be a transient state.
-                raise SwiftOnFileSystemIOError(
-                    err.errno, '%s, getxattr("%s", %s)' % (err.strerror,
-                                                           path_or_fd, key))
-        else:
-            try:
-                # If this key provides all or the remaining part of the pickle
-                # data, we don't need to keep searching for more keys. This
-                # means if we only need to store data in N xattr key/value
-                # pair, we only need to invoke xattr get N times. With large
-                # keys sizes we are shooting for N = 1.
-                metadata = pickle.loads(metadata_s)
-                assert isinstance(metadata, dict)
-            except (EOFError, pickle.UnpicklingError):
-                # We still are not able recognize this existing data collected
-                # as a pickled object. Make sure we loop around to try to get
-                # more from another xattr key.
-                metadata = None
-                key += 1
+    try:
+        while True:
+            metastr += do_getxattr(path_or_fd, '%s%s' %
+                                   (METADATA_KEY, (key or '')))
+            key += 1
+            if len(metastr) < MAX_XATTR_SIZE:
+                # Prevent further getxattr calls
+                break
+    except IOError as err:
+        if err.errno != errno.ENODATA:
+            raise
+
+    if not metastr:
+        return {}
+
+    metadata = deserialize_metadata(metastr)
+    if not metadata:
+        # Empty dict i.e deserializing of metadata has failed, probably
+        # because it is invalid or incomplete or corrupt
+        clean_metadata(path_or_fd)
+
+    assert isinstance(metadata, dict)
     return metadata
 
 
 def write_metadata(path_or_fd, metadata):
     """
-    Helper function to write pickled metadata for a File/Directory.
+    Helper function to write serialized metadata for a File/Directory.
 
     :param path_or_fd: File/Directory path or fd to write the metadata
     :param metadata: dictionary of metadata write
     """
     assert isinstance(metadata, dict)
-    metastr = pickle.dumps(metadata, PICKLE_PROTOCOL)
+    metastr = serialize_metadata(metadata)
     key = 0
     while metastr:
         try:

@@ -22,11 +22,11 @@ import xattr
 import cPickle as pickle
 import tempfile
 import hashlib
-import tarfile
 import shutil
 from collections import defaultdict
 from mock import patch, Mock
 from swiftonfile.swift.common import utils
+from swiftonfile.swift.common.utils import deserialize_metadata, serialize_metadata
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError, \
     SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
@@ -154,7 +154,7 @@ class TestUtils(unittest.TestCase):
         xkey = _xkey(path, utils.METADATA_KEY)
         assert len(_xattrs.keys()) == 1
         assert xkey in _xattrs
-        assert orig_d == pickle.loads(_xattrs[xkey])
+        assert orig_d == deserialize_metadata(_xattrs[xkey])
         assert _xattr_op_cnt['set'] == 1
 
     def test_write_metadata_err(self):
@@ -205,13 +205,13 @@ class TestUtils(unittest.TestCase):
             assert xkey in _xattrs
             assert len(_xattrs[xkey]) <= utils.MAX_XATTR_SIZE
             payload += _xattrs[xkey]
-        assert orig_d == pickle.loads(payload)
+        assert orig_d == deserialize_metadata(payload)
         assert _xattr_op_cnt['set'] == 3, "%r" % _xattr_op_cnt
 
     def test_clean_metadata(self):
         path = "/tmp/foo/c"
         expected_d = {'a': 'y' * 150000}
-        expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
+        expected_p = serialize_metadata(expected_d)
         for i in range(0, 3):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
@@ -223,7 +223,7 @@ class TestUtils(unittest.TestCase):
     def test_clean_metadata_err(self):
         path = "/tmp/foo/c"
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps({'a': 'y'}, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = serialize_metadata({'a': 'y'})
         _xattr_rem_err[xkey] = errno.EOPNOTSUPP
         try:
             utils.clean_metadata(path)
@@ -237,7 +237,7 @@ class TestUtils(unittest.TestCase):
         path = "/tmp/foo/r"
         expected_d = {'a': 'y'}
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = serialize_metadata(expected_d)
         res_d = utils.read_metadata(path)
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
         assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
@@ -252,7 +252,7 @@ class TestUtils(unittest.TestCase):
         path = "/tmp/foo/r"
         expected_d = {'a': 'y'}
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = serialize_metadata(expected_d)
         _xattr_get_err[xkey] = errno.EOPNOTSUPP
         try:
             utils.read_metadata(path)
@@ -265,7 +265,7 @@ class TestUtils(unittest.TestCase):
     def test_read_metadata_multiple(self):
         path = "/tmp/foo/r"
         expected_d = {'a': 'y' * 150000}
-        expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
+        expected_p = serialize_metadata(expected_d)
         for i in range(0, 3):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
@@ -273,12 +273,12 @@ class TestUtils(unittest.TestCase):
         assert not expected_p
         res_d = utils.read_metadata(path)
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
-        assert _xattr_op_cnt['get'] == 3, "%r" % _xattr_op_cnt
+        assert _xattr_op_cnt['get'] == 4, "%r" % _xattr_op_cnt
 
     def test_read_metadata_multiple_one_missing(self):
         path = "/tmp/foo/r"
         expected_d = {'a': 'y' * 150000}
-        expected_p = pickle.dumps(expected_d, utils.PICKLE_PROTOCOL)
+        expected_p = serialize_metadata(expected_d)
         for i in range(0, 2):
             xkey = _xkey(path, "%s%s" % (utils.METADATA_KEY, i or ''))
             _xattrs[xkey] = expected_p[:utils.MAX_XATTR_SIZE]
@@ -287,7 +287,6 @@ class TestUtils(unittest.TestCase):
         res_d = utils.read_metadata(path)
         assert res_d == {}
         assert _xattr_op_cnt['get'] == 3, "%r" % _xattr_op_cnt
-        assert len(_xattrs.keys()) == 0, "Expected 0 keys, found %d" % len(_xattrs.keys())
 
     def test_restore_metadata_none(self):
         # No initial metadata
@@ -303,7 +302,7 @@ class TestUtils(unittest.TestCase):
         path = "/tmp/foo/i"
         initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = serialize_metadata(initial_d)
         res_d = utils.restore_metadata(path, {'b': 'y'})
         expected_d = {'a': 'z', 'b': 'y'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
@@ -315,7 +314,7 @@ class TestUtils(unittest.TestCase):
         path = "/tmp/foo/i"
         initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
-        _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
+        _xattrs[xkey] = serialize_metadata(initial_d)
         res_d = utils.restore_metadata(path, {})
         expected_d = {'a': 'z'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
@@ -398,7 +397,7 @@ class TestUtils(unittest.TestCase):
         assert xkey in _xattrs
         assert _xattr_op_cnt['get'] == 1
         assert _xattr_op_cnt['set'] == 1
-        md = pickle.loads(_xattrs[xkey])
+        md = deserialize_metadata(_xattrs[xkey])
         assert r_md == md
 
         for key in self.obj_keys:
@@ -420,7 +419,7 @@ class TestUtils(unittest.TestCase):
             assert xkey in _xattrs
             assert _xattr_op_cnt['get'] == 1
             assert _xattr_op_cnt['set'] == 1
-            md = pickle.loads(_xattrs[xkey])
+            md = deserialize_metadata(_xattrs[xkey])
             assert r_md == md
 
             for key in self.obj_keys:
