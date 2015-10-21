@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+#
+# Copyright (c) 2015 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import pwd
+import sys
+import stat
+import errno
+import xattr
+import cPickle as pickle
+import multiprocessing
+
+from optparse import OptionParser
+from swiftonfile.swift.common.utils import write_metadata, SafeUnpickler, \
+    METADATA_KEY, MAX_XATTR_SIZE
+
+
+ORIGINAL_EUID = os.geteuid()
+NOBODY_UID = pwd.getpwnam('nobody').pw_uid
+
+
+def print_msg(s):
+    global options
+    if options.verbose:
+        print(s)
+
+
+def clean_metadata(path, key_count):
+    """
+    Can only be used when you know the key_count. Saves one unnecessarry
+    removexattr() call. Ignores error when file or metadata isn't found.
+    """
+    for key in xrange(0, key_count):
+        try:
+            xattr.removexattr(path, '%s%s' % (METADATA_KEY, (key or '')))
+        except IOError as err:
+            if err.errno not in (errno.ENOENT, errno.ESTALE, errno.ENODATA):
+                print_msg("xattr.removexattr(%s, %s%s) failed: %s" %
+                          (path, METADATA_KEY, (key or ''), err.errno))
+
+
+def process_object(path):
+
+    metastr = ''
+    key_count = 0
+    try:
+        while True:
+            metastr += xattr.getxattr(path, '%s%s' %
+                                      (METADATA_KEY, (key_count or '')))
+            key_count += 1
+            if len(metastr) < MAX_XATTR_SIZE:
+                # Prevent further getxattr calls
+                break
+    except IOError as err:
+        if err.errno not in (errno.ENOENT, errno.ESTALE, errno.ENODATA):
+            print_msg("xattr.getxattr(%s, %s%s) failed: %s" %
+                      (path, METADATA_KEY, (key_count or ''), err.errno))
+
+    if not metastr:
+        return
+
+    if metastr.startswith('\x80\x02}') and metastr.endswith('.'):
+        # It's pickled. If unpickling is successful and metadata is
+        # not stale write back the metadata by serializing it.
+        try:
+            os.seteuid(NOBODY_UID)  # Drop privileges
+            metadata = SafeUnpickler.loads(metastr)
+            os.seteuid(ORIGINAL_EUID)  # Restore privileges
+            assert isinstance(metadata, dict)
+        except (pickle.UnpicklingError, EOFError, AttributeError,
+                IndexError, ImportError, AssertionError):
+            clean_metadata(path, key_count)
+        else:
+            try:
+                # Remove existing metadata first before writing new metadata
+                clean_metadata(path, key_count)
+                write_metadata(path, metadata)
+                print_msg("%s MIGRATED" % (path))
+            except IOError as err:
+                if err.errno not in (errno.ENOENT, errno.ESTALE):
+                    raise
+    elif metastr.startswith("{") and metastr.endswith("}"):
+        # It's not pickled and is already serialized, just return
+        print_msg("%s SKIPPED" % (path))
+    else:
+        # Metadata is malformed
+        clean_metadata(path, key_count)
+        print_msg("%s CLEANED" % (path))
+
+
+def walktree(top, pool, root=True):
+    """
+    Recursively walk the filesystem tree and migrate metadata of each object
+    found. Unlike os.walk(), this method performs stat() sys call on a
+    file/directory at most only once.
+    """
+
+    if root:
+        # The root of volume is account which also contains metadata
+        pool.apply_async(process_object, (top, ))
+
+    for f in os.listdir(top):
+        if root and f in (".trashcan", ".glusterfs", "async_pending", "tmp"):
+            continue
+        path = os.path.join(top, f)
+        try:
+            s = os.stat(path)
+        except OSError as err:
+            if err.errno in (errno.ENOENT, errno.ESTALE):
+                continue
+            raise
+        if stat.S_ISLNK(s.st_mode):
+            pass
+        elif stat.S_ISDIR(s.st_mode):
+            pool.apply_async(process_object, (path, ))
+            # Recurse into directory
+            walktree(path, pool, root=False)
+        elif stat.S_ISREG(s.st_mode):
+            pool.apply_async(process_object, (path, ))
+
+
+if __name__ == '__main__':
+
+    global options
+
+    usage = "usage: %prog [options] volume1_mountpath volume2_mountpath..."
+    description = """Object metadata are stored as \
+extended attributes of files and directories. This utility migrates metadata \
+stored in pickled format to JSON format."""
+    parser = OptionParser(usage=usage, description=description)
+    parser.add_option("-v", "--verbose", dest="verbose",
+                      action="store_true", default=False,
+                      help="Print object paths as they are processed.")
+    (options, mount_paths) = parser.parse_args()
+
+    if len(mount_paths) < 1:
+        print "Mountpoint path(s) missing."
+        parser.print_usage()
+        sys.exit(-1)
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() * 2)
+
+    for path in mount_paths:
+        if os.path.isdir(path):
+            walktree(path, pool)
+
+    pool.close()
+    pool.join()

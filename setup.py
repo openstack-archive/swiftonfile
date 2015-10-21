@@ -42,6 +42,7 @@ setup(
     install_requires=[],
     scripts=[
         'bin/swiftonfile-print-metadata',
+        'bin/swiftonfile-migrate-metadata',
     ],
     entry_points={
         'paste.app_factory': [

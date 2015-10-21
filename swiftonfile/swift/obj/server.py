@@ -16,7 +16,8 @@
 """ Object Server for Gluster for Swift """
 
 from swift.common.swob import HTTPConflict, HTTPNotImplemented
-from swift.common.utils import public, timing_stats, replication
+from swift.common.utils import public, timing_stats, replication, \
+    config_true_value
 from swift.common.request_helpers import get_name_and_placement
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
@@ -26,6 +27,7 @@ from swift.obj import server
 
 from swiftonfile.swift.obj.diskfile import DiskFileManager
 from swiftonfile.swift.common.constraints import check_object_creation
+from swiftonfile.swift.common import utils
 
 
 class SwiftOnFileDiskFileRouter(object):
@@ -57,6 +59,10 @@ class ObjectController(server.ObjectController):
         """
         # Replaces Swift's DiskFileRouter object reference with ours.
         self._diskfile_router = SwiftOnFileDiskFileRouter(conf, self.logger)
+        # This conf option will be deprecated and eventualy removed in
+        # future releases
+        utils.read_pickled_metadata = \
+            config_true_value(conf.get('read_pickled_metadata', 'no'))
 
     @public
     @timing_stats()
