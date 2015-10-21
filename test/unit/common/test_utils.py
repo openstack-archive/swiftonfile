@@ -16,6 +16,7 @@
 """ Tests for common.utils """
 
 import os
+import json
 import unittest
 import errno
 import xattr
@@ -23,10 +24,12 @@ import cPickle as pickle
 import tempfile
 import hashlib
 import shutil
+import cPickle as pickle
 from collections import defaultdict
 from mock import patch, Mock
 from swiftonfile.swift.common import utils
-from swiftonfile.swift.common.utils import deserialize_metadata, serialize_metadata
+from swiftonfile.swift.common.utils import deserialize_metadata, \
+    serialize_metadata, PICKLE_PROTOCOL
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError, \
     SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
@@ -136,6 +139,32 @@ class SimMemcache(object):
 
 def _mock_os_fsync(fd):
     return
+
+
+class TestSafeUnpickler(unittest.TestCase):
+
+    class Exploit(object):
+        def __reduce__(self):
+            return (os.system, ('touch /tmp/pickle-exploit',))
+
+    def test_loads(self):
+        valid_md = {'key1': 'val1', 'key2': 'val2'}
+        for protocol in (0, 1, 2):
+            valid_dump = pickle.dumps(valid_md, protocol)
+            mal_dump = pickle.dumps(self.Exploit(), protocol)
+            # malicious dump is appended to valid dump
+            payload1 = valid_dump[:-1] + mal_dump
+            # malicious dump is prefixed to valid dump
+            payload2 = mal_dump[:-1] + valid_dump
+            # entire dump is malicious
+            payload3 = mal_dump
+            for payload in (payload1, payload2, payload3):
+                try:
+                    utils.SafeUnpickler.loads(payload)
+                except pickle.UnpicklingError as err:
+                    self.assertTrue('Potentially unsafe pickle' in err)
+                else:
+                    self.fail("Expecting cPickle.UnpicklingError")
 
 
 class TestUtils(unittest.TestCase):
@@ -320,6 +349,42 @@ class TestUtils(unittest.TestCase):
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
         assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 0, "%r" % _xattr_op_cnt
+
+    def test_deserialize_metadata_pickle(self):
+        orig_md = {'key1': 'value1', 'key2': 'value2'}
+        pickled_md = pickle.dumps(orig_md, PICKLE_PROTOCOL)
+        _m_pickle_loads = Mock(return_value={})
+        utils.read_pickled_metadata = True
+        with patch('swiftonfile.swift.common.utils.pickle.loads',
+                   _m_pickle_loads):
+            # pickled
+            md = utils.deserialize_metadata(pickled_md)
+            self.assertTrue(_m_pickle_loads.called)
+            self.assertTrue(isinstance(md, dict))
+            _m_pickle_loads.reset_mock()
+            # not pickled
+            utils.deserialize_metadata("not_pickle")
+            self.assertFalse(_m_pickle_loads.called)
+            _m_pickle_loads.reset_mock()
+            # pickled but conf does not allow loading
+            utils.read_pickled_metadata = False
+            md = utils.deserialize_metadata(pickled_md)
+            self.assertFalse(_m_pickle_loads.called)
+
+            # malformed pickle
+            _m_pickle_loads.side_effect = pickle.UnpicklingError
+            md = utils.deserialize_metadata("malformed_pickle")
+            self.assertTrue(isinstance(md, dict))
+
+    def test_deserialize_metadata_json(self):
+        _m_json_loads = Mock(return_value={})
+        with patch('swiftonfile.swift.common.utils.json.loads',
+                   _m_json_loads):
+            utils.deserialize_metadata("not_json")
+            self.assertFalse(_m_json_loads.called)
+            _m_json_loads.reset_mock()
+            utils.deserialize_metadata("{fake_valid_json}")
+            self.assertTrue(_m_json_loads.called)
 
     def test_get_etag_empty(self):
         tf = tempfile.NamedTemporaryFile()
