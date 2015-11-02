@@ -216,6 +216,12 @@ class DiskFileManager(SwiftDiskFileManager):
     :param conf: caller provided configuration object
     :param logger: caller provided logger
     """
+
+    def __init__(self, conf, logger):
+        super(DiskFileManager, self).__init__(conf, logger)
+        self._tempfile_prefix = \
+            conf.get('tempfile_prefix', '.ibmtmp_').strip()
+
     def get_diskfile(self, device, partition, account, container, obj,
                      policy=None, **kwargs):
         dev_path = self.get_dev_path(device, self.mount_check)
@@ -581,6 +587,7 @@ class DiskFile(object):
         self._stat = None
         # Don't store a value for data_file until we know it exists.
         self._data_file = None
+        self._tempfile_prefix = mgr._tempfile_prefix
 
         # Account name contains resller_prefix which is retained and not
         # stripped. This to conform to Swift's behavior where account name
@@ -867,7 +874,7 @@ class DiskFile(object):
             # To know more about why following temp file naming convention is
             # used, please read this GlusterFS doc:
             # https://github.com/gluster/glusterfs/blob/master/doc/features/dht.md#rename-optimizations  # noqa
-            tmpfile = '.' + self._obj + '.' + uuid4().hex
+            tmpfile = self._tempfile_prefix + self._obj + '.' + uuid4().hex
             tmppath = os.path.join(self._put_datadir, tmpfile)
             try:
                 fd = do_open(tmppath,
