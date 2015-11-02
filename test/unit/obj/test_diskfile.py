@@ -902,7 +902,7 @@ class TestDiskFile(unittest.TestCase):
             assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
             assert os.path.dirname(saved_tmppath) == gdf._put_datadir
-            assert os.path.basename(saved_tmppath)[:3] == '.z.'
+            assert os.path.basename(saved_tmppath)[:7] == '.tmp_z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")
             saved_fd = dw._fd
@@ -925,7 +925,7 @@ class TestDiskFile(unittest.TestCase):
             assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
             assert os.path.dirname(saved_tmppath) == gdf._put_datadir
-            assert os.path.basename(saved_tmppath)[:3] == '.z.'
+            assert os.path.basename(saved_tmppath)[:7] == '.tmp_z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")
             # Closing the fd prematurely should not raise any exceptions.
@@ -940,7 +940,7 @@ class TestDiskFile(unittest.TestCase):
             assert os.path.isdir(gdf._put_datadir)
             saved_tmppath = dw._tmppath
             assert os.path.dirname(saved_tmppath) == gdf._put_datadir
-            assert os.path.basename(saved_tmppath)[:3] == '.z.'
+            assert os.path.basename(saved_tmppath)[:7] == '.tmp_z.'
             assert os.path.exists(saved_tmppath)
             dw.write("123")
             os.unlink(saved_tmppath)
