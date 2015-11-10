@@ -226,3 +226,17 @@ class TestSwiftOnFile(Base):
         self.assert_status(200)
         self.assertEqual(new_data_hash, metadata['etag'])
         self.assertEqual(len(new_data), int(metadata['content_length']))
+
+        # Modify the file but let the length remain same
+        new_data = "I am Antman"
+        new_data_hash = hashlib.md5(new_data).hexdigest()
+        with open(file_path, 'w') as f:
+            f.write(new_data)
+        # Make sure GET works
+        self.assertEqual(new_data, object_item.read())
+        self.assert_status(200)
+        # Check Etag and content-length is right
+        metadata = object_item.info()
+        self.assert_status(200)
+        self.assertEqual(new_data_hash, metadata['etag'])
+        self.assertEqual(len(new_data), int(metadata['content_length']))

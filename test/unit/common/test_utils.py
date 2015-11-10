@@ -533,9 +533,9 @@ class TestUtils(unittest.TestCase):
               utils.X_CONTENT_LENGTH: '12345',
               utils.X_TYPE: utils.OBJECT,
               utils.X_OBJECT_TYPE: 'na'}
-        fake_stat = Mock(st_size=12346)
+        fake_stat = Mock(st_size=12346, st_mode=33188)
         self.assertFalse(utils.validate_object(md, fake_stat))
-        fake_stat = Mock(st_size=12345)
+        fake_stat = Mock(st_size=12345, st_mode=33188)
         self.assertTrue(utils.validate_object(md, fake_stat))
 
     def test_write_pickle(self):
