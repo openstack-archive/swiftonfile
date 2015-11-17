@@ -320,10 +320,9 @@ class TestUtils(unittest.TestCase):
     def test_restore_metadata_none(self):
         # No initial metadata
         path = "/tmp/foo/i"
-        res_d = utils.restore_metadata(path, {'b': 'y'})
+        res_d = utils.restore_metadata(path, {'b': 'y'}, {})
         expected_d = {'b': 'y'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
-        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
 
     def test_restore_metadata(self):
@@ -332,10 +331,9 @@ class TestUtils(unittest.TestCase):
         initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = serialize_metadata(initial_d)
-        res_d = utils.restore_metadata(path, {'b': 'y'})
+        res_d = utils.restore_metadata(path, {'b': 'y'}, initial_d)
         expected_d = {'a': 'z', 'b': 'y'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
-        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
 
     def test_restore_metadata_nochange(self):
@@ -344,10 +342,9 @@ class TestUtils(unittest.TestCase):
         initial_d = {'a': 'z'}
         xkey = _xkey(path, utils.METADATA_KEY)
         _xattrs[xkey] = serialize_metadata(initial_d)
-        res_d = utils.restore_metadata(path, {})
+        res_d = utils.restore_metadata(path, {}, initial_d)
         expected_d = {'a': 'z'}
         assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
-        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
         assert _xattr_op_cnt['set'] == 0, "%r" % _xattr_op_cnt
 
     def test_deserialize_metadata_pickle(self):
@@ -460,7 +457,6 @@ class TestUtils(unittest.TestCase):
         xkey = _xkey(tf.name, utils.METADATA_KEY)
         assert len(_xattrs.keys()) == 1
         assert xkey in _xattrs
-        assert _xattr_op_cnt['get'] == 1
         assert _xattr_op_cnt['set'] == 1
         md = deserialize_metadata(_xattrs[xkey])
         assert r_md == md
@@ -482,7 +478,6 @@ class TestUtils(unittest.TestCase):
             xkey = _xkey(td, utils.METADATA_KEY)
             assert len(_xattrs.keys()) == 1
             assert xkey in _xattrs
-            assert _xattr_op_cnt['get'] == 1
             assert _xattr_op_cnt['set'] == 1
             md = deserialize_metadata(_xattrs[xkey])
             assert r_md == md
