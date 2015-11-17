@@ -20,11 +20,11 @@ from swiftonfile.swift import _pkginfo
 setup(
     name=_pkginfo.name,
     version=_pkginfo.full_version,
-    description='SwiftOnfile',
+    description='SwiftOnFile',
     license='Apache License (2.0)',
     author='Red Hat, Inc.',
     author_email='gluster-users@gluster.org',
-    url='https://github.com/swiftonfile/swiftonfile',
+    url='https://github.com/openstack/swiftonfile',
     packages=find_packages(exclude=['test', 'bin']),
     test_suite='nose.collector',
     classifiers=[

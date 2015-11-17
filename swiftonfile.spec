@@ -48,6 +48,7 @@ cp -r etc/*   %{buildroot}/%{_confdir}/
 %{python_sitelib}/swiftonfile
 %{python_sitelib}/swiftonfile-%{_version}*.egg-info
 %{_bindir}/swiftonfile-print-metadata
+%{_bindir}/swiftonfile-migrate-metadata
 
 %dir %{_confdir}
 %config(noreplace) %{_confdir}/object-server.conf-swiftonfile
