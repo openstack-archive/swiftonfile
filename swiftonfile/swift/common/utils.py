@@ -292,18 +292,19 @@ def _get_etag(path_or_fd):
     return etag
 
 
-def get_object_metadata(obj_path_or_fd):
+def get_object_metadata(obj_path_or_fd, stats=None):
     """
     Return metadata of object.
     """
-    if isinstance(obj_path_or_fd, int):
-        # We are given a file descriptor, so this is an invocation from the
-        # DiskFile.open() method.
-        stats = do_fstat(obj_path_or_fd)
-    else:
-        # We are given a path to the object when the DiskDir.list_objects_iter
-        # method invokes us.
-        stats = do_stat(obj_path_or_fd)
+    if not stats:
+        if isinstance(obj_path_or_fd, int):
+            # We are given a file descriptor, so this is an invocation from the
+            # DiskFile.open() method.
+            stats = do_fstat(obj_path_or_fd)
+        else:
+            # We are given a path to the object when the
+            # DiskDir.list_objects_iter method invokes us.
+            stats = do_stat(obj_path_or_fd)
 
     if not stats:
         metadata = {}
@@ -320,8 +321,7 @@ def get_object_metadata(obj_path_or_fd):
     return metadata
 
 
-def restore_metadata(path, metadata):
-    meta_orig = read_metadata(path)
+def restore_metadata(path, metadata, meta_orig):
     if meta_orig:
         meta_new = meta_orig.copy()
         meta_new.update(metadata)
@@ -332,12 +332,12 @@ def restore_metadata(path, metadata):
     return meta_new
 
 
-def create_object_metadata(obj_path_or_fd):
+def create_object_metadata(obj_path_or_fd, stats=None, existing_meta={}):
     # We must accept either a path or a file descriptor as an argument to this
     # method, as the diskfile modules uses a file descriptior and the DiskDir
     # module (for container operations) uses a path.
-    metadata = get_object_metadata(obj_path_or_fd)
-    return restore_metadata(obj_path_or_fd, metadata)
+    metadata_from_stat = get_object_metadata(obj_path_or_fd, stats)
+    return restore_metadata(obj_path_or_fd, metadata_from_stat, existing_meta)
 
 
 # The following dir_xxx calls should definitely be replaced
