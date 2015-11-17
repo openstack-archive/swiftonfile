@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import pprint
 import os
 import json
@@ -25,12 +24,12 @@ from swiftonfile.swift.common.utils import read_metadata
 # Parser Setup
 USAGE = "Usage: %prog [options] OBJECT"
 DESCRIPTION = "Where OBJECT is a file or directory which "\
-        "its Gluster for Swift metadata will be printed "\
-        "to standard out"
+    "its Gluster for Swift metadata will be printed "\
+    "to standard out"
 
 parser = OptionParser(usage=USAGE, description=DESCRIPTION)
 parser.add_option("-J", "--json", dest="json_format", action="store_true",
-        default=False, help="Print output in JSON format")
+                  default=False, help="Print output in JSON format")
 
 (options, args) = parser.parse_args()
 
@@ -41,4 +40,3 @@ if options.json_format:
     print json.dumps(read_metadata(args[0]))
 else:
     pprint.pprint(read_metadata(args[0]))
-
