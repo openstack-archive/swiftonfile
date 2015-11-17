@@ -636,8 +636,8 @@ class DiskFile(object):
 
             self._metadata = read_metadata(self._fd)
             if not validate_object(self._metadata, self._stat):
-                create_object_metadata(self._fd)
-                self._metadata = read_metadata(self._fd)
+                self._metadata = create_object_metadata(self._fd, self._stat,
+                                                        self._metadata)
             assert self._metadata is not None
             self._filter_metadata()
 
