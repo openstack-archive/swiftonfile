@@ -25,6 +25,7 @@ import logging
 import time
 from uuid import uuid4
 from eventlet import sleep
+from hashlib import md5
 from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
@@ -547,6 +548,27 @@ class DiskFileReader(object):
                 do_close(fd)
 
 
+class SmallDiskFileReader(object):
+    def __init__(self, fd, small_file, iter_hook=None):
+        self._fd = fd
+        self._small_file = small_file
+        self._iter_hook = iter_hook
+
+    def __iter__(self):
+        try:
+            yield self._small_file
+            if self._iter_hook:
+                self._iter_hook()
+        finally:
+            self.close()
+
+    def close(self):
+        if self._fd is not None:
+            fd, self._fd = self._fd, None
+            if fd > -1:
+                do_close(fd)
+
+
 class DiskFile(object):
     """
     Manage object files on disk.
@@ -602,6 +624,13 @@ class DiskFile(object):
 
         self._data_file = os.path.join(self._put_datadir, self._obj)
 
+        # Small file optimization
+        # Currently, small file are only those whose entire content can
+        # be fetched in one read() call. Each read() call will fetch
+        # self._mgr.disk_chunk_size bytes (65536 by default)
+        self._small_file = None
+        self._etag = None
+
     def open(self):
         """
         Open the object.
@@ -632,23 +661,22 @@ class DiskFile(object):
         try:
             self._stat = do_fstat(self._fd)
             self._is_dir = stat.S_ISDIR(self._stat.st_mode)
-            obj_size = self._stat.st_size
+            self._obj_size = self._stat.st_size if not self._is_dir else 0
 
             self._metadata = read_metadata(self._fd)
             if not validate_object(self._metadata, self._stat):
-                self._metadata = create_object_metadata(self._fd, self._stat,
-                                                        self._metadata)
+                self._read_and_cache_small_file()
+                self._metadata = create_object_metadata(
+                    self._fd, self._stat, self._etag, self._metadata)
             assert self._metadata is not None
             self._filter_metadata()
 
             if self._is_dir:
                 do_close(self._fd)
-                obj_size = 0
                 self._fd = -1
             else:
                 if self._is_object_expired(self._metadata):
                     raise DiskFileExpired(metadata=self._metadata)
-            self._obj_size = obj_size
         except (OSError, IOError, DiskFileExpired) as err:
             # Something went wrong. Context manager will not call
             # __exit__. So we close the fd manually here.
@@ -666,6 +694,11 @@ class DiskFile(object):
                 raise
 
         return self
+
+    def _read_and_cache_small_file(self):
+        if not self._is_dir and self._obj_size <= self._mgr.disk_chunk_size:
+            self._small_file = do_read(self._fd, self._mgr.disk_chunk_size)
+            self._etag = md5(self._small_file).hexdigest()
 
     def _is_object_expired(self, metadata):
         try:
@@ -762,10 +795,14 @@ class DiskFile(object):
         """
         if self._metadata is None:
             raise DiskFileNotOpen()
-        dr = DiskFileReader(
-            self._fd, self._threadpool, self._mgr.disk_chunk_size,
-            self._obj_size, self._mgr.keep_cache_size,
-            iter_hook=iter_hook, keep_cache=keep_cache)
+        if self._small_file:
+            dr = SmallDiskFileReader(self._fd, self._small_file,
+                                     iter_hook=iter_hook)
+        else:
+            dr = DiskFileReader(
+                self._fd, self._threadpool, self._mgr.disk_chunk_size,
+                self._obj_size, self._mgr.keep_cache_size,
+                iter_hook=iter_hook, keep_cache=keep_cache)
         # At this point the reader object is now responsible for closing
         # the file pointer.
         self._fd = None

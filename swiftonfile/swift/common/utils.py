@@ -292,7 +292,7 @@ def _get_etag(path_or_fd):
     return etag
 
 
-def get_object_metadata(obj_path_or_fd, stats=None):
+def get_object_metadata(obj_path_or_fd, stats=None, etag=None):
     """
     Return metadata of object.
     """
@@ -310,6 +310,10 @@ def get_object_metadata(obj_path_or_fd, stats=None):
         metadata = {}
     else:
         is_dir = stat.S_ISDIR(stats.st_mode)
+        if not is_dir:
+            etag = etag or _get_etag(obj_path_or_fd)
+        else:
+            etag = md5().hexdigest()
         metadata = {
             X_TYPE: OBJECT,
             X_TIMESTAMP: normalize_timestamp(stats.st_ctime),
@@ -317,7 +321,7 @@ def get_object_metadata(obj_path_or_fd, stats=None):
             X_OBJECT_TYPE: DIR_NON_OBJECT if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
             X_MTIME: 0 if is_dir else normalize_timestamp(stats.st_mtime),
-            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path_or_fd)}
+            X_ETAG: etag}
     return metadata
 
 
@@ -332,11 +336,12 @@ def restore_metadata(path, metadata, meta_orig):
     return meta_new
 
 
-def create_object_metadata(obj_path_or_fd, stats=None, existing_meta={}):
+def create_object_metadata(obj_path_or_fd, stats=None, etag=None,
+                           existing_meta={}):
     # We must accept either a path or a file descriptor as an argument to this
     # method, as the diskfile modules uses a file descriptior and the DiskDir
     # module (for container operations) uses a path.
-    metadata_from_stat = get_object_metadata(obj_path_or_fd, stats)
+    metadata_from_stat = get_object_metadata(obj_path_or_fd, stats, etag)
     return restore_metadata(obj_path_or_fd, metadata_from_stat, existing_meta)
 
 
