@@ -29,7 +29,7 @@ from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir
 from swift.common.utils import ThreadPool, hash_path, \
-    normalize_timestamp, fallocate
+    normalize_timestamp, fallocate, Timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
     DiskFileExpired
@@ -51,7 +51,7 @@ from swift.obj.diskfile import get_async_dir
 
 # FIXME: Hopefully we'll be able to move to Python 2.7+ where O_CLOEXEC will
 # be back ported. See http://www.python.org/dev/peps/pep-0433/
-O_CLOEXEC = 02000000
+O_CLOEXEC = 0o2000000
 
 MAX_RENAME_ATTEMPTS = 10
 MAX_OPEN_ATTEMPTS = 10
@@ -569,7 +569,7 @@ class DiskFile(object):
     """
     def __init__(self, mgr, dev_path, threadpool, partition,
                  account=None, container=None, obj=None,
-                 policy=None, uid=DEFAULT_UID, gid=DEFAULT_GID):
+                 policy=None, uid=DEFAULT_UID, gid=DEFAULT_GID, **kwargs):
         # Variables partition and policy is currently unused.
         self._mgr = mgr
         self._device_path = dev_path
@@ -602,6 +602,18 @@ class DiskFile(object):
             self._put_datadir = self._container_path
 
         self._data_file = os.path.join(self._put_datadir, self._obj)
+
+    @property
+    def timestamp(self):
+        if self._metadata is None:
+            raise DiskFileNotOpen()
+        return Timestamp(self._metadata.get('X-Timestamp'))
+
+    @property
+    def data_timestamp(self):
+        if self._metadata is None:
+            raise DiskFileNotOpen()
+        return Timestamp(self._metadata.get('X-Timestamp'))
 
     def open(self):
         """
@@ -719,7 +731,6 @@ class DiskFile(object):
             the REST API *before* the object has actually been read. It is the
             responsibility of the implementation to properly handle that.
         """
-        self._metadata = None
         self._close_fd()
 
     def get_metadata(self):
