@@ -207,9 +207,6 @@ class TestDiskFile(unittest.TestCase):
             assert not gdf._is_dir
             assert gdf._fd is not None
             assert gdf._metadata == exp_md
-        self.assertRaises(DiskFileNotOpen, gdf.get_metadata)
-        self.assertRaises(DiskFileNotOpen, gdf.reader)
-        self.assertRaises(DiskFileNotOpen, gdf.__enter__)
 
     def test_open_and_close(self):
         mock_close = Mock()
@@ -480,7 +477,6 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         md = {'Content-Type': 'application/octet-stream', 'a': 'b'}
         gdf.write_metadata(md.copy())
-        self.assertEqual(None, gdf._metadata)
         fmd = _metadata[_mapit(the_dir)]
         md.update({'X-Object-Type': 'file', 'X-Type': 'Object'})
         self.assertTrue(fmd['a'], md['a'])
