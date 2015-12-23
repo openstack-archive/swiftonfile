@@ -17,7 +17,7 @@ BuildRequires: python-devel
 BuildRequires: python-setuptools
 Requires : python
 Requires : python-setuptools
-Requires : openstack-swift-object = 2.3.0
+Requires : openstack-swift-object = 2.5.0
 
 %description
 SwiftOnFile is a Swift Object Server implementation that enables users to
@@ -58,6 +58,9 @@ cp -r etc/*   %{buildroot}/%{_confdir}/
 rm -rf %{buildroot}
 
 %changelog
+* Wed Dec 23 2015 Prashanth Pai <ppai@redhat.com> - 2.5.0-0
+- Update spec file to support Liberty release of Swift
+
 * Wed Jul 15 2015 Prashanth Pai <ppai@redhat.com> - 2.3.0-0
 - Update spec file to support Kilo release of Swift
 
