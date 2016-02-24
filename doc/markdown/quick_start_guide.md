@@ -75,6 +75,26 @@ name = swiftonfile
 ~~~
 You can also make "swiftonfile" the default storage policy by using the 'default' parameter.
 
+#### Setting up Constraints Middleware
+
+The ``sof_constraints`` middleware should be added to the pipeline in your
+``/etc/swift/proxy-server.conf`` file, and a mapping of storage policies
+using the swiftonfile object server should be listed in the 'policies'
+variable in the filter section.
+
+The swiftonfile constraints contains additional checks to make sure object
+names conform with POSIX filesystems file and directory naming limitations
+
+For example::
+
+    [pipeline:main]
+    pipeline = catch_errors cache tempauth sof_constraints proxy-server
+
+    [filter:sof_constraints]
+    use = egg:swiftonfile#sof_constraints
+    policies=swiftonfile,gold
+
+
 #### Prepare rings
 Edit the remakerings script to prepare rings for this new storage policy:
 
