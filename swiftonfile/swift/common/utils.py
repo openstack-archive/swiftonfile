@@ -275,19 +275,26 @@ def _get_etag(path_or_fd):
     Since we don't have that we should yield after each chunk read and
     computed so that we don't consume the worker thread.
     """
+    etag = ''
     if isinstance(path_or_fd, int):
         # We are given a file descriptor, so this is an invocation from the
         # DiskFile.open() method.
         fd = path_or_fd
-        etag = _read_for_etag(do_dup(fd))
-        do_lseek(fd, 0, os.SEEK_SET)
+        dup_fd = do_dup(fd)
+        try:
+            etag = _read_for_etag(dup_fd)
+            do_lseek(fd, 0, os.SEEK_SET)
+        finally:
+            do_close(dup_fd)
     else:
         # We are given a path to the object when the DiskDir.list_objects_iter
         # method invokes us.
         path = path_or_fd
         fd = do_open(path, os.O_RDONLY)
-        etag = _read_for_etag(fd)
-        do_close(fd)
+        try:
+            etag = _read_for_etag(fd)
+        finally:
+            do_close(fd)
 
     return etag
 

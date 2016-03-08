@@ -402,6 +402,22 @@ class TestUtils(unittest.TestCase):
             md5.update(chunk)
         assert hd == md5.hexdigest()
 
+    def test_get_etag_dup_fd_closed(self):
+        fd, path = tempfile.mkstemp()
+        data = "It's not who we are underneath, but what we do that defines us"
+        os.write(fd, data)
+        os.lseek(fd, 0, os.SEEK_SET)
+
+        mock_do_close = Mock()
+        with patch("swiftonfile.swift.common.utils.do_close", mock_do_close):
+            etag = utils._get_etag(fd)
+        self.assertEqual(etag, hashlib.md5(data).hexdigest())
+        self.assertTrue(mock_do_close.called)
+
+        # We mocked out close, so we have to close the fd for real
+        os.close(mock_do_close.call_args[0][0])
+        os.close(fd)
+
     def test_get_object_metadata_dne(self):
         md = utils.get_object_metadata("/tmp/doesNotEx1st")
         assert md == {}
