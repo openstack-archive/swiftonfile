@@ -36,3 +36,7 @@ class AlreadyExistsAsDir(SwiftOnFileFsException):
 
 class AlreadyExistsAsFile(SwiftOnFileFsException):
     pass
+
+
+class DiskFileContainerDoesNotExist(SwiftOnFileFsException):
+    pass
