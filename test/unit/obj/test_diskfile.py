@@ -211,6 +211,55 @@ class TestDiskFile(unittest.TestCase):
             assert gdf._disk_file_open is True
         assert gdf._disk_file_open is False
 
+    def test_read_metadata_optimize_open_close(self):
+        the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
+        the_file = os.path.join(the_path, "z")
+        os.makedirs(the_path)
+        with open(the_file, "wb") as fd:
+            fd.write("1234")
+        init_md = {
+            'X-Type': 'Object',
+            'X-Object-Type': 'file',
+            'Content-Length': 4,
+            'ETag': md5("1234").hexdigest(),
+            'X-Timestamp': normalize_timestamp(os.stat(the_file).st_ctime),
+            'Content-Type': 'application/octet-stream'}
+        _metadata[_mapit(the_file)] = init_md
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+        assert gdf._obj == "z"
+        assert gdf._fd is None
+        assert gdf._disk_file_open is False
+        assert gdf._metadata is None
+        assert not gdf._is_dir
+
+        # Case 1
+        # Ensure that reading metadata for non-GET requests
+        # does not incur opening and closing the file when
+        # metadata is NOT stale.
+        mock_open = Mock()
+        mock_close = Mock()
+        with mock.patch("swiftonfile.swift.obj.diskfile.do_open", mock_open):
+            with mock.patch("swiftonfile.swift.obj.diskfile.do_close",
+                            mock_close):
+                md = gdf.read_metadata()
+                self.assertEqual(md, init_md)
+        self.assertFalse(mock_open.called)
+        self.assertFalse(mock_close.called)
+
+        # Case 2
+        # Ensure that reading metadata for non-GET requests
+        # still opens and reads the file when metadata is stale
+        with open(the_file, "a") as fd:
+            # Append to the existing file to make the stored metadata
+            # invalid/stale.
+            fd.write("5678")
+        md = gdf.read_metadata()
+        # Check that the stale metadata is recalculated to account for
+        # change in file content
+        self.assertNotEqual(md, init_md)
+        self.assertEqual(md['Content-Length'], 8)
+        self.assertEqual(md['ETag'], md5("12345678").hexdigest())
+
     def test_open_and_close(self):
         mock_close = Mock()
 

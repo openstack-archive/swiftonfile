@@ -651,11 +651,13 @@ class DiskFile(object):
                 raise DiskFileNotExist
             raise
         try:
-            self._stat = do_fstat(self._fd)
+            if not self._stat:
+                self._stat = do_fstat(self._fd)
             self._is_dir = stat.S_ISDIR(self._stat.st_mode)
             obj_size = self._stat.st_size
 
-            self._metadata = read_metadata(self._fd)
+            if not self._metadata:
+                self._metadata = read_metadata(self._fd)
             if not validate_object(self._metadata, self._stat):
                 self._metadata = create_object_metadata(self._fd, self._stat,
                                                         self._metadata)
@@ -768,12 +770,43 @@ class DiskFile(object):
         This method is invoked by Swift code in POST, PUT, HEAD and DELETE path
         metadata = disk_file.read_metadata()
 
+        The operations performed here is very similar to those made in open().
+        This is to avoid opening and closing of file (two syscalls over
+        network). IOW, this optimization addresses the case where the fd
+        returned by open() isn't going to be used i.e the file is not read (GET
+        or metadata recalculation)
+
         :returns: metadata dictionary for an object
         :raises DiskFileError: this implementation will raise the same
                             errors as the `open()` method.
         """
-        with self.open():
-            return self.get_metadata()
+        try:
+            self._metadata = read_metadata(self._data_file)
+        except (OSError, IOError) as err:
+            if err.errno in (errno.ENOENT, errno.ESTALE):
+                raise DiskFileNotExist
+            raise err
+
+        if self._metadata and self._is_object_expired(self._metadata):
+            raise DiskFileExpired(metadata=self._metadata)
+
+        try:
+            self._stat = do_stat(self._data_file)
+            self._is_dir = stat.S_ISDIR(self._stat.st_mode)
+        except (OSError, IOError) as err:
+            if err.errno in (errno.ENOENT, errno.ESTALE):
+                raise DiskFileNotExist
+            raise err
+
+        if not validate_object(self._metadata, self._stat):
+            # Metadata is stale/invalid. So open the object for reading
+            # to update Etag and other metadata.
+            with self.open():
+                return self.get_metadata()
+        else:
+            # Metadata is valid. Don't have to open the file.
+            self._filter_metadata()
+            return self._metadata
 
     def reader(self, iter_hook=None, keep_cache=False):
         """
@@ -1096,12 +1129,12 @@ class DiskFile(object):
                             errors as the `create()` method.
         """
         try:
-            metadata = read_metadata(self._data_file)
+            metadata = self._metadata or read_metadata(self._data_file)
         except (IOError, OSError) as err:
-            if err.errno != errno.ENOENT:
+            if err.errno not in (errno.ESTALE, errno.ENOENT):
                 raise
         else:
-            if metadata[X_TIMESTAMP] >= timestamp:
+            if metadata and metadata[X_TIMESTAMP] >= timestamp:
                 return
 
         self._threadpool.run_in_thread(self._unlinkold)
