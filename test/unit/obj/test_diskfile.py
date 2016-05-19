@@ -1104,3 +1104,49 @@ class TestDiskFile(unittest.TestCase):
             self.assertFalse(gdf._fd)
             # Close the actual fd, as we had mocked do_close
             os.close(_m_do_close.call_args[0][0])
+
+    def make_directory_chown_call(self):
+        path = os.path.join(self.td, "a/b/c")
+        _m_do_chown = Mock()
+        with patch("swiftonfile.swift.obj.diskfile.do_chown", _m_do_chown):
+            diskfile.make_directory(path, -1, -1)
+        self.assertFalse(_m_do_chown.called)
+        self.assertTrue(os.path.isdir(path))
+
+        path = os.path.join(self.td, "d/e/f")
+        _m_do_chown.reset_mock()
+        with patch("swiftonfile.swift.obj.diskfile.do_chown", _m_do_chown):
+            diskfile.make_directory(path, -1, 99)
+        self.assertEqual(_m_do_chown.call_count, 3)
+        self.assertTrue(os.path.isdir(path))
+
+        path = os.path.join(self.td, "g/h/i")
+        _m_do_chown.reset_mock()
+        with patch("swiftonfile.swift.obj.diskfile.do_chown", _m_do_chown):
+            diskfile.make_directory(path, 99, -1)
+        self.assertEqual(_m_do_chown.call_count, 3)
+        self.assertTrue(os.path.isdir(path))
+
+    def test_fchown_not_called_on_default_uid_gid_values(self):
+        the_cont = os.path.join(self.td, "vol0", "ufo47", "bar")
+        os.makedirs(the_cont)
+        body = '1234'
+        metadata = {
+            'X-Timestamp': '1234',
+            'Content-Type': 'file',
+            'ETag': md5(body).hexdigest(),
+            'Content-Length': len(body),
+        }
+
+        _m_do_fchown = Mock()
+        gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
+        with gdf.create() as dw:
+            assert dw._tmppath is not None
+            tmppath = dw._tmppath
+            dw.write(body)
+            with patch("swiftonfile.swift.obj.diskfile.do_fchown",
+                       _m_do_fchown):
+                dw.put(metadata)
+        self.assertFalse(_m_do_fchown.called)
+        assert os.path.exists(gdf._data_file)
+        assert not os.path.exists(tmppath)
