@@ -59,6 +59,15 @@ disk_chunk_size = 65536
 
 >For example: You have a xfs formated partition /dev/sdb1, and you mounted it under /mnt/swiftonfile/vol, then your device name would be 'vol' & and the parameter 'devices' would contain value '/mnt/swiftonfile'.
 
+#### Proxy Server Configuration (Optional)
+By default, vanilla Swift has `object_post_as_copy` option set to `true` in
+proxy server's configuration. This causes all POST requests to be converted
+into COPY requests internally. As swiftonfile can update object metadata
+in-place, this internal conversion from POST to COPY is unnecessarry.
+Unfortunately, `object_post_as_copy` option has cluster wide effect and the
+scope cannot be isolated to a particular storage policy. It is purely optional
+but recommended to set `object_post_as_copy` option to `false`.
+
 #### Setting SwiftOnFile as storage policy
 Edit /etc/swift.conf to add swiftonfile as a storage policy:
 
