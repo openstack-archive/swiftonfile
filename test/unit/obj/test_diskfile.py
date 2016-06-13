@@ -200,6 +200,7 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         assert gdf._obj == "z"
         assert gdf._fd is None
+        assert gdf._disk_file_open is False
         assert gdf._metadata is None
         assert not gdf._is_dir
         with gdf.open():
@@ -207,6 +208,8 @@ class TestDiskFile(unittest.TestCase):
             assert not gdf._is_dir
             assert gdf._fd is not None
             assert gdf._metadata == exp_md
+            assert gdf._disk_file_open is True
+        assert gdf._disk_file_open is False
 
     def test_open_and_close(self):
         mock_close = Mock()
@@ -239,12 +242,15 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._obj == "z"
         assert gdf._fd is None
         assert gdf._metadata is None
+        assert gdf._disk_file_open is False
         assert not gdf._is_dir
         with gdf.open():
             assert not gdf._is_dir
             assert gdf._data_file == the_file
             assert gdf._fd is not None
             assert gdf._metadata == exp_md, "%r != %r" % (gdf._metadata, exp_md)
+            assert gdf._disk_file_open is True
+        assert gdf._disk_file_open is False
 
     def test_open_invalid_existing_metadata(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -262,9 +268,12 @@ class TestDiskFile(unittest.TestCase):
         assert gdf._obj == "z"
         assert not gdf._is_dir
         assert gdf._fd is None
+        assert gdf._disk_file_open is False
         with gdf.open():
             assert gdf._data_file == the_file
             assert gdf._metadata != inv_md
+            assert gdf._disk_file_open is True
+        assert gdf._disk_file_open is False
 
     def test_open_isdir(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
@@ -284,9 +293,12 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "d")
         assert gdf._obj == "d"
         assert gdf._is_dir is False
+        assert gdf._disk_file_open is False
         with gdf.open():
             assert gdf._is_dir
             assert gdf._data_file == the_dir
+            assert gdf._disk_file_open is True
+        assert gdf._disk_file_open is False
 
     def _create_and_get_diskfile(self, dev, par, acc, con, obj, fsize=256):
         # FIXME: assumes account === volume
