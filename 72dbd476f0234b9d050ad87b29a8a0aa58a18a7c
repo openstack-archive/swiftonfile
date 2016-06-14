@@ -1,0 +1,8 @@
+Code-Review+2: Thiago da Silva <thiago@redhat.com>
+Workflow+1: Thiago da Silva <thiago@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 14 Jun 2016 18:17:07 +0000
+Reviewed-on: https://review.openstack.org/318472
+Project: openstack/swiftonfile
+Branch: refs/heads/master
