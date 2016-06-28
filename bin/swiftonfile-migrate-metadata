@@ -17,11 +17,11 @@
 
 import os
 import pwd
+import six.moves.cPickle as pickle
 import sys
 import stat
 import errno
 import xattr
-import cPickle as pickle
 import multiprocessing
 
 from optparse import OptionParser
