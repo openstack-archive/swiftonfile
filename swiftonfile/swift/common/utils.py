@@ -21,7 +21,7 @@ import random
 import logging
 from hashlib import md5
 from eventlet import sleep
-import cPickle as pickle
+import six.moves.cPickle as pickle
 from cStringIO import StringIO
 import pickletools
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemIOError

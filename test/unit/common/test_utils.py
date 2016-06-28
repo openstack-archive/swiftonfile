@@ -20,11 +20,10 @@ import json
 import unittest
 import errno
 import xattr
-import cPickle as pickle
 import tempfile
 import hashlib
 import shutil
-import cPickle as pickle
+import six.moves.cPickle as pickle
 from collections import defaultdict
 from mock import patch, Mock
 from swiftonfile.swift.common import utils
