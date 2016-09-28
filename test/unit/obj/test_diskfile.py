@@ -604,7 +604,7 @@ class TestDiskFile(unittest.TestCase):
         the_dir = os.path.join(the_cont, "dir")
         os.makedirs(the_dir)
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir")
-        self.assertEquals(gdf._metadata, None)
+        self.assertEqual(gdf._metadata, None)
         init_md = {
             'X-Type': 'Object',
             'Content-Length': 0,
