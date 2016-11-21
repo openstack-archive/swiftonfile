@@ -54,11 +54,11 @@ class TestObjectController(unittest.TestCase):
                             environ={'REQUEST_METHOD': 'REPLICATE'},
                             headers={})
         resp = req.get_response(self.object_controller)
-        self.assertEquals(resp.status_int, 501)  # HTTPNotImplemented
+        self.assertEqual(resp.status_int, 501)  # HTTPNotImplemented
 
     def test_REPLICATION(self):
         req = Request.blank('/sda1/p/suff',
                             environ={'REQUEST_METHOD': 'REPLICATION'},
                             headers={})
         resp = req.get_response(self.object_controller)
-        self.assertEquals(resp.status_int, 501)  # HTTPNotImplemented
+        self.assertEqual(resp.status_int, 501)  # HTTPNotImplemented
