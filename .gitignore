@@ -6,8 +6,7 @@ build
 cover
 functional_tests_result
 .coverage
-*.egg
-*.egg-info
+*.egg*
 .tox
 pycscope.*
 cscope.*
