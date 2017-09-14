@@ -100,6 +100,7 @@ class MockRenamerCalled(Exception):
 def _mock_renamer(a, b):
     raise MockRenamerCalled()
 
+
 class TestDiskFileWriter(unittest.TestCase):
     """ Tests for swiftonfile.swift.obj.diskfile.DiskFileWriter """
 
@@ -118,6 +119,7 @@ class TestDiskFileWriter(unittest.TestCase):
             dw.close()
             self.assertEqual(None, dw._fd)
             self.assertEqual(1, mock_close.call_count)
+
 
 class TestDiskFile(unittest.TestCase):
     """ Tests for swiftonfile.swift.obj.diskfile """
@@ -561,7 +563,7 @@ class TestDiskFile(unittest.TestCase):
         md = {'Content-Type': 'application/octet-stream', 'a': 'b'}
         gdf.write_metadata(md.copy())
         self.assertTrue(_metadata[_mapit(the_file)]['a'], 'b')
-        newmd = {'X-Object-Meta-test':'1234'}
+        newmd = {'X-Object-Meta-test': '1234'}
         gdf.write_metadata(newmd.copy())
         on_disk_md = _metadata[_mapit(the_file)]
         self.assertTrue(on_disk_md['Content-Length'], 4)
@@ -604,7 +606,7 @@ class TestDiskFile(unittest.TestCase):
         the_dir = os.path.join(the_cont, "dir")
         os.makedirs(the_dir)
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "dir")
-        self.assertEquals(gdf._metadata, None)
+        self.assertEqual(gdf._metadata, None)
         init_md = {
             'X-Type': 'Object',
             'Content-Length': 0,
@@ -631,7 +633,6 @@ class TestDiskFile(unittest.TestCase):
         self.assertEqual(_metadata[_mapit(the_dir)]['X-Object-Type'],
                 DIR_OBJECT)
         self.assertFalse('X-Object-Meta-test' in _metadata[_mapit(the_dir)])
-
 
     def test_write_metadata_w_meta_file(self):
         the_path = os.path.join(self.td, "vol0", "ufo47", "bar")
