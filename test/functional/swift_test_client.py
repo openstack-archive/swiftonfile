@@ -20,7 +20,7 @@ import socket
 import time
 import urllib
 
-import simplejson as json
+import json
 from nose import SkipTest
 from xml.dom import minidom
 
