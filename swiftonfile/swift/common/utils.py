@@ -26,7 +26,7 @@ from cStringIO import StringIO
 import pickletools
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemIOError
 from swift.common.exceptions import DiskFileNoSpace
-from swift.common.db import utf8encodekeys
+from swift.common.db import native_str_keys
 from swiftonfile.swift.common.fs_utils import do_stat, \
     do_walk, do_rmdir, do_log_rl, get_filename_from_fd, do_open, \
     do_getxattr, do_setxattr, do_removexattr, do_read, \
@@ -126,7 +126,7 @@ def deserialize_metadata(metastr):
     elif metastr.startswith('{') and metastr.endswith('}'):
         try:
             metadata = json.loads(metastr)
-            utf8encodekeys(metadata)
+            native_str_keys(metadata)
             return metadata
         except (UnicodeDecodeError, ValueError):
             logging.warning("json.loads() failed.", exc_info=True)

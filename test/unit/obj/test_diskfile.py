@@ -31,7 +31,6 @@ from swiftonfile.swift.common.exceptions import AlreadyExistsAsDir, \
     AlreadyExistsAsFile
 from swift.common.exceptions import DiskFileNoSpace, DiskFileNotOpen, \
     DiskFileNotExist, DiskFileExpired
-from swift.common.utils import ThreadPool
 
 from swiftonfile.swift.common.exceptions import SwiftOnFileSystemOSError
 import swiftonfile.swift.common.utils
@@ -143,6 +142,7 @@ class TestDiskFile(unittest.TestCase):
         self._saved_fallocate = swiftonfile.swift.obj.diskfile.fallocate
         swiftonfile.swift.obj.diskfile.fallocate = _mock_fallocate
         self.td = tempfile.mkdtemp()
+        os.mkdir(os.path.join(self.td, 'vol0'))
         self.conf = dict(devices=self.td, mb_per_sync=2,
                          keep_cache_size=(1024 * 1024), mount_check=False)
         self.mgr = DiskFileManager(self.conf, self.lg)
@@ -166,7 +166,6 @@ class TestDiskFile(unittest.TestCase):
         gdf = self._get_diskfile("vol0", "p57", "ufo47", "bar", "z")
         assert gdf._mgr is self.mgr
         assert gdf._device_path == os.path.join(self.td, "vol0")
-        assert isinstance(gdf._threadpool, ThreadPool)
         assert gdf._uid == DEFAULT_UID
         assert gdf._gid == DEFAULT_GID
         assert gdf._obj == "z"

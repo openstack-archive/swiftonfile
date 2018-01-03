@@ -643,8 +643,11 @@ def fake_syslog_handler():
     logging.handlers.SysLogHandler = FakeLogger
 
 
-if utils.config_true_value(
-        get_config('unit_test').get('fake_syslog', 'False')):
+try:
+    config = get_config('unit_test')
+except (ValueError, IOError):
+    config = {}
+if utils.config_true_value(config.get('fake_syslog', 'False')):
     fake_syslog_handler()
 
 
