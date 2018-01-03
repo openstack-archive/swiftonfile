@@ -28,7 +28,7 @@ from eventlet import sleep
 from contextlib import contextmanager
 from swiftonfile.swift.common.exceptions import AlreadyExistsAsFile, \
     AlreadyExistsAsDir, DiskFileContainerDoesNotExist
-from swift.common.utils import ThreadPool, hash_path, \
+from swift.common.utils import tpool_reraise, hash_path, \
     normalize_timestamp, fallocate, Timestamp
 from swift.common.exceptions import DiskFileNotExist, DiskFileError, \
     DiskFileNoSpace, DiskFileDeviceUnavailable, DiskFileNotOpen, \
@@ -227,7 +227,7 @@ class DiskFileManager(SwiftDiskFileManager):
         dev_path = self.get_dev_path(device, self.mount_check)
         if not dev_path:
             raise DiskFileDeviceUnavailable()
-        return DiskFile(self, dev_path, self.threadpools[device],
+        return DiskFile(self, dev_path,
                         partition, account, container, obj,
                         policy=policy, **kwargs)
 
@@ -238,8 +238,7 @@ class DiskFileManager(SwiftDiskFileManager):
         device_path = self.construct_dev_path(device)
         async_dir = os.path.join(device_path, get_async_dir(policy))
         ohash = hash_path(account, container, obj)
-        self.threadpools[device].run_in_thread(
-            write_pickle,
+        write_pickle(
             data,
             os.path.join(async_dir, ohash[-3:], ohash + '-' +
                          normalize_timestamp(timestamp)),
@@ -296,8 +295,7 @@ class DiskFileWriter(object):
 
         :returns: the total number of bytes written to an object
         """
-        df = self._disk_file
-        df._threadpool.run_in_thread(self._write_entire_chunk, chunk)
+        self._write_entire_chunk(chunk)
         return self._upload_size
 
     def _finalize_put(self, metadata):
@@ -406,7 +404,7 @@ class DiskFileWriter(object):
         df = self._disk_file
 
         if dir_is_object(metadata):
-            df._threadpool.force_run_in_thread(
+            tpool_reraise(
                 df._create_dir_object, df._data_file, metadata)
             return
 
@@ -419,7 +417,7 @@ class DiskFileWriter(object):
                                      ' since the target, %s, already exists'
                                      ' as a directory' % df._data_file)
 
-        df._threadpool.force_run_in_thread(self._finalize_put, metadata)
+        tpool_reraise(self._finalize_put, metadata)
 
         # Avoid the unlink() system call as part of the create context
         # cleanup
@@ -454,18 +452,16 @@ class DiskFileReader(object):
         specific. The API does not define the constructor arguments.
 
     :param fp: open file descriptor, -1 for a directory object
-    :param threadpool: thread pool to use for read operations
     :param disk_chunk_size: size of reads from disk in bytes
     :param obj_size: size of object on disk
     :param keep_cache_size: maximum object size that will be kept in cache
     :param iter_hook: called when __iter__ returns a chunk
     :param keep_cache: should resulting reads be kept in the buffer cache
     """
-    def __init__(self, fd, threadpool, disk_chunk_size, obj_size,
+    def __init__(self, fd, disk_chunk_size, obj_size,
                  keep_cache_size, iter_hook=None, keep_cache=False):
         # Parameter tracking
         self._fd = fd
-        self._threadpool = threadpool
         self._disk_chunk_size = disk_chunk_size
         self._iter_hook = iter_hook
         if keep_cache:
@@ -485,8 +481,7 @@ class DiskFileReader(object):
             bytes_read = 0
             while True:
                 if self._fd != -1:
-                    chunk = self._threadpool.run_in_thread(
-                        do_read, self._fd, self._disk_chunk_size)
+                    chunk = do_read(self._fd, self._disk_chunk_size)
                 else:
                     chunk = None
                 if chunk:
@@ -570,20 +565,18 @@ class DiskFile(object):
 
     :param mgr: associated on-disk manager instance
     :param dev_path: device name/account_name for UFO.
-    :param threadpool: thread pool in which to do blocking operations
     :param account: account name for the object
     :param container: container name for the object
     :param obj: object name for the object
     :param uid: user ID disk object should assume (file or directory)
     :param gid: group ID disk object should assume (file or directory)
     """
-    def __init__(self, mgr, dev_path, threadpool, partition,
+    def __init__(self, mgr, dev_path, partition,
                  account=None, container=None, obj=None,
                  policy=None, uid=DEFAULT_UID, gid=DEFAULT_GID, **kwargs):
         # Variables partition and policy is currently unused.
         self._mgr = mgr
         self._device_path = dev_path
-        self._threadpool = threadpool or ThreadPool(nthreads=0)
         self._uid = int(uid)
         self._gid = int(gid)
         self._is_dir = False
@@ -617,16 +610,24 @@ class DiskFile(object):
         self._disk_file_open = False
 
     @property
+    def content_type(self):
+        if self._metadata is None:
+            raise DiskFileNotOpen()
+        return self._metadata.get('Content-Type')
+
+    @property
     def timestamp(self):
         if self._metadata is None:
             raise DiskFileNotOpen()
         return Timestamp(self._metadata.get('X-Timestamp'))
 
-    @property
-    def data_timestamp(self):
-        if self._metadata is None:
-            raise DiskFileNotOpen()
-        return Timestamp(self._metadata.get('X-Timestamp'))
+    data_timestamp = timestamp
+
+    durable_timestamp = timestamp
+
+    content_type_timestamp = timestamp
+
+    fragments = None
 
     def open(self):
         """
@@ -767,6 +768,11 @@ class DiskFile(object):
             raise DiskFileNotOpen()
         return self._metadata
 
+    def get_datafile_metadata(self):
+        if self._metadata is None:
+            raise DiskFileNotOpen()
+        return self._metadata
+
     def read_metadata(self):
         """
         Return the metadata for an object without requiring the caller to open
@@ -830,7 +836,7 @@ class DiskFile(object):
         if not self._disk_file_open:
             raise DiskFileNotOpen()
         dr = DiskFileReader(
-            self._fd, self._threadpool, self._mgr.disk_chunk_size,
+            self._fd, self._mgr.disk_chunk_size,
             self._obj_size, self._mgr.keep_cache_size,
             iter_hook=iter_hook, keep_cache=keep_cache)
         # At this point the reader object is now responsible for closing
@@ -1054,8 +1060,7 @@ class DiskFile(object):
         """
         metadata = self._keep_sys_metadata(metadata)
         data_file = os.path.join(self._put_datadir, self._obj)
-        self._threadpool.run_in_thread(
-            write_metadata, data_file, metadata)
+        write_metadata(data_file, metadata)
 
     def _keep_sys_metadata(self, metadata):
         """
@@ -1147,7 +1152,7 @@ class DiskFile(object):
             if metadata and metadata[X_TIMESTAMP] >= timestamp:
                 return
 
-        self._threadpool.run_in_thread(self._unlinkold)
+        self._unlinkold()
 
         self._metadata = None
         self._data_file = None
