@@ -369,23 +369,23 @@ class Base(object):
         headers = dict(self.conn.response.getheaders())
         ret = {}
 
-        for field in required_fields:
-            if field[1] not in headers:
-                raise ValueError("%s was not found in response header" %
-                                 (field[1]))
+        for out_key, header in required_fields:
+            if header not in headers:
+                raise ValueError("%s was not found in response headers %r" %
+                                 (header, headers))
 
             try:
-                ret[field[0]] = int(headers[field[1]])
+                ret[out_key] = int(headers[header])
             except ValueError:
-                ret[field[0]] = headers[field[1]]
+                ret[out_key] = headers[header]
 
-        for field in optional_fields:
-            if field[1] not in headers:
+        for out_key, header in optional_fields:
+            if header not in headers:
                 continue
             try:
-                ret[field[0]] = int(headers[field[1]])
+                ret[out_key] = int(headers[header])
             except ValueError:
-                ret[field[0]] = headers[field[1]]
+                ret[out_key] = headers[header]
 
         return ret
 
@@ -735,7 +735,7 @@ class File(Base):
         if parms is None:
             parms = {}
         if self.conn.make_request('DELETE', self.path, hdrs=hdrs,
-                                  cfg=cfg, parms=parms) != 204:
+                                  cfg=cfg, parms=parms) not in (204, 404):
 
             raise ResponseError(self.conn.response, 'DELETE',
                                 self.conn.make_path(self.path))
