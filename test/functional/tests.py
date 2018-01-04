@@ -931,9 +931,9 @@ class TestFile(Base):
 
                 file_item = cont.file(dest_filename)
 
-                self.assertTrue(data == file_item.read())
+                self.assertEqual(data, file_item.read())
                 self.assertTrue(file_item.initialize())
-                self.assertTrue(metadata == file_item.metadata)
+                self.assertEqual(metadata, file_item.metadata)
 
         dest_cont = self.env.account2.container(Utils.create_name())
         self.assertTrue(dest_cont.create(hdrs={
@@ -2532,10 +2532,9 @@ class TestSlo(Base):
         self.assertTrue(dest_cont.create(hdrs={
             'X-Container-Write': self.env.conn.user_acl
         }))
-        file_item.copy_account(acct,
-                               dest_cont,
-                               "copied-abcde-manifest-only",
-                               parms={'multipart-manifest': 'get'})
+        self.assertTrue(file_item.copy_account(
+            acct, dest_cont, "copied-abcde-manifest-only",
+            parms={'multipart-manifest': 'get'}))
 
         copied = dest_cont.file("copied-abcde-manifest-only")
         copied_contents = copied.read(parms={'multipart-manifest': 'get'})
@@ -2561,7 +2560,7 @@ class TestSlo(Base):
         file_item.header_fields([('slo', 'x-static-large-object')])
 
         # POST a user metadata (i.e. x-object-meta-post)
-        file_item.sync_metadata({'post': 'update'})
+        self.assertTrue(file_item.sync_metadata({'post': 'update'}))
 
         updated = self.env.container.file("manifest-post")
         updated.info()
@@ -2581,8 +2580,9 @@ class TestSlo(Base):
             file_item.info()
             file_item.header_fields([('slo', 'x-static-large-object')])
             # POST a user metadata (i.e. x-object-meta-post)
-            file_item.sync_metadata(metadata={'post': 'update'},
-                                    parms={'multipart-manifest': verb})
+            self.assertTrue(file_item.sync_metadata(
+                metadata={'post': 'update'},
+                parms={'multipart-manifest': verb}))
             updated = self.env.container.file("manifest-post")
             updated.info()
             updated.header_fields(
