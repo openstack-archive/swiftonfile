@@ -26,7 +26,7 @@ import functools
 import random
 
 from time import time, sleep
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
 from nose import SkipTest
 from contextlib import closing
 from gzip import GzipFile
