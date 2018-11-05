@@ -8,6 +8,7 @@
 * [What now?](#what_now)
 
 <a name="overview" />
+
 ## Overview
 SwiftOnFile allows any POSIX compliant filesystem (which supports extended attributes) to be used as the backend to OpenStack Swift (Object Store).
 
@@ -16,6 +17,7 @@ The following guide assumes you have a running [OpenStack Swift SAIO setup][], a
 This guide will not provide detailed information on how to prepare a SAIO setup or how to create a gluster volume (or other FS).This guide assumes you know about these technologies; if you require any help in setting those please refer to the links provided.
 
 <a name="system_setup" />
+
 ## System Setup
 
 ### Prerequisites on CentOS/RHEL
