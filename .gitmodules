@@ -1,3 +1,0 @@
-[submodule "modules/swift"]
-	path = modules/swift
-	url = git://github.com/openstack/swift.git
